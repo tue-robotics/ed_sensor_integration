@@ -2,6 +2,7 @@
 #define ED_SENSOR_INTEGRATION_PLUGIN_H_
 
 #include <ed/plugin.h>
+#include <ed/time_cache.h>
 
 #include <ros/callback_queue.h>
 #include <ros/subscriber.h>
@@ -9,6 +10,19 @@
 #include <rgbd/Client.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
+
+// ----------------------------------------------------------------------------------------------------
+
+struct JointInfo
+{
+    JointInfo();
+
+    bool calculatePosition(const ed::Time& time, float& pos) const;
+
+    ed::TimeCache<float> position_cache;
+};
+
+// ----------------------------------------------------------------------------------------------------
 
 class SensorIntegrationPlugin : public ed::Plugin
 {
@@ -24,6 +38,10 @@ public:
     void process(const ed::WorldModel& world, ed::UpdateRequest& req);
 
 private:
+
+    std::map<std::string, JointInfo> joints_;
+
+    // Communication
 
     std::vector<ros::Subscriber> joint_subs_;
 

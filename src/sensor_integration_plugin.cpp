@@ -14,6 +14,45 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+JointInfo::JointInfo()
+{
+    position_cache.setMaxSize(100); // TODO: get rid of magic number
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool JointInfo::calculatePosition(const ed::Time& time, float& pos) const
+{
+    ed::TimeCache<float>::const_iterator it_low, it_high;
+    position_cache.getLowerUpper(time, it_low, it_high);
+
+    if (it_low == position_cache.end())
+    {
+        std::cout << "Joint buffer: too long ago" << std::endl;
+        return false;
+    }
+
+    if (it_high == position_cache.end())
+    {
+        std::cout << "Joint buffer: too recent" << std::endl;
+        return false;
+    }
+
+    // Interpolate
+    float p1 = it_low->second;
+    float p2 = it_high->second;
+
+    float dt1 = time.seconds() - it_low->first.seconds();
+    float dt2 = it_high->first.seconds() - time.seconds();
+
+    // Linearly interpolate joint positions
+    pos = (p1 * dt2 + p2 * dt1) / (dt1 + dt2);
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 SensorIntegrationPlugin::SensorIntegrationPlugin()
 {
 }
@@ -108,8 +147,13 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
         rgbd::ImagePtr rgbd_image;
         rgbd_image = (*it)->nextImage();
         if (rgbd_image)
-        {
+        {           
             std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] Received image" << std::endl;
+
+            float joint_pos;
+            if (joints_["torso_joint"].calculatePosition(rgbd_image->getTimestamp(), joint_pos))
+                std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] " << joint_pos << std::endl;
+
             cv::imshow("image", rgbd_image->getRGBImage());
             cv::waitKey(3);
         }
@@ -131,9 +175,10 @@ void SensorIntegrationPlugin::jointCallback(const sensor_msgs::JointState::Const
         const std::string& name = msg->name[i];
         double pos = msg->position[i];
 
+        joints_[name].position_cache.insert(msg->header.stamp.toSec(), pos);
+
         std::cout << "[" << msg->header.stamp << "] " << name << ": " << pos << std::endl;
     }
-
 }
 
 // ----------------------------------------------------------------------------------------------------
