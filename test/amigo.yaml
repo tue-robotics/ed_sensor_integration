@@ -1,0 +1,18 @@
+world_name: robotics_testlabs
+visualize: 1
+
+plugins:
+  - name: sensor_integration
+    lib: libed_sensor_integration_plugin.so
+    parameters:
+        frequency: 100
+        joints:
+          - topic: /amigo/torso/measurements
+        kinects:
+          - rgb_topic: /amigo/top_kinect/rgb/image_color
+            depth_topic: /amigo/top_kinect/depth_registered/image_rect
+            info_topic: /amigo/top_kinect/rgb/camera_info
+        lasers:
+          - topic: /amigo/base_front_laser
+
+
