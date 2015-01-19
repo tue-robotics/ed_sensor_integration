@@ -177,14 +177,20 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
         rgbd::ImagePtr rgbd_image;
         rgbd_image = (*it)->nextImage();
         if (rgbd_image)
-        {           
+        {
             std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] Received image" << std::endl;
 
-//            float joint_pos;
-//            if (joints_["torso_joint"].calculatePosition(rgbd_image->getTimestamp(), joint_pos))
-//                std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] " << joint_pos << std::endl;
+            cv::Mat rgb = rgbd_image->getRGBImage();
 
-            cv::imshow("image", rgbd_image->getRGBImage());
+            float neck_pan, neck_tilt;
+            if (joints_["neck_pan_joint"].calculatePosition(rgbd_image->getTimestamp(), neck_pan)
+                    && joints_["neck_tilt_joint"].calculatePosition(rgbd_image->getTimestamp(), neck_tilt))
+            {
+                cv::circle(rgb, cv::Point(320, 240), 5, cv::Scalar(0, 0, 255), 2);
+                cv::circle(rgb, cv::Point(320, 240) + cv::Point(neck_pan * 100, neck_tilt * 100), 10, cv::Scalar(255, 0, 0), 2);
+            }
+
+            cv::imshow("image", rgb);
             cv::waitKey(3);
         }
     }
@@ -225,7 +231,7 @@ void SensorIntegrationPlugin::jointCallback(const sensor_msgs::JointState::Const
         {
             JointInfo& info = it_joint->second;
             info.position_cache.insert(msg->header.stamp.toSec(), pos);
-            std::cout << "[" << msg->header.stamp << "] " << name << ": " << pos << std::endl;
+//            std::cout << "[" << msg->header.stamp << "] " << name << ": " << pos << std::endl;
         }
         else
         {

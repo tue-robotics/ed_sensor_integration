@@ -9,10 +9,12 @@ plugins:
         urdf_file: /home/sdries/ros/hydro/system/src/amigo_description/urdf/amigo.urdf
         joints:
           - topic: /amigo/torso/measurements
+          - topic: /amigo/neck/measurements
         kinects:
           - rgb_topic: /amigo/top_kinect/rgb/image_color
-            depth_topic: /amigo/top_kinect/depth_registered/image_rect
-            info_topic: /amigo/top_kinect/rgb/camera_info
+#            depth_topic: /amigo/top_kinect/depth_registered/image_rect
+#            info_topic: /amigo/top_kinect/rgb/camera_info
+            topic: /amigo/top_kinect/rgbd
         lasers:
           - topic: /amigo/base_front_laser
 
