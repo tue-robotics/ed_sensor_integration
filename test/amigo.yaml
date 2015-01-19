@@ -6,6 +6,7 @@ plugins:
     lib: libed_sensor_integration_plugin.so
     parameters:
         frequency: 100
+        robot_name: amigo
         urdf_file: /home/sdries/ros/hydro/system/src/amigo_description/urdf/amigo.urdf
         joints:
           - topic: /amigo/torso/measurements

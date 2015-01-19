@@ -64,8 +64,6 @@ SensorIntegrationPlugin::SensorIntegrationPlugin()
 
 SensorIntegrationPlugin::~SensorIntegrationPlugin()
 {
-    for(std::vector<rgbd::Client*>::iterator it = rgbd_clients_.begin(); it != rgbd_clients_.end(); ++it)
-        delete *it;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -74,7 +72,10 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 {
     ros::NodeHandle nh;
 
-    if (config.read("joints", tue::OPTIONAL))
+    if (!config.value("robot_name", robot_name_))
+        return;
+
+    if (config.readArray("joints", tue::OPTIONAL))
     {
         while(config.nextArrayItem())
         {
@@ -95,27 +96,31 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    if (config.read("kinects", tue::OPTIONAL))
+    if (config.readArray("kinects", tue::OPTIONAL))
     {
         while(config.nextArrayItem())
         {
             std::string topic;
             if (config.value("topic", topic, tue::OPTIONAL))
             {
+                kinects_.push_back(KinectInfo());
+                KinectInfo& kinect = kinects_.back();
+
                 // Initialize kinect client
-                rgbd::Client* rgbd_client = new rgbd::Client();
-                rgbd_client->intialize(topic);
-                rgbd_clients_.push_back(rgbd_client);
+                kinect.client = new rgbd::Client();
+                kinect.client->intialize(topic);
             }
             else
             {
                 std::string rgb_topic, depth_topic, info_topic;
                 if (config.value("rgb_topic", rgb_topic) && config.value("depth_topic", depth_topic) && config.value("info_topic", info_topic))
                 {
+                    kinects_.push_back(KinectInfo());
+                    KinectInfo& kinect = kinects_.back();
+
                     // Initialize kinect client
-                    rgbd::Client* rgbd_client = new rgbd::Client();
-                    rgbd_client->intialize(rgb_topic, depth_topic, info_topic);
-                    rgbd_clients_.push_back(rgbd_client);
+                    kinect.client = new rgbd::Client();
+                    kinect.client->intialize(rgb_topic, depth_topic, info_topic);
                 }
             }
 
@@ -126,7 +131,7 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    if (config.read("lasers", tue::OPTIONAL))
+    if (config.readArray("lasers", tue::OPTIONAL))
     {
         while(config.nextArrayItem())
         {
@@ -172,12 +177,38 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
     cb_queue_.callAvailable();
 
     // Receive new image
-    for(std::vector<rgbd::Client*>::iterator it = rgbd_clients_.begin(); it != rgbd_clients_.end(); ++it)
+    for(std::vector<KinectInfo>::iterator it = kinects_.begin(); it != kinects_.end(); ++it)
     {
+        KinectInfo& kinect = *it;
+
         rgbd::ImagePtr rgbd_image;
-        rgbd_image = (*it)->nextImage();
+        rgbd_image = kinect.client->nextImage();
         if (rgbd_image)
         {
+            if (!kinect.kinematic_chain)
+            {
+                if (rgbd_image->getFrameId().empty())
+                    continue;
+
+                std::string rel_frame_id;
+                if (rgbd_image->getFrameId()[0] != '/')
+                    rel_frame_id = rgbd_image->getFrameId();
+                else
+                    rel_frame_id = rgbd_image->getFrameId().substr(robot_name_.size() + 2);
+
+                kinect.kinematic_chain = new KDL::Chain;
+                if (tree_.getChain("base_link", rel_frame_id, *kinect.kinematic_chain))
+                {
+                    std::cout << "[ED Sensor Integration] Chain found from 'base_link' to '" << rel_frame_id << "'." << std::endl;
+                }
+                else
+                {
+                    std::cout << "[ED Sensor Integration] Could not initialize kinematic chain from 'base_link' to '" << rel_frame_id << "'." << std::endl;
+                    delete kinect.kinematic_chain;
+                    kinect.kinematic_chain = 0;
+                }
+            }
+
             std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] Received image" << std::endl;
 
             cv::Mat rgb = rgbd_image->getRGBImage();
@@ -189,6 +220,8 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
                 cv::circle(rgb, cv::Point(320, 240), 5, cv::Scalar(0, 0, 255), 2);
                 cv::circle(rgb, cv::Point(320, 240) + cv::Point(neck_pan * 100, neck_tilt * 100), 10, cv::Scalar(255, 0, 0), 2);
             }
+
+            std::cout << rgbd_image->getFrameId() << std::endl;
 
             cv::imshow("image", rgb);
             cv::waitKey(3);

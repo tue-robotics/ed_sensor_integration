@@ -30,6 +30,24 @@ struct JointInfo
 
 // ----------------------------------------------------------------------------------------------------
 
+struct KinectInfo
+{
+    KinectInfo() : client(0), kinematic_chain(0) {}
+
+    ~KinectInfo()
+    {
+        delete client;
+        delete kinematic_chain;
+    }
+
+    rgbd::Client* client;
+
+    KDL::Chain* kinematic_chain;
+};
+
+
+// ----------------------------------------------------------------------------------------------------
+
 class SensorIntegrationPlugin : public ed::Plugin
 {
 
@@ -47,6 +65,8 @@ private:
 
     // Robot state
 
+    std::string robot_name_;
+
     KDL::Tree tree_;
 
     urdf::Model robot_model_;
@@ -59,7 +79,7 @@ private:
 
     std::vector<ros::Subscriber> joint_subs_;
 
-    std::vector<rgbd::Client*> rgbd_clients_;
+    std::vector<KinectInfo> kinects_;
 
     ed::UpdateRequest* update_req_;
 
