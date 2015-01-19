@@ -11,6 +11,10 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/JointState.h>
 
+// Robot model
+#include <kdl/tree.hpp>
+#include <urdf/model.h>
+
 // ----------------------------------------------------------------------------------------------------
 
 struct JointInfo
@@ -18,6 +22,8 @@ struct JointInfo
     JointInfo();
 
     bool calculatePosition(const ed::Time& time, float& pos) const;
+
+    KDL::Segment segment;
 
     ed::TimeCache<float> position_cache;
 };
@@ -39,7 +45,15 @@ public:
 
 private:
 
+    // Robot state
+
+    KDL::Tree tree_;
+
+    urdf::Model robot_model_;
+
     std::map<std::string, JointInfo> joints_;
+
+    void constructRobot(const KDL::SegmentMap::const_iterator& it_segment);
 
     // Communication
 

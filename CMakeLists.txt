@@ -3,6 +3,7 @@ project(ed_sensor_integration)
 
 find_package(catkin REQUIRED COMPONENTS
     ed
+    kdl_parser
 )
 
 # find_package(Boost REQUIRED COMPONENTS system program_options)

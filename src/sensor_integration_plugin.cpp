@@ -10,6 +10,9 @@
 
 #include <rgbd/Image.h>
 
+// Robot model parsing
+#include <kdl_parser/kdl_parser.hpp>
+
 #include <opencv2/highgui/highgui.hpp>
 
 // ----------------------------------------------------------------------------------------------------
@@ -90,6 +93,8 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
         config.endArray();
     }
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     if (config.read("kinects", tue::OPTIONAL))
     {
         while(config.nextArrayItem())
@@ -119,6 +124,8 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
         config.endArray();
     }
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     if (config.read("lasers", tue::OPTIONAL))
     {
         while(config.nextArrayItem())
@@ -132,6 +139,29 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 
         config.endArray();
     }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    std::string urdf_xml;
+    if (config.value("urdf_file", urdf_xml, tue::OPTIONAL))
+    {
+
+        if (!kdl_parser::treeFromFile(urdf_xml, tree_))
+        {
+            config.addError("Could not initialize KDL tree object.");
+            return;
+        }
+
+//        if (!robot_model_.initString(urdf_xml))
+//        {
+//            std::cout << "Could not load robot model." << std::endl;
+//            return;
+//        }
+
+        constructRobot(tree_.getRootSegment());
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -150,14 +180,29 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
         {           
             std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] Received image" << std::endl;
 
-            float joint_pos;
-            if (joints_["torso_joint"].calculatePosition(rgbd_image->getTimestamp(), joint_pos))
-                std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] " << joint_pos << std::endl;
+//            float joint_pos;
+//            if (joints_["torso_joint"].calculatePosition(rgbd_image->getTimestamp(), joint_pos))
+//                std::cout << "[" << std::fixed << std::setprecision(9) << rgbd_image->getTimestamp() << "] " << joint_pos << std::endl;
 
             cv::imshow("image", rgbd_image->getRGBImage());
             cv::waitKey(3);
         }
     }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void SensorIntegrationPlugin::constructRobot(const KDL::SegmentMap::const_iterator& it_segment)
+{
+    const KDL::Segment& segment = it_segment->second.segment;
+
+    JointInfo& info = joints_[segment.getJoint().getName()];
+    info.segment = segment;
+
+    // Recursively add all children
+    const std::vector<KDL::SegmentMap::const_iterator>& children = it_segment->second.children;
+    for(std::vector<KDL::SegmentMap::const_iterator>::const_iterator it_child = children.begin(); it_child != children.end(); ++it_child)
+        constructRobot(*it_child);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -175,9 +220,17 @@ void SensorIntegrationPlugin::jointCallback(const sensor_msgs::JointState::Const
         const std::string& name = msg->name[i];
         double pos = msg->position[i];
 
-        joints_[name].position_cache.insert(msg->header.stamp.toSec(), pos);
-
-        std::cout << "[" << msg->header.stamp << "] " << name << ": " << pos << std::endl;
+        std::map<std::string, JointInfo>::iterator it_joint = joints_.find(name);
+        if (it_joint != joints_.end())
+        {
+            JointInfo& info = it_joint->second;
+            info.position_cache.insert(msg->header.stamp.toSec(), pos);
+            std::cout << "[" << msg->header.stamp << "] " << name << ": " << pos << std::endl;
+        }
+        else
+        {
+            std::cout << "[ED Sensor Integration] On joint callback: unknown joint: '" << name << "'." << std::endl;
+        }
     }
 }
 
