@@ -54,6 +54,9 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
-add_library(ed_sensor_integration_plugin src/sensor_integration_plugin.cpp)
+add_library(ed_sensor_integration_plugin
+	src/sensor_integration_plugin.cpp
+	src/color_table.cpp
+)
 target_link_libraries(ed_sensor_integration_plugin ${catkin_LIBRARIES})
 
