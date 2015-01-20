@@ -15,6 +15,9 @@
 #include <kdl/tree.hpp>
 #include <urdf/model.h>
 
+#include "color_table.h"
+
+
 // ----------------------------------------------------------------------------------------------------
 
 struct JointInfo
@@ -88,6 +91,8 @@ private:
     void jointCallback(const sensor_msgs::JointState::ConstPtr& msg);
 
     rgbd::ImagePtr last_rgbd_image_;
+
+    ColorTable color_table_;
 
 };
 

@@ -167,6 +167,8 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    color_table_.readFromFile("/home/sdries/ros/hydro/dev/src/ed_sensor_integration/data/color_names.txt");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -226,12 +228,14 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
             cv::Mat filtered = rgb.clone();
 
             int w = 3;
+            int n = (w + w + 1) * (w + w + 1);
 
             for(int y = w; y < rgb.rows - w; ++y)
             {
-                for(int x = w; x < rgb.cols -w; ++x)
+                for(int x = w; x < rgb.cols - w; ++x)
                 {
                     const cv::Vec3b& p = rgb.at<cv::Vec3b>(y, x);
+                    float p_red = color_table_.rgbToDistribution(p[2], p[1], p[0])[ColorTable::RED];
 
                     int s = 0;
                     for(int y2 = y - w; y2 <= y + w; ++y2)
@@ -240,24 +244,23 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
                         {
                             const cv::Vec3b& p2 = rgb.at<cv::Vec3b>(y2, x2);
 
-                            int dr = p[2] - p2[2];
-                            int dg = p[1] - p2[1];
-                            int db = p[0] - p2[0];
+                            float p2_red = color_table_.rgbToDistribution(p2[2], p2[1], p2[0])[ColorTable::RED];
 
-                            int redness = dr - dg - 2 * db;
-
-                            if (redness > 100)
+                            if ((p_red - p2_red) > 0.2)
                                 ++s;
                         }
                     }
 
-                    if (s <= 0)
+                    if (s <= 0.25 * n)
                         filtered.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
 
+//                    if (color_table_.rgbToDistribution(p[2], p[1], p[0])[ColorTable::GREEN] < 0.3)
+//                        filtered.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
                 }
             }
 
-            cv::imshow("image", filtered);
+            cv::imshow("image", rgb);
+            cv::imshow("filtered", filtered);
             cv::waitKey(3);
 
             last_rgbd_image_ = rgbd_image;
