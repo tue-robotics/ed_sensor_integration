@@ -221,10 +221,46 @@ void SensorIntegrationPlugin::process(const ed::WorldModel& world, ed::UpdateReq
                 cv::circle(rgb, cv::Point(320, 240) + cv::Point(neck_pan * 100, neck_tilt * 100), 10, cv::Scalar(255, 0, 0), 2);
             }
 
-            std::cout << rgbd_image->getFrameId() << std::endl;
+            cv::Mat depth = rgbd_image->getDepthImage();
 
-            cv::imshow("image", rgb);
+            cv::Mat filtered = rgb.clone();
+
+            int w = 3;
+
+            for(int y = w; y < rgb.rows - w; ++y)
+            {
+                for(int x = w; x < rgb.cols -w; ++x)
+                {
+                    const cv::Vec3b& p = rgb.at<cv::Vec3b>(y, x);
+
+                    int s = 0;
+                    for(int y2 = y - w; y2 <= y + w; ++y2)
+                    {
+                        for(int x2 = x - w; x2 <= x + w; ++x2)
+                        {
+                            const cv::Vec3b& p2 = rgb.at<cv::Vec3b>(y2, x2);
+
+                            int dr = p[2] - p2[2];
+                            int dg = p[1] - p2[1];
+                            int db = p[0] - p2[0];
+
+                            int redness = dr - dg - 2 * db;
+
+                            if (redness > 100)
+                                ++s;
+                        }
+                    }
+
+                    if (s <= 0)
+                        filtered.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
+
+                }
+            }
+
+            cv::imshow("image", filtered);
             cv::waitKey(3);
+
+            last_rgbd_image_ = rgbd_image;
         }
     }
 }

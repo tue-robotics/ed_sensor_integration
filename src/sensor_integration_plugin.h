@@ -87,6 +87,8 @@ private:
 
     void jointCallback(const sensor_msgs::JointState::ConstPtr& msg);
 
+    rgbd::ImagePtr last_rgbd_image_;
+
 };
 
 #endif
