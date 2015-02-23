@@ -8,10 +8,6 @@ plugins:
     lib: libed_kinect_plugin.so
     parameters:
         topic: /amigo/top_kinect/rgbd
-  - name: gui_server
-    lib: libed_gui_server_plugin.so
-    parameters:
-        robot_name: amigo
   - name: localization
     lib: libed_localization_plugin.so
     parameters:
