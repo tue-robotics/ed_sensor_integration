@@ -57,6 +57,7 @@ include_directories(
 add_library(ed_kinect_plugin
     src/kinect/plugin.cpp
     src/kinect/plugin.h
+	src/kinect/sampling_projector_localizer.cpp
 )
 target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
 
