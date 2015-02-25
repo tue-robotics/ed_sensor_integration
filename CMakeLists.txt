@@ -40,7 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
 # ------------------------------------------------------------------------------------------------
 
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES bla
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
@@ -50,15 +50,34 @@ catkin_package(
 #                                              BUILD
 # ------------------------------------------------------------------------------------------------
 
+file(GLOB_RECURSE HEADER_FILES include/*.h)
+
 include_directories(
+    include
     ${catkin_INCLUDE_DIRS}
 )
+
+add_library(kinect_association
+    src/kinect/almodules/point_normal_alm.cpp
+    src/kinect/almodules/polygon_height_alm.cpp
+    src/kinect/almodules/world_model_renderer.cpp
+    ${HEADER_FILES}
+)
+add_dependencies(kinect_association ${PROJECT_NAME}_gencpp)
+
+add_library(kinect_segmentation
+    src/kinect/segmodules/euclidean_clustering_sm.cpp
+    src/kinect/segmodules/floodfill_sm.cpp
+)
+add_dependencies(kinect_segmentation ${PROJECT_NAME}_gencpp)
+
+target_link_libraries(kinect_segmentation kinect_association)
 
 add_library(ed_kinect_plugin
     src/kinect/plugin.cpp
     src/kinect/plugin.h
 )
-target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
 
 #add_library(ed_sensor_integration_plugin
 #	src/sensor_integration_plugin.cpp
