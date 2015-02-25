@@ -154,34 +154,6 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
         }
     }
 
-
-    // - - - - - - - - - - - - - - - - - -
-    // Calculate and show diff
-
-    cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-
-    for(int y = 0; y < view.getHeight(); ++y)
-    {
-        for(int x = 0; x < view.getWidth(); ++x)
-        {
-            float dm = best_model.at<float>(y, x);
-            float ds = view.getDepth(x, y);
-
-            if (dm > 0 && ds > 0)
-            {
-                float err = std::abs(dm - ds);
-                if (err > 0.05)
-                    diff.at<float>(y, x) = err;
-            }
-        }
-    }
-
-    cv::imshow("depth", image.getDepthImage() / 8);
-    cv::imshow("initial model", model / 8);
-    cv::imshow("best model", best_model / 8);
-    cv::imshow("diff", diff);
-    cv::waitKey(3);
-
     return best_pose;
 }
 

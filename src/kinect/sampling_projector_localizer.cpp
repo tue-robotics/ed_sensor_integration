@@ -161,57 +161,6 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
         }
     }
 
-//    std::cout << "Got here" << std::endl;
-
-//    cv::imshow("test", best_model / 8);
-//    cv::waitKey(3);
-
-//    std::cout << "and here" << std::endl;
-
-
-    // Render world
-    cv::Mat best_model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-    SampleRenderResult res2(best_model);
-
-    for(std::vector<ed::EntityConstPtr>::const_iterator it = entities.begin(); it != entities.end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
-
-        geo::Pose3D pose = best_pose.inverse() * e->pose();
-        geo::RenderOptions opt;
-        opt.setMesh(e->shape()->getMesh(), pose);
-
-        // Render
-        rasterizer.render(opt, res2);
-    }
-
-    // - - - - - - - - - - - - - - - - - -
-    // Calculate and show diff
-
-    cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-
-    for(int y = 0; y < view.getHeight(); ++y)
-    {
-        for(int x = 0; x < view.getWidth(); ++x)
-        {
-            float dm = best_model.at<float>(y, x);
-            float ds = view.getDepth(x, y);
-
-            if (dm > 0 && ds > 0)
-            {
-                float err = std::abs(dm - ds);
-                if (err > 0.05)
-                    diff.at<float>(y, x) = err;
-            }
-        }
-    }
-
-    cv::imshow("depth", image.getDepthImage() / 8);
-    cv::imshow("initial model", model / 8);
-    cv::imshow("best model", best_model / 8);
-    cv::imshow("diff", diff);
-    cv::waitKey(3);
-
     return best_pose;
 }
 
