@@ -65,11 +65,15 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
 
-    rgbd::View view(image, 160);
+    rgbd::View low_view(image, 80);
+    const geo::DepthCamera& low_rasterizer = low_view.getRasterizer();
 
-    const geo::DepthCamera& rasterizer = view.getRasterizer();
+    const cv::Mat& depth_image = image.getDepthImage();
+    rgbd::View full_view(image, depth_image.cols);
+    const geo::DepthCamera& full_rasterizer = full_view.getRasterizer();
 
-    cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+
+    cv::Mat model(low_view.getHeight(), low_view.getWidth(), CV_32FC1, 0.0);
     SampleRenderResult res(model);
 
     std::vector<ed::EntityConstPtr> entities;
@@ -84,7 +88,7 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
             opt.setMesh(e->shape()->getMesh(), pose);
 
             // Render
-            rasterizer.render(opt, res);
+            low_rasterizer.render(opt, res);
 
             if (res.in_view)
                 entities.push_back(e);
@@ -99,19 +103,20 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
     double min_error = 1e9; // TODO
     geo::Pose3D best_pose;
 
+    std::vector<geo::Vector3> points(res.pixels.size());
+    for(unsigned int i = 0; i < points.size(); ++i)
+    {
+        const geo::Vec2u& p = res.pixels[i];
+        points[i] = low_rasterizer.project2Dto3D(p.x, p.y) * model.at<float>(p.y, p.x);
+    }
+
+
     for(double dx = -0.2; dx < 0.2; dx += 0.05)
     {
         for(double dy = -0.2; dy < 0.2; dy += 0.05)
         {
             for(double da = -0.1; da < 0.1; da += 0.05)
             {
-
-//    for(double dx = -0.2; dx < 0.2; dx += 0.025)
-//    {
-//        for(double dy = -0.2; dy < 0.2; dy += 0.025)
-//        {
-//            for(double da = -0.05; da < 0.05; da += 0.025)
-//            {
                 geo::Matrix3 m;
                 m.setRPY(0, 0, da);
 
@@ -119,29 +124,27 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
                 test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
                 test_pose.R = m * sensor_pose.R;
 
-                geo::Pose3D test_pose_delta = (sensor_pose.inverse() * test_pose).inverse();
+                geo::Pose3D T = (sensor_pose.inverse() * test_pose).inverse();
 
                 double total_error = 0;
                 int n = 0;
 
                 for(unsigned int i = 0; i < res.pixels.size(); ++i)
                 {
-                    const geo::Vec2u& p = res.pixels[i];
-                    geo::Vector3 p3d = rasterizer.project2Dto3D(p.x, p.y) * model.at<float>(p.y, p.x);
+                    const geo::Vector3& p3d = points[i];
 
-                    geo::Vector3 p3d_new = test_pose_delta * p3d;
+                    geo::Vector3 p3d_new = T * p3d;
+                    cv::Point2d p_new = full_rasterizer.project3Dto2D(p3d_new);
 
-                    cv::Point2d p_new = rasterizer.project3Dto2D(p3d_new);
-
-                    if (p_new.x >= 0 && p_new.y >= 0 && p_new.x < view.getWidth() && p_new.y < view.getHeight())
+                    if (p_new.x >= 0 && p_new.y >= 0 && p_new.x < depth_image.cols && p_new.y < depth_image.rows)
                     {
                         float dm = -p3d_new.z;
-                        float ds = view.getDepth(p_new.x, p_new.y);
+                        float ds = depth_image.at<float>(p_new);
 
-                        if (dm > 0 && ds > 0) // TODO
+                        if (ds > 0) // TODO
                         {
-                            if (std::abs(dm - ds) > 0.05)
-                                total_error += 1;
+                            float err = std::min<float>(0.05, std::abs(dm - ds));
+                            total_error += (err * err);
                             ++n;
                         }
 

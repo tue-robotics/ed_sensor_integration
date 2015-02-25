@@ -58,7 +58,7 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
 
-    rgbd::View view(image, 160);
+    rgbd::View view(image, 40);
 
     const geo::DepthCamera& rasterizer = view.getRasterizer();
 
