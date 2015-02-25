@@ -11,6 +11,9 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+namespace
+{
+
 class SampleRenderResult : public geo::RenderResult
 {
 
@@ -41,6 +44,8 @@ public:
 
 };
 
+}
+
 // ----------------------------------------------------------------------------------------------------
 
 SamplingProjectorLocalizer::SamplingProjectorLocalizer()
@@ -55,12 +60,12 @@ SamplingProjectorLocalizer::~SamplingProjectorLocalizer()
 
 // ----------------------------------------------------------------------------------------------------
 
-geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world)
+geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids)
 {
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
 
-    rgbd::View view(image, 80);
+    rgbd::View view(image, 160);
 
     const geo::DepthCamera& rasterizer = view.getRasterizer();
 
@@ -72,7 +77,7 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->id() == "plastic_cabinet")
+        if (e->shape() && (loc_ids.empty() || loc_ids.find(e->id()) != loc_ids.end()))
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;
@@ -94,12 +99,19 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
     double min_error = 1e9; // TODO
     geo::Pose3D best_pose;
 
-    for(double dx = -0.2; dx < 0.2; dx += 0.025)
+    for(double dx = -0.2; dx < 0.2; dx += 0.05)
     {
-        for(double dy = -0.2; dy < 0.2; dy += 0.025)
+        for(double dy = -0.2; dy < 0.2; dy += 0.05)
         {
-            for(double da = -0.05; da < 0.05; da += 0.025)
+            for(double da = -0.1; da < 0.1; da += 0.05)
             {
+
+//    for(double dx = -0.2; dx < 0.2; dx += 0.025)
+//    {
+//        for(double dy = -0.2; dy < 0.2; dy += 0.025)
+//        {
+//            for(double da = -0.05; da < 0.05; da += 0.025)
+//            {
                 geo::Matrix3 m;
                 m.setRPY(0, 0, da);
 

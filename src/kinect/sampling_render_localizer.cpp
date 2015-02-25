@@ -11,6 +11,9 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+namespace
+{
+
 class SampleRenderResult : public geo::RenderResult
 {
 
@@ -34,6 +37,8 @@ public:
 
 };
 
+}
+
 // ----------------------------------------------------------------------------------------------------
 
 SamplingRenderLocalizer::SamplingRenderLocalizer()
@@ -48,7 +53,7 @@ SamplingRenderLocalizer::~SamplingRenderLocalizer()
 
 // ----------------------------------------------------------------------------------------------------
 
-geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world)
+geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids)
 {
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
@@ -65,7 +70,7 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape())
+        if (e->shape() && (loc_ids.empty() || loc_ids.find(e->id()) != loc_ids.end()))
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;
