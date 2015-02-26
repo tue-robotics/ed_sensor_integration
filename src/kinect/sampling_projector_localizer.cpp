@@ -110,7 +110,6 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
         points[i] = low_rasterizer.project2Dto3D(p.x, p.y) * model.at<float>(p.y, p.x);
     }
 
-
     for(double dx = -0.2; dx < 0.2; dx += 0.05)
     {
         for(double dy = -0.2; dy < 0.2; dy += 0.05)
@@ -125,6 +124,17 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
                 test_pose.R = m * sensor_pose.R;
 
                 geo::Pose3D T = (sensor_pose.inverse() * test_pose).inverse();
+                geo::Pose3D T2 = T;
+
+                T2.R.xx *= full_rasterizer.getFocalLengthX();
+                T2.R.xy *= full_rasterizer.getFocalLengthX();
+                T2.R.xz *= full_rasterizer.getFocalLengthX();
+                T2.t.x  *= full_rasterizer.getFocalLengthX();
+
+                T2.R.yx *= -full_rasterizer.getFocalLengthY();
+                T2.R.yy *= -full_rasterizer.getFocalLengthY();
+                T2.R.yz *= -full_rasterizer.getFocalLengthY();
+                T2.t.y  *= -full_rasterizer.getFocalLengthY();
 
                 double total_error = 0;
                 int n = 0;
@@ -133,16 +143,17 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
                 {
                     const geo::Vector3& p3d = points[i];
 
-                    geo::Vector3 p3d_new = T * p3d;
-                    cv::Point2d p_new = full_rasterizer.project3Dto2D(p3d_new);
+                    geo::Vector3 p_new = T2 * p3d;
+                    p_new.x = p_new.x / -p_new.z + full_rasterizer.getOpticalCenterX();
+                    p_new.y = p_new.y / -p_new.z + full_rasterizer.getOpticalCenterY();
 
                     if (p_new.x >= 0 && p_new.y >= 0 && p_new.x < depth_image.cols && p_new.y < depth_image.rows)
                     {
-                        float dm = -p3d_new.z;
-                        float ds = depth_image.at<float>(p_new);
+                        float ds = depth_image.at<float>(p_new.y, p_new.x);
 
                         if (ds > 0) // TODO
                         {
+                            float dm = -p_new.z;
                             float err = std::min<float>(0.05, std::abs(dm - ds));
                             total_error += (err * err);
                             ++n;
