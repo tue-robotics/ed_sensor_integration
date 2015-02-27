@@ -1,13 +1,13 @@
-visualize: 1
+
 world_name: robotics_testlabs
 
 # -----------------------------------------------------------------------------------------------------------------------------
 
 plugins:
   - name: gui_server
-  lib: libed_gui_server_plugin.so
-  parameters:
-      robot_name: amigo
+    lib: libed_gui_server_plugin.so
+    parameters:
+        robot_name: amigo
   - name: kinect_integration
     lib: libed_kinect_plugin.so
     parameters:
