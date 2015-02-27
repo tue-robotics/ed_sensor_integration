@@ -40,6 +40,7 @@ private:
     edKinect::EuclideanClusteringSM euclidean_clustering_sm_;
 
     // Tunable parameters from ALmodules
+    std::string topic_;
     float voxel_size_;
     float max_range_;
     float clearing_padding_fraction_;
