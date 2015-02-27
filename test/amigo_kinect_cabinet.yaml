@@ -4,6 +4,10 @@ world_name: robotics_testlabs
 # -----------------------------------------------------------------------------------------------------------------------------
 
 plugins:
+  - name: gui_server
+  lib: libed_gui_server_plugin.so
+  parameters:
+      robot_name: amigo
   - name: kinect_integration
     lib: libed_kinect_plugin.so
     parameters:
@@ -45,7 +49,7 @@ plugins:
             y: 2.6675
             rz: 0    
         laser_model:
-            topic: /amigo/base_front_laser
+            topic: /amigo/base_laser/scan
             num_beams: 100
             z_hit: 0.95
             sigma_hit: 0.2
