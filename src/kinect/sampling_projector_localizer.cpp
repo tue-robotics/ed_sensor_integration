@@ -110,15 +110,15 @@ geo::Pose3D SamplingProjectorLocalizer::localize(const geo::Pose3D& sensor_pose,
         points[i] = low_rasterizer.project2Dto3D(p.x, p.y) * model.at<float>(p.y, p.x);
     }
 
-    for(double dx = -0.2; dx < 0.2; dx += 0.05)
+    for(double da = -0.1; da < 0.1; da += 0.05)
     {
-        for(double dy = -0.2; dy < 0.2; dy += 0.05)
-        {
-            for(double da = -0.1; da < 0.1; da += 0.05)
-            {
-                geo::Matrix3 m;
-                m.setRPY(0, 0, da);
+        geo::Matrix3 m;
+        m.setRPY(0, 0, da);
 
+        for(double dx = -0.2; dx < 0.2; dx += 0.05)
+        {
+            for(double dy = -0.2; dy < 0.2; dy += 0.05)
+            {
                 geo::Pose3D test_pose;
                 test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
                 test_pose.R = m * sensor_pose.R;

@@ -19,21 +19,29 @@ class SampleRenderResult : public geo::RenderResult
 
 public:
 
-    SampleRenderResult(cv::Mat& z_buffer_)
-        : geo::RenderResult(z_buffer_.cols, z_buffer_.rows), z_buffer(z_buffer_), in_view(false) {}
+    SampleRenderResult(cv::Mat& z_buffer_, std::vector<unsigned int>& pixels_)
+        : geo::RenderResult(z_buffer_.cols, z_buffer_.rows), z_buffer(z_buffer_), num_pixels(0), pixels(pixels_)
+    {
+    }
 
     void renderPixel(int x, int y, float depth, int i_triangle)
     {
         float old_depth = z_buffer.at<float>(y, x);
-        if (old_depth == 0 || depth < old_depth)
+        if (old_depth == 0)
         {
-            in_view = true;
+            z_buffer.at<float>(y, x) = depth;
+            pixels[num_pixels] = y * z_buffer.cols + x;
+            ++num_pixels;
+        }
+        else if (depth < old_depth)
+        {
             z_buffer.at<float>(y, x) = depth;
         }
     }
 
     cv::Mat& z_buffer;
-    bool in_view;
+    unsigned int num_pixels;
+    std::vector<unsigned int>& pixels;
 
 };
 
@@ -58,12 +66,20 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
 
-    rgbd::View view(image, 40);
+    rgbd::View view(image, 80);
 
     const geo::DepthCamera& rasterizer = view.getRasterizer();
 
+    std::vector<unsigned int> pixels(view.getWidth() * view.getHeight());
+
     cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-    SampleRenderResult res(model);
+
+    cv::Mat depth_image(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+    for(int y = 0; y < view.getHeight(); ++y)
+        for(int x = 0; x < view.getWidth(); ++x)
+            depth_image.at<float>(y, x) = view.getDepth(x, y);
+
+    SampleRenderResult res(model, pixels);
 
     std::vector<ed::EntityConstPtr> entities;
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
@@ -79,7 +95,7 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
             // Render
             rasterizer.render(opt, res);
 
-            if (res.in_view)
+            if (res.num_pixels > 0)
                 entities.push_back(e);
         }
     }
@@ -91,14 +107,16 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     double min_error = 1e9; // TODO
     geo::Pose3D best_pose;
 
-    for(double dx = -0.2; dx < 0.2; dx += 0.05)
+
+    for(double da = -0.1; da < 0.1; da += 0.05)
     {
-        for(double dy = -0.2; dy < 0.2; dy += 0.05)
+        geo::Matrix3 m;
+        m.setRPY(0, 0, da);
+
+        for(double dx = -0.2; dx < 0.2; dx += 0.05)
         {
-            for(double da = -0.1; da < 0.1; da += 0.05)
+            for(double dy = -0.2; dy < 0.2; dy += 0.05)
             {
-                geo::Matrix3 m;
-                m.setRPY(0, 0, da);
 
                 geo::Pose3D test_pose;
                 test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
@@ -106,15 +124,14 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
 
                 // Render world
                 cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+                SampleRenderResult res(model, pixels);
                 for(std::vector<ed::EntityConstPtr>::const_iterator it = entities.begin(); it != entities.end(); ++it)
                 {
                     const ed::EntityConstPtr& e = *it;
 
                     geo::Pose3D pose = test_pose.inverse() * e->pose();
                     geo::RenderOptions opt;
-                    opt.setMesh(e->shape()->getMesh(), pose);
-
-                    SampleRenderResult res(model);
+                    opt.setMesh(e->shape()->getMesh(), pose);                    
 
                     // Render
                     rasterizer.render(opt, res);
@@ -122,19 +139,18 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
 
                 int n = 0;
                 double total_error = 0;
-                for(int y = 0; y < view.getHeight(); ++y)
+                for(unsigned int i = 0; i < res.pixels.size(); ++i)
                 {
-                    for(int x = 0; x < view.getWidth(); ++x)
-                    {
-                        float dm = model.at<float>(y, x);
-                        float ds = view.getDepth(x, y);
+                    unsigned int p_idx = res.pixels[i];
 
-                        if (dm > 0 && ds > 0) // TODO
-                        {
-                            if (std::abs(dm - ds) > 0.05)
-                                total_error += 1;
-                            ++n;
-                        }
+                    float ds = depth_image.at<float>(p_idx);
+
+                    if (ds > 0) // TODO
+                    {
+                        float dm = model.at<float>(p_idx);
+                        float err = std::min<float>(0.05, std::abs(dm - ds));
+                        total_error += (err * err);
+                        ++n;
                     }
                 }
 
