@@ -6,6 +6,22 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 
+// For copy-pasted kinect sensor module code
+// -------------------------------------------
+#include <ed/types.h>
+#include <ed/measurement.h>
+#include <ed/rgbd_data.h>
+#include <ed/helpers/depth_data_processing.h>
+#include <ed/helpers/visualization.h>
+#include "ed_sensor_integration/kinect/almodules/rgbd_al_module.h"
+#include <ed/update_request.h>
+#include "ed_sensor_integration/kinect/almodules/point_normal_alm.h"
+#include "ed_sensor_integration/kinect/almodules/polygon_height_alm.h"
+// -------------------------------------------
+// END For copy-pasted kinect sensor module code
+
+#include "ed/segmentation_modules/euclidean_clustering_sm.h"
+
 #include <opencv2/highgui/highgui.hpp>
 
 #include <geolib/ros/tf_conversions.h>
@@ -54,9 +70,60 @@ KinectPlugin::~KinectPlugin()
 
 void KinectPlugin::configure(tue::Configuration config)
 {
-    std::string topic;
-    if (config.value("topic", topic))
-        kinect_client_.intialize(topic);
+    if (config.value("topic", topic_))
+        kinect_client_.intialize(topic_);
+
+    // - - - - - - - - - - - - - - - - - -
+    // Load tunable parameters
+
+    std::cout << "[ED KINECT PLUGIN] Performing configuration " << std::endl;
+
+    config.value("voxel_size", voxel_size_);
+    config.value("max_range", max_range_);
+    config.value("clearing_padding_fraction", clearing_padding_fraction_);
+    config.value("normal_k_search", normal_k_search_);
+
+    std::cout << "Parameters kinect plugin: \n" <<
+                 "- voxel size: " << voxel_size_ << "\n" <<
+                 "- max_range_: " << max_range_ << "\n" <<
+                 "- clearing_padding_fraction_: " << clearing_padding_fraction_ << "\n" <<
+                 "- normal_k_search_: " << normal_k_search_ << std::endl;
+
+    if (config.readArray("association_modules"))
+    {
+        std::cout << "[ED KINECT PLUGIN] Performing configuration of modules" << std::endl;
+
+        std::string type;
+        config.nextArrayItem();
+        if (config.value("type", type))
+        {
+            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
+            point_normal_alm_.configure(config);
+            config.nextArrayItem();
+        }
+
+        if (config.value("type", type))
+        {
+            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
+            polygon_height_alm_.configure(config);
+        }
+
+        config.endArray();
+    }
+
+    if (config.readArray("segmentation_modules"))
+    {
+        std::string type;
+        config.nextArrayItem();
+        if (config.value("type", type))
+        {
+            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
+            euclidean_clustering_sm_.configure(config);
+
+        }
+
+        config.endArray();
+    }
 
     tf_listener_ = new tf::TransformListener;
 }
@@ -70,7 +137,11 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     rgbd::ImagePtr rgbd_image = kinect_client_.nextImage();
     if (!rgbd_image)
+    {
+        ROS_WARN_STREAM("No RGBD image available for sensor '" << topic_ << "', is the RGBD Server running?");
         return;
+    }
+
 
     // - - - - - - - - - - - - - - - - - -
     // Determine absolte kinect pose based on TF
@@ -97,6 +168,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     // Convert from ROS coordinate frame to geolib coordinate frame
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
@@ -225,6 +297,104 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     cv::imshow("best model", best_model / 8);
     cv::imshow("diff", diff);
     cv::waitKey(3);
+
+
+    // - - - - - - - - - - - - - - - - - -
+    // Create point cloud from rgbd data
+
+    std::cout << "[ED KINECT PLUGIN] Initializing AS step " << std::endl;
+
+    ed::RGBDData rgbd_data;
+    rgbd_data.image = rgbd_image;
+    rgbd_data.sensor_pose = best_pose;
+
+    ed::helpers::ddp::extractPointCloud(rgbd_data, voxel_size_, max_range_, 1);
+    ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
+
+    ros::NodeHandle nh("~/kinect_plugin");
+    ros::Publisher vis_marker_pub = nh.advertise<visualization_msgs::Marker>("vis_markers",0);
+    ed::helpers::visualization::publishPclVisualizationMarker(best_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
+
+
+    // - - - - - - - - - - - - - - - - - -
+    // Association
+
+    ed::PointCloudMaskPtr pc_mask(new ed::PointCloudMask(rgbd_data.point_cloud->points.size()));
+
+    for(unsigned int i = 0; i < pc_mask->size(); ++i)
+        (*pc_mask)[i] = i;
+
+    std::cout << "[ED KINECT PLUGIN] Performing association " << std::endl;
+
+    edKinect::ALMResult alm_result;
+
+//    std::cout << "[ED KINECT PLUGIN] point cloud mask size before alm           = " << pc_mask->size() << std::endl;
+    // process data using hard coded modules
+    point_normal_alm_.process(rgbd_data,pc_mask,world,alm_result);
+//    std::cout << "[ED KINECT PLUGIN] point cloud mask size after point normal   = " << pc_mask->size() << std::endl;
+    polygon_height_alm_.process(rgbd_data,pc_mask,world,alm_result);
+//    std::cout << "[ED KINECT PLUGIN] point cloud mask size after polygon height = " << pc_mask->size() << std::endl;
+
+//    std::cout << "[ED KINECT PLUGIN] Number of associations " << alm_result.associations.size() << std::endl;
+    for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = alm_result.associations.begin(); it != alm_result.associations.end(); ++it)
+    {
+        const std::vector<ed::MeasurementConstPtr>& measurements = it->second;
+        req.addMeasurements(it->first, measurements);
+        std::cout << "[ED KINECT PLUGIN] Adding measurements to associated entities " << std::endl;
+    }
+
+
+    // - - - - - - - - - - - - - - - - - -
+    // Segmentation of residual sensor data
+
+    std::cout << "[ED KINECT PLUGIN] Segmenting " << std::endl;
+
+    if (!pc_mask->empty())
+    {
+        std::vector<ed::PointCloudMaskPtr> segments;
+        segments.push_back(pc_mask);
+
+        euclidean_clustering_sm_.process(rgbd_data, segments);
+
+        for (std::vector<ed::PointCloudMaskPtr>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+        {
+
+            ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
+            req.addMeasurement(ed::Entity::generateID(), m);
+            std::cout << "[ED KINECT PLUGIN] Adding measurements to newly found entities " << std::endl;
+        }
+    }
+
+
+    // - - - - - - - - - - - - - - - - - -
+    // Clearing
+
+    std::cout << "[ED KINECT PLUGIN] Clearing " << std::endl;
+
+    std::vector<ed::UUID> entities_in_view_not_associated;
+    for (ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (!e->shape())
+        {
+            bool in_frustrum, object_in_front;
+            if (ed::helpers::ddp::inView(rgbd_data.image, rgbd_data.sensor_pose, e->convexHull().center_point, max_range_, clearing_padding_fraction_, in_frustrum, object_in_front))
+            {
+                ed::MeasurementConstPtr m = e->lastMeasurement();
+
+                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0)
+                {
+                    entities_in_view_not_associated.push_back(e->id());
+                }
+            }
+        }
+    }
+
+    for (std::vector<ed::UUID>::const_iterator it = entities_in_view_not_associated.begin(); it != entities_in_view_not_associated.end(); ++it)
+        req.removeEntity(*it);
+
+    std::cout << "[ED KINECT PLUGIN] Ready " << std::endl;
 
 }
 
