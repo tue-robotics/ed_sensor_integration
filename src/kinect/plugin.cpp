@@ -20,6 +20,10 @@
 // -------------------------------------------
 // END For copy-pasted kinect sensor module code
 
+// Localization
+#include "sampling_render_localizer.h"
+#include "sampling_projector_localizer.h"
+
 #include "ed/segmentation_modules/euclidean_clustering_sm.h"
 
 #include <opencv2/highgui/highgui.hpp>
@@ -144,7 +148,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
 
     // - - - - - - - - - - - - - - - - - -
-    // Determine absolte kinect pose based on TF
+    // Determine absolute kinect pose based on TF
 
     geo::Pose3D sensor_pose;
 
@@ -171,132 +175,74 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
 
     // - - - - - - - - - - - - - - - - - -
-    // Render world model based on pose calculated above
+    // Update sensor pose (localization)
 
-    rgbd::View view(*rgbd_image, 160);
+    std::set<ed::UUID> loc_ids;
+    loc_ids.insert(ed::UUID("plastic_cabinet"));
 
-    const geo::DepthCamera& rasterizer = view.getRasterizer();
+    SamplingRenderLocalizer localizer;
+//    SamplingProjectorLocalizer localizer;
 
-    cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+    tue::Timer timer;
+    timer.start();
 
-    std::vector<ed::EntityConstPtr> entities;
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
+    sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
 
-        if (e->shape())
-        {
-            geo::Pose3D pose = sensor_pose.inverse() * e->pose();
-            geo::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), pose);
-
-            SampleRenderResult res(model);
-
-            // Render
-            rasterizer.render(opt, res);
-
-            if (res.in_view)
-                entities.push_back(e);
-        }
-    }
+    std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
-    // Try other poses and determine best scoring pose
+    // Visualize
 
-    cv::Mat best_model;
-    double min_error = 1e9; // TODO
-    geo::Pose3D best_pose;
-
-    for(double dx = -0.2; dx < 0.2; dx += 0.05)
+    bool visualize = true;
+    if (visualize)
     {
-        for(double dy = -0.2; dy < 0.2; dy += 0.05)
+        rgbd::View view(*rgbd_image, 640);
+        const geo::DepthCamera& rasterizer = view.getRasterizer();
+
+        cv::Mat best_model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+        SampleRenderResult res(best_model);
+
+        for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
-            for(double da = -0.1; da < 0.1; da += 0.05)
+            const ed::EntityConstPtr& e = *it;
+
+            if (e->shape())
             {
-                geo::Matrix3 m;
-                m.setRPY(0, 0, da);
+                geo::Pose3D pose = sensor_pose.inverse() * e->pose();
+                geo::RenderOptions opt;
+                opt.setMesh(e->shape()->getMesh(), pose);
 
-                geo::Pose3D test_pose;
-                test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
-                test_pose.R = m * sensor_pose.R;
-
-                // Render world
-                cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-                for(std::vector<ed::EntityConstPtr>::const_iterator it = entities.begin(); it != entities.end(); ++it)
-                {
-                    const ed::EntityConstPtr& e = *it;
-
-                    geo::Pose3D pose = test_pose.inverse() * e->pose();
-                    geo::RenderOptions opt;
-                    opt.setMesh(e->shape()->getMesh(), pose);
-
-                    SampleRenderResult res(model);
-
-                    // Render
-                    rasterizer.render(opt, res);
-                }
-
-                int n = 0;
-                double total_error = 0;
-                for(int y = 0; y < view.getHeight(); ++y)
-                {
-                    for(int x = 0; x < view.getWidth(); ++x)
-                    {
-                        float dm = model.at<float>(y, x);
-                        float ds = view.getDepth(x, y);
-
-                        if (dm > 0 && ds > 0) // TODO
-                        {
-                            if (std::abs(dm - ds) > 0.05)
-                                total_error += 1;
-                            ++n;
-                        }
-                    }
-                }
-
-                if (n > 0)
-                {
-                    double avg_error = total_error / n;
-                    if (avg_error < min_error)
-                    {
-                        min_error = avg_error;
-                        best_pose = test_pose;
-                        best_model = model;
-                    }
-                }
-
-
+                // Render
+                rasterizer.render(opt, res);
             }
         }
-    }
 
+        // - - - - - - - - - - - - - - - - - -
+        // Calculate and show diff
 
-    // - - - - - - - - - - - - - - - - - -
-    // Calculate and show diff
+        cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
 
-    cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-
-    for(int y = 0; y < view.getHeight(); ++y)
-    {
-        for(int x = 0; x < view.getWidth(); ++x)
+        for(int y = 0; y < view.getHeight(); ++y)
         {
-            float dm = best_model.at<float>(y, x);
-            float ds = view.getDepth(x, y);
-
-            if (dm > 0 && ds > 0)
+            for(int x = 0; x < view.getWidth(); ++x)
             {
-                float err = std::abs(dm - ds);
-                if (err > 0.05)
-                    diff.at<float>(y, x) = err;
+                float dm = best_model.at<float>(y, x);
+                float ds = view.getDepth(x, y);
+
+                if (dm > 0 && ds > 0)
+                {
+                    float err = std::abs(dm - ds);
+                    if (err > 0.05)
+                        diff.at<float>(y, x) = err;
+                }
             }
         }
-    }
 
-    cv::imshow("depth", rgbd_image->getDepthImage() / 8);
-    cv::imshow("initial model", model / 8);
-    cv::imshow("best model", best_model / 8);
-    cv::imshow("diff", diff);
-    cv::waitKey(3);
+        cv::imshow("depth", rgbd_image->getDepthImage() / 8);
+        cv::imshow("best model", best_model / 8);
+        cv::imshow("diff", diff);
+        cv::waitKey(3);
+    }
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -306,14 +252,14 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     ed::RGBDData rgbd_data;
     rgbd_data.image = rgbd_image;
-    rgbd_data.sensor_pose = best_pose;
+    rgbd_data.sensor_pose = sensor_pose;
 
     ed::helpers::ddp::extractPointCloud(rgbd_data, voxel_size_, max_range_, 1);
     ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
 
     ros::NodeHandle nh("~/kinect_plugin");
     ros::Publisher vis_marker_pub = nh.advertise<visualization_msgs::Marker>("vis_markers",0);
-    ed::helpers::visualization::publishPclVisualizationMarker(best_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
+    ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
 
 
     // - - - - - - - - - - - - - - - - - -
