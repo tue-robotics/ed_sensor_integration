@@ -29,6 +29,8 @@ public:
 
     std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> > associations;
 
+    geo::Pose3D sensor_pose_corrected;
+
 };
 
 class RGBDALModule

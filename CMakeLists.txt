@@ -40,7 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
 # ------------------------------------------------------------------------------------------------
 
 catkin_package(
-  INCLUDE_DIRS include
+#  INCLUDE_DIRS include
 #  LIBRARIES bla
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
@@ -60,6 +60,7 @@ include_directories(
 add_library(kinect_association
     src/kinect/almodules/point_normal_alm.cpp
     src/kinect/almodules/polygon_height_alm.cpp
+    src/kinect/almodules/relative_alm.cpp
     src/kinect/almodules/world_model_renderer.cpp
     ${HEADER_FILES}
 )
