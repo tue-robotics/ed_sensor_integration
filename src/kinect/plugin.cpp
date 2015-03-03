@@ -24,8 +24,6 @@
 #include "sampling_render_localizer.h"
 #include "sampling_projector_localizer.h"
 
-#include "ed/segmentation_modules/euclidean_clustering_sm.h"
-
 #include <opencv2/highgui/highgui.hpp>
 
 #include <geolib/ros/tf_conversions.h>
