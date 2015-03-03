@@ -82,12 +82,14 @@ void KinectPlugin::configure(tue::Configuration config)
     config.value("max_range", max_range_);
     config.value("clearing_padding_fraction", clearing_padding_fraction_);
     config.value("normal_k_search", normal_k_search_);
+    config.value("visualize",visualize_);
 
     std::cout << "Parameters kinect plugin: \n" <<
                  "- voxel size: " << voxel_size_ << "\n" <<
                  "- max_range_: " << max_range_ << "\n" <<
                  "- clearing_padding_fraction_: " << clearing_padding_fraction_ << "\n" <<
-                 "- normal_k_search_: " << normal_k_search_ << std::endl;
+                 "- normal_k_search_: " << normal_k_search_ <<
+                 "- visualize_: " << visualize_ << std::endl;
 
     if (config.readArray("association_modules"))
     {
@@ -169,24 +171,23 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Update sensor pose (localization)
 
-    std::set<ed::UUID> loc_ids;
-    loc_ids.insert(ed::UUID("plastic_cabinet"));
+//    std::set<ed::UUID> loc_ids;
+//    loc_ids.insert(ed::UUID("plastic_cabinet"));
 
-    SamplingRenderLocalizer localizer;
+//    SamplingRenderLocalizer localizer;
 //    SamplingProjectorLocalizer localizer;
 
-    tue::Timer timer;
-    timer.start();
+//    tue::Timer timer;
+//    timer.start();
 
-    sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
+//    sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
 
-    std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+//    std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Visualize
 
-    bool visualize = true;
-    if (visualize)
+    if (visualize_)
     {
         rgbd::View view(*rgbd_image, 640);
         const geo::DepthCamera& rasterizer = view.getRasterizer();
@@ -247,9 +248,12 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     ed::helpers::ddp::extractPointCloud(rgbd_data, voxel_size_, max_range_, 1);
     ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
 
-    ros::NodeHandle nh("~/kinect_plugin");
-    ros::Publisher vis_marker_pub = nh.advertise<visualization_msgs::Marker>("vis_markers",0);
-    ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
+    if(visualize_)
+    {
+        ros::NodeHandle nh("~/kinect_plugin");
+        ros::Publisher vis_marker_pub = nh.advertise<visualization_msgs::Marker>("vis_markers",0);
+        ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
+    }
 
 
     // - - - - - - - - - - - - - - - - - -

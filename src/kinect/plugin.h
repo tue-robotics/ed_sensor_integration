@@ -45,6 +45,7 @@ private:
     float max_range_;
     float clearing_padding_fraction_;
     int normal_k_search_;
+    bool visualize_;
 
 };
 
