@@ -32,6 +32,68 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image)
+{
+    rgbd::View view(*rgbd_image, 160);
+
+    // Visualize the frustrum
+//    helpers::visualization::publishRGBDViewFrustrumVisualizationMarker(view, sensor_pose, pub, 0, "frustrum_top_kinect");
+
+    cv::Mat wm_depth_image(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+
+    geo::PointerMap pointer_map;    // TODO: GET RID OF THIS
+    geo::TriangleMap triangle_map;  // TODO: GET RID OF THIS
+    geo::DefaultRenderResult res(wm_depth_image, 0, pointer_map, triangle_map);
+
+    for(ed::WorldModel::const_iterator it = world_model.begin(); it != world_model.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (e && e->shape())
+        {
+            geo::Pose3D pose = sensor_pose.inverse() * e->pose();
+            geo::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), pose);
+
+            // Render
+            view.getRasterizer().render(opt, res);
+        }
+    }
+
+    const cv::Mat& depth_image = rgbd_image->getDepthImage();
+    cv::Mat new_depth_image(depth_image.rows, depth_image.cols, CV_32FC1);
+
+    float f = (float)view.getWidth() / depth_image.cols;
+
+    for(int y = 0; y < depth_image.rows; ++y)
+    {
+        for(int x = 0; x < depth_image.cols; ++x)
+        {
+            float d_sensor = depth_image.at<float>(y, x);
+            float d_wm = wm_depth_image.at<float>(f * y, f * x);
+            if (d_sensor == d_sensor) // Check if point is actually valid
+            {
+                if ( d_wm == 0 || d_sensor < d_wm )
+                {
+                    new_depth_image.at<float>(y, x) = depth_image.at<float>(y, x);
+                }
+                else
+                {
+                    new_depth_image.at<float>(y, x) = -d_wm; // TODO: <-- This value; Valid point @ world model object ( used for not taking int account when rendering but taking into account @ clearing )
+                }
+            }
+            else
+            {
+                new_depth_image.at<float>(y, x) = -d_wm;
+            }
+        }
+    }
+
+    rgbd_image->setDepthImage(new_depth_image);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 class SampleRenderResult : public geo::RenderResult
 {
 
@@ -167,6 +229,8 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // Convert from ROS coordinate frame to geolib coordinate frame
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
+    
+
 
     // - - - - - - - - - - - - - - - - - -
     // Update sensor pose (localization)
@@ -237,6 +301,11 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         cv::waitKey(3);
     }
 
+    //! 2) Preprocess image: remove all data points that are behind world model entities
+    {
+        //tue::ScopedTimer t(profiler_, "2) filter points behind wm");
+        filterPointsBehindWorldModel(world, sensor_pose, rgbd_image);
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Create point cloud from rgbd data
