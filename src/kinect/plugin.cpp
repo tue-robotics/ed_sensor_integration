@@ -80,8 +80,6 @@ void KinectPlugin::configure(tue::Configuration config)
     // - - - - - - - - - - - - - - - - - -
     // Load tunable parameters
 
-    std::cout << "[ED KINECT PLUGIN] Performing configuration " << std::endl;
-
     config.value("voxel_size", voxel_size_);
     config.value("max_range", max_range_);
     config.value("clearing_padding_fraction", clearing_padding_fraction_);
@@ -95,20 +93,17 @@ void KinectPlugin::configure(tue::Configuration config)
 
     if (config.readArray("association_modules"))
     {
-        std::cout << "[ED KINECT PLUGIN] Performing configuration of modules" << std::endl;
 
         std::string type;
         config.nextArrayItem();
         if (config.value("type", type))
         {
-            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
             point_normal_alm_.configure(config);
             config.nextArrayItem();
         }
 
         if (config.value("type", type))
         {
-            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
             polygon_height_alm_.configure(config);
         }
 
@@ -121,7 +116,6 @@ void KinectPlugin::configure(tue::Configuration config)
         config.nextArrayItem();
         if (config.value("type", type))
         {
-            std::cout << "[ED KINECT PLUGIN] " << type << std::endl;
             euclidean_clustering_sm_.configure(config);
 
         }
@@ -267,8 +261,6 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     for(unsigned int i = 0; i < pc_mask->size(); ++i)
         (*pc_mask)[i] = i;
-
-    std::cout << "[ED KINECT PLUGIN] Performing association " << std::endl;
 
     edKinect::ALMResult alm_result;
 
