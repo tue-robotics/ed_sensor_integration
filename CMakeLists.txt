@@ -81,6 +81,14 @@ add_library(ed_kinect_plugin
 )
 target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
 
+add_library(ed_kinect_plugin2
+    src/kinect/plugin2.cpp
+    src/kinect/plugin2.h
+    src/kinect/sampling_projector_localizer.cpp
+    src/kinect/sampling_render_localizer.cpp
+)
+target_link_libraries(ed_kinect_plugin2 kinect_segmentation kinect_association ${catkin_LIBRARIES})
+
 #add_library(ed_sensor_integration_plugin
 #	src/sensor_integration_plugin.cpp
 #	src/color_table.cpp
