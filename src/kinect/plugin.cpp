@@ -246,6 +246,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     rgbd_data.sensor_pose = sensor_pose;
 
     ed::helpers::ddp::extractPointCloud(rgbd_data, voxel_size_, max_range_, 1);
+    //! TODO: Add passthrough filter here
     ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
 
     if(visualize_)
