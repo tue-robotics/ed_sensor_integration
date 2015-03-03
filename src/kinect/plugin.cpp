@@ -248,8 +248,6 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Create point cloud from rgbd data
 
-    std::cout << "[ED KINECT PLUGIN] Initializing AS step " << std::endl;
-
     ed::RGBDData rgbd_data;
     rgbd_data.image = rgbd_image;
     rgbd_data.sensor_pose = sensor_pose;
@@ -274,26 +272,19 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     edKinect::ALMResult alm_result;
 
-//    std::cout << "[ED KINECT PLUGIN] point cloud mask size before alm           = " << pc_mask->size() << std::endl;
     // process data using hard coded modules
     point_normal_alm_.process(rgbd_data,pc_mask,world,alm_result);
-//    std::cout << "[ED KINECT PLUGIN] point cloud mask size after point normal   = " << pc_mask->size() << std::endl;
     polygon_height_alm_.process(rgbd_data,pc_mask,world,alm_result);
-//    std::cout << "[ED KINECT PLUGIN] point cloud mask size after polygon height = " << pc_mask->size() << std::endl;
 
-//    std::cout << "[ED KINECT PLUGIN] Number of associations " << alm_result.associations.size() << std::endl;
     for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = alm_result.associations.begin(); it != alm_result.associations.end(); ++it)
     {
         const std::vector<ed::MeasurementConstPtr>& measurements = it->second;
         req.addMeasurements(it->first, measurements);
-        std::cout << "[ED KINECT PLUGIN] Adding measurements to associated entities " << std::endl;
     }
 
 
     // - - - - - - - - - - - - - - - - - -
     // Segmentation of residual sensor data
-
-    std::cout << "[ED KINECT PLUGIN] Segmenting " << std::endl;
 
     if (!pc_mask->empty())
     {
@@ -307,15 +298,12 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
             ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
             req.addMeasurement(ed::Entity::generateID(), m);
-            std::cout << "[ED KINECT PLUGIN] Adding measurements to newly found entities " << std::endl;
         }
     }
 
 
     // - - - - - - - - - - - - - - - - - -
     // Clearing
-
-    std::cout << "[ED KINECT PLUGIN] Clearing " << std::endl;
 
     std::vector<ed::UUID> entities_in_view_not_associated;
     for (ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
@@ -339,8 +327,6 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     for (std::vector<ed::UUID>::const_iterator it = entities_in_view_not_associated.begin(); it != entities_in_view_not_associated.end(); ++it)
         req.removeEntity(*it);
-
-    std::cout << "[ED KINECT PLUGIN] Ready " << std::endl;
 
 }
 
