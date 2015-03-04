@@ -6,6 +6,8 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 
+
+#include <pcl/filters/passthrough.h>
 // For copy-pasted kinect sensor module code
 // -------------------------------------------
 #include <ed/types.h>
@@ -119,7 +121,7 @@ public:
 
 // ----------------------------------------------------------------------------------------------------
 
-KinectPlugin::KinectPlugin() : tf_listener_(0)
+KinectPlugin::KinectPlugin() : tf_listener_(0), nh_("~/kinect_plugin")
 {
 }
 
@@ -183,6 +185,11 @@ void KinectPlugin::configure(tue::Configuration config)
         }
 
         config.endArray();
+    }
+
+    if(visualize_)
+    {
+        vis_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("vis_markers",0);
     }
 
     tf_listener_ = new tf::TransformListener;
@@ -315,14 +322,30 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     rgbd_data.sensor_pose = sensor_pose;
 
     ed::helpers::ddp::extractPointCloud(rgbd_data, voxel_size_, max_range_, 1);
-    //! TODO: Add passthrough filter here
+
+    if(visualize_)
+        ed::helpers::visualization::publishPclVisualizationMarker(rgbd_data.sensor_pose,rgbd_data.point_cloud,vis_marker_pub_,2,"data_before_filtering");
+
+    pcl::PassThrough<pcl::PointXYZ> pass;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filter_input(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filter_result(new pcl::PointCloud<pcl::PointXYZ>);
+    filter_input = ed::helpers::ddp::transformPointCloud(*rgbd_data.point_cloud,rgbd_data.sensor_pose);
+
+    pass.setInputCloud(filter_input);
+    pass.setFilterFieldName("z");
+    pass.setFilterLimits(0.0,1.8);
+    pass.filter(*filter_result);
+    rgbd_data.point_cloud = ed::helpers::ddp::transformPointCloud(*filter_result,rgbd_data.sensor_pose.inverse());
+
+    if(visualize_)
+        ed::helpers::visualization::publishPclVisualizationMarker(rgbd_data.sensor_pose,rgbd_data.point_cloud,vis_marker_pub_,3,"data_after_filtering");
+
     ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
 
     if(visualize_)
     {
-        ros::NodeHandle nh("~/kinect_plugin");
-        ros::Publisher vis_marker_pub = nh.advertise<visualization_msgs::Marker>("vis_markers",0);
-        ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub, 0, "sensor_data_best_pose");
+
+        ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub_, 0, "sensor_data_best_pose");
     }
 
 

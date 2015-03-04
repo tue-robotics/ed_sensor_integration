@@ -47,6 +47,10 @@ private:
     int normal_k_search_;
     bool visualize_;
 
+    // Visualization
+    ros::NodeHandle nh_;
+    ros::Publisher vis_marker_pub_;
+
 };
 
 #endif
