@@ -32,6 +32,9 @@
 #include <geolib/sensors/DepthCamera.h>
 #include <geolib/Shape.h>
 
+// visualization
+#include "visualization.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image)
@@ -191,6 +194,8 @@ void KinectPlugin::configure(tue::Configuration config)
     {
         vis_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("vis_markers",0);
     }
+
+    pub_viz_.intialize("viz/kinect");
 
     tf_listener_ = new tf::TransformListener;
 }
@@ -414,6 +419,18 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     for (std::vector<ed::UUID>::const_iterator it = entities_in_view_not_associated.begin(); it != entities_in_view_not_associated.end(); ++it)
         req.removeEntity(*it);
+
+
+    //! 8) Visualization
+    if (pub_viz_.enabled())
+    {
+        ed::WorldModel wm_new(world);
+        wm_new.update(req);
+
+        cv::Mat viz;
+        drawImageWithMeasurements(wm_new, rgbd_data.image, viz);
+        pub_viz_.publish(viz);
+    }
 
 }
 

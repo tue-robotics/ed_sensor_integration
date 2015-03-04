@@ -7,6 +7,7 @@
 
 #include <ed/plugin.h>
 #include <ed/types.h>
+#include <ed/helpers/image_publisher.h>
 
 #include <rgbd/Client.h>
 
@@ -50,6 +51,7 @@ private:
     // Visualization
     ros::NodeHandle nh_;
     ros::Publisher vis_marker_pub_;
+    ed::ImagePublisher pub_viz_;
 
 };
 
