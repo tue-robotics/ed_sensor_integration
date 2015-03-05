@@ -247,18 +247,20 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Update sensor pose (localization)
 
-//    std::set<ed::UUID> loc_ids;
-//    loc_ids.insert(ed::UUID("plastic_cabinet"));
+    {
+        std::set<ed::UUID> loc_ids;
+        loc_ids.insert(ed::UUID("plastic_cabinet"));
 
-//    SamplingRenderLocalizer localizer;
-//    SamplingProjectorLocalizer localizer;
+        SamplingRenderLocalizer localizer;
+//        SamplingProjectorLocalizer localizer;
 
-//    tue::Timer timer;
-//    timer.start();
+        tue::Timer timer;
+        timer.start();
 
-//    sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
+        sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
 
-//    std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+        std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Visualize
@@ -266,9 +268,6 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     if (visualize_)
     {
-        tue::Timer timer;
-        timer.start();
-
         rgbd::View view(*rgbd_image, 640);
         const geo::DepthCamera& rasterizer = view.getRasterizer();
 
@@ -312,15 +311,23 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 }
             }
         }
-        cv::threshold(diff,thr_diff, 0.1, 1.0, 0);
+
+        tue::Timer timer;
+        timer.start();
+
+        cv::threshold(diff,thr_diff, 0.01, 1.0, 0);
         changes = rgbd_image->getDepthImage().mul(thr_diff);
+//        std::cout << diff << " * " << std::endl << rgbd_image->getDepthImage() << " = " << std::endl << changes << std::endl;
+
+        std::cout << "Thresholding and multiplying took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
 
         cv::imshow("depth", rgbd_image->getDepthImage() / 8);
         cv::imshow("best model", best_model / 8);
         cv::imshow("diff", diff);
-        cv::imshow("changes",changes);
+        cv::imshow("thr_diff",thr_diff);
+        cv::imshow("changes",changes/8);
         cv::waitKey(3);
-        std::cout << "Visualization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+//
     }
 
 
