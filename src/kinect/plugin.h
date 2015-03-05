@@ -7,6 +7,7 @@
 
 #include <ed/plugin.h>
 #include <ed/types.h>
+#include <ed/helpers/image_publisher.h>
 
 #include <rgbd/Client.h>
 
@@ -45,6 +46,12 @@ private:
     float max_range_;
     float clearing_padding_fraction_;
     int normal_k_search_;
+    bool visualize_;
+
+    // Visualization
+    ros::NodeHandle nh_;
+    ros::Publisher vis_marker_pub_;
+    ed::ImagePublisher pub_viz_;
 
 };
 

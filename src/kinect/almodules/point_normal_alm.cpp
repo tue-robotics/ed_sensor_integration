@@ -97,9 +97,6 @@ void PointNormalALM::process(const ed::RGBDData& sensor_data,
     {
         tue::ScopedTimer t(profiler_, "2) association");
 
-        //    associate(rgbd_data.point_cloud_with_normals, world_model_npcl, world_model_pc_entity_ptrs, associations);
-
-
         if (world_model_npcl->size() == 0 || !tree_)
             return;
 

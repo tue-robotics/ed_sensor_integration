@@ -79,6 +79,7 @@ add_library(ed_kinect_plugin
     src/kinect/plugin.h
     src/kinect/sampling_projector_localizer.cpp
     src/kinect/sampling_render_localizer.cpp
+    src/kinect/visualization.cpp
 )
 target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
 
