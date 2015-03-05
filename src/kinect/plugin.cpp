@@ -244,6 +244,15 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         cv::waitKey(3);
     }
 
+<<<<<<< Updated upstream
+=======
+
+    // - - - - - - - - - - - - - - - - - -
+    // Remove all data points that are behind world model entities
+
+    filterPointsBehindWorldModel(world, sensor_pose, rgbd_image);
+
+>>>>>>> Stashed changes
 
     // - - - - - - - - - - - - - - - - - -
     // Create point cloud from rgbd data
