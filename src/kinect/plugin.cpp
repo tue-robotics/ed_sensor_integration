@@ -263,8 +263,12 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Visualize
 
+
     if (visualize_)
     {
+        tue::Timer timer;
+        timer.start();
+
         rgbd::View view(*rgbd_image, 640);
         const geo::DepthCamera& rasterizer = view.getRasterizer();
 
@@ -290,6 +294,8 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // Calculate and show diff
 
         cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+        cv::Mat changes(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+        cv::Mat thr_diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
 
         for(int y = 0; y < view.getHeight(); ++y)
         {
@@ -306,18 +312,23 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 }
             }
         }
+        cv::threshold(diff,thr_diff, 0.1, 1.0, 0);
+        changes = rgbd_image->getDepthImage().mul(thr_diff);
 
         cv::imshow("depth", rgbd_image->getDepthImage() / 8);
         cv::imshow("best model", best_model / 8);
         cv::imshow("diff", diff);
+        cv::imshow("changes",changes);
         cv::waitKey(3);
+        std::cout << "Visualization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
     }
 
-    //! 2) Preprocess image: remove all data points that are behind world model entities
-    {
-        //tue::ScopedTimer t(profiler_, "2) filter points behind wm");
-        filterPointsBehindWorldModel(world, sensor_pose, rgbd_image);
-    }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Remove all data points that are behind world model entities
+
+    filterPointsBehindWorldModel(world, sensor_pose, rgbd_image);
+
 
     // - - - - - - - - - - - - - - - - - -
     // Create point cloud from rgbd data
@@ -331,6 +342,10 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     if(visualize_)
         ed::helpers::visualization::publishPclVisualizationMarker(rgbd_data.sensor_pose,rgbd_data.point_cloud,vis_marker_pub_,2,"data_before_filtering");
 
+
+    // - - - - - - - - - - - - - - - - - -
+    // Remove points below and above certain heights
+
     pcl::PassThrough<pcl::PointXYZ> pass;
     pcl::PointCloud<pcl::PointXYZ>::Ptr filter_input(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr filter_result(new pcl::PointCloud<pcl::PointXYZ>);
@@ -338,7 +353,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     pass.setInputCloud(filter_input);
     pass.setFilterFieldName("z");
-    pass.setFilterLimits(0.0,1.8);
+    pass.setFilterLimits(0.0,1.8); // TODO: make these values configurable parameters or something
     pass.filter(*filter_result);
     rgbd_data.point_cloud = ed::helpers::ddp::transformPointCloud(*filter_result,rgbd_data.sensor_pose.inverse());
 
@@ -348,10 +363,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     ed::helpers::ddp::calculatePointCloudNormals(rgbd_data, normal_k_search_);
 
     if(visualize_)
-    {
-
-        ed::helpers::visualization::publishPclVisualizationMarker(sensor_pose,rgbd_data.point_cloud,vis_marker_pub_, 0, "sensor_data_best_pose");
-    }
+        ed::helpers::visualization::publishPclVisualizationMarker(rgbd_data.sensor_pose,rgbd_data.point_cloud,vis_marker_pub_, 0, "sensor_data_best_pose");
 
 
     // - - - - - - - - - - - - - - - - - -
