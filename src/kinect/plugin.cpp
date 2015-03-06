@@ -290,11 +290,11 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
 
         // - - - - - - - - - - - - - - - - - -
-        // Calculate and show diff
+        // Calculate diff
 
         cv::Mat diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
         cv::Mat changes(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-        cv::Mat thr_diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+//        cv::Mat thr_diff(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
 
         for(int y = 0; y < view.getHeight(); ++y)
         {
@@ -302,32 +302,39 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 float dm = best_model.at<float>(y, x);
                 float ds = view.getDepth(x, y);
+                float dmin = std::min(dm,ds);
 
                 if (dm > 0 && ds > 0)
                 {
                     float err = std::abs(dm - ds);
-                    if (err > 0.05)
-                        diff.at<float>(y, x) = err;
+                    diff.at<float>(y, x) = err;
+
+                    // TODO: get rid of magic numbers. This defines a parabola through (0,0), (0.5,0.005) and (3.0,0.15), where x is distance and y is difference between model and sensor data
+                    if (err > 0.016*dmin*dmin + 0.02*dmin)
+                        changes.at<float>(y,x) = ds;
                 }
             }
         }
 
-        tue::Timer timer;
-        timer.start();
+//        tue::Timer timer;
+//        timer.start();
 
-        cv::threshold(diff,thr_diff, 0.01, 1.0, 0);
-        changes = rgbd_image->getDepthImage().mul(thr_diff);
-//        std::cout << diff << " * " << std::endl << rgbd_image->getDepthImage() << " = " << std::endl << changes << std::endl;
 
-        std::cout << "Thresholding and multiplying took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+        // - - - - - - - - - - - - - - - - - -
+        // Threshold diff and mask depth image with this threshold
+
+//        cv::threshold(diff,thr_diff, 0.01, 1.0, 0);
+//        changes = rgbd_image->getDepthImage().mul(thr_diff);
 
         cv::imshow("depth", rgbd_image->getDepthImage() / 8);
         cv::imshow("best model", best_model / 8);
         cv::imshow("diff", diff);
-        cv::imshow("thr_diff",thr_diff);
+//        cv::imshow("thr_diff",thr_diff);
         cv::imshow("changes",changes/8);
         cv::waitKey(3);
-//
+
+//        rgbd_image->setDepthImage(changes);
+
     }
 
 
