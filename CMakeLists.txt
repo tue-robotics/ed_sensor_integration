@@ -84,11 +84,11 @@ target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${
 
 # ------------------------------------------------------------------------------------------------
 
-#add_library(ed_laser_plugin
-#    src/laser/plugin.cpp
-#    src/laser/plugin.h
-#)
-#target_link_libraries(ed_laser_plugin ${catkin_LIBRARIES})
+add_library(ed_laser_plugin
+    src/laser/plugin.cpp
+    src/laser/plugin.h
+)
+target_link_libraries(ed_laser_plugin ${catkin_LIBRARIES})
 
 #add_library(ed_sensor_integration_plugin
 #	src/sensor_integration_plugin.cpp
