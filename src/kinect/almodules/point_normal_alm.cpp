@@ -56,7 +56,7 @@ void PointNormalALM::configure(tue::Configuration config)
 void PointNormalALM::process(const ed::RGBDData& sensor_data,
                              ed::PointCloudMaskPtr& not_associated_mask,
                              const ed::WorldModel& world_model,
-                             ALMResult& result)
+                             ed::UpdateRequest &req)
 {
 
     //! 1) Get the world model point cloud

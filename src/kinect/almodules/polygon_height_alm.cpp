@@ -6,6 +6,7 @@
 #include <ed/entity.h>
 #include <ed/world_model.h>
 #include <ed/measurement.h>
+#include <ed/update_request.h>
 
 #include <rgbd/Image.h>
 #include <rgbd/View.h>
@@ -38,7 +39,7 @@ void PolygonHeightALM::configure(tue::Configuration config)
 void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
                                ed::PointCloudMaskPtr& not_associated_mask,
                                const ed::WorldModel& world_model,
-                               ALMResult& result)
+                               ed::UpdateRequest &req)
 {
 
     if (not_associated_mask->size())
@@ -66,6 +67,7 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
 
             ed::helpers::visualization::publishConvexHull2DVisualizationMarker(polygon, vis_marker_pub_, i, "bla");
             ++i;
+
 
             bool associated = false;
             ed::UUID associated_id = "";
@@ -97,7 +99,6 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
         // Add the associated clusters
         for (std::map<ed::UUID, std::vector<std::pair<ed::PointCloudMaskPtr,ed::ConvexHull2D> > >::iterator it = associated_entities.begin(); it != associated_entities.end(); ++it)
         {
-            ed::ConvexHull2D polygon;
             ed::PointCloudMaskPtr pcl_mask(new ed::PointCloudMask());
             for (std::vector<std::pair<ed::PointCloudMaskPtr,ed::ConvexHull2D> >::iterator cit = it->second.begin(); cit != it->second.end(); ++cit)
             {
@@ -105,13 +106,19 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
                 {
                     pcl_mask->push_back(cit->first->at(i));
                 }
-                ed::helpers::ddp::add2DConvexHull(cit->second, polygon);
             }
 
             // Create the measurement (For now based on one found convex hull, other info gets rejected)
-            ed::MeasurementPtr m(new ed::Measurement(rgbd_data, pcl_mask, polygon));
+            ed::MeasurementPtr m(new ed::Measurement(rgbd_data, pcl_mask));
 
-            result.addAssociation(it->first, m);
+            req.addMeasurement(it->first, m);
+
+            ed::ConvexHull2D chull;
+            ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, *pcl_mask, rgbd_data.sensor_pose, chull);
+            ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
+            ed::helpers::ddp::removeInViewConvexHullPoints(rgbd_data.image, rgbd_data.sensor_pose, chull);
+            req.addMeasurement(it->first, m);
+            req.setConvexHull(it->first, chull);
         }
     }
 
