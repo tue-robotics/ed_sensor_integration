@@ -111,8 +111,6 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
             // Create the measurement (For now based on one found convex hull, other info gets rejected)
             ed::MeasurementPtr m(new ed::Measurement(rgbd_data, pcl_mask));
 
-            req.addMeasurement(it->first, m);
-
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, *pcl_mask, rgbd_data.sensor_pose, chull);
             ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
