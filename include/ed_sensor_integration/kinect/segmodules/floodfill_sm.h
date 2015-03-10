@@ -1,14 +1,14 @@
 #ifndef ed_sensor_integration_kinect_floodfill_sm_h_
 #define ed_sensor_integration_kinect_floodfill_sm_h_
 
-#include "ed/segmentation_modules/rgbd_seg_module.h"
+#include "ed_sensor_integration/kinect/segmodules/rgbd_seg_module.h"
 
 #include <opencv2/core/core.hpp>
 
 namespace ed
 {
 
-class FloodfillSM : public RGBDSegModule
+class FloodfillSM : public edKinect::RGBDSegModule
 {
 
 public:

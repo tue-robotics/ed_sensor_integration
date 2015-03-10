@@ -1,4 +1,4 @@
-#include "ed/segmentation_modules/floodfill_sm.h"
+#include "ed_sensor_integration/kinect/segmodules/floodfill_sm.h"
 
 #include "ed/helpers/visualization.h"
 
