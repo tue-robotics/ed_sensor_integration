@@ -10,6 +10,9 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/update_request.h>
+#include <ed/helpers/depth_data_processing.h>
+
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace
 {
@@ -135,21 +138,13 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     for(unsigned int i = 0; i < num_beams; ++i)
     {
         float rs = sensor_ranges[i];
-        if (rs <= 0)
-            continue;
-
         float rm = model_ranges[i];
 
-        // If the sensor point is behind the world model, skip it
-        if (rm > 0 && rs > rm)
-            continue;
+        bool skip = (rs <= 0
+                     || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
+                     || (std::abs(rm - rs) < 0.2)); // If the sensor point is within a certain distance of the world model point, skip it (it is associated)
 
-        // If the sensor point is within a certain distance of the world model point, skip it (it is associated)
-        if (std::abs(rm - rs) < 0.2)
-            continue;
-
-        // Check the distance of this points to the last. If it exceeds a threshold, end this segment
-        if (std::abs(rs - last_point_dist) > 0.1)
+        if (skip || (i != current_segment.i_start && std::abs(rs - last_point_dist) > 0.1)) // Check the distance of this points to the last.
         {
             // Check if the segment is long enough
             if (i - current_segment.i_start > 10)
@@ -158,32 +153,43 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 segments.push_back(current_segment);
             }
 
-            current_segment.i_end = i;
+            if (skip)
+                current_segment.i_start = i + 1;
+            else
+                current_segment.i_start = i;
         }
 
-        last_point_dist = rs;
+        if (!skip)
+            last_point_dist = rs;
     }
 
     // - - - - - - - - - - - - - - - - - -
-    // Convert the segments to convex hulls
+    // Convert the segments to convex hulls, and check for collisions with other convex hulls
 
-    unsigned int i_id = 0;
     for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
     {
         const ScanSegment& segment = *it;
+        unsigned int segment_size = segment.i_end - segment.i_start + 1;
 
         ed::ConvexHull2D chull;
         chull.center_point = geo::Vector3(0, 0, 0);
 
-        for(unsigned int i = segment.i_start; i <= segment.i_end; ++i)
+        cv::Mat_<cv::Vec2f> points(1, segment_size);
+
+        for(unsigned int i = 0; i < segment_size; ++i)
         {
+            unsigned int j = segment.i_start + i;
+
             // Calculate the cartesian coordinate of the point in the segment (in sensor frame)
-            geo::Vector3 p_sensor = lrf_model_.rayDirections()[i] * sensor_ranges[i];
+            geo::Vector3 p_sensor = lrf_model_.rayDirections()[j] * sensor_ranges[j];
 
             // Transform to world frame
             geo::Vector3 p = sensor_pose * p_sensor;
 
-            if (chull.chull.empty())
+            // Add to cv array
+            points(0, i) = cv::Vec2f(p.x, p.y);
+
+            if (i == 0)
             {
                 chull.min_z = p.z;
                 chull.max_z = p.z;
@@ -194,22 +200,45 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 chull.max_z = std::min(chull.max_z, p.z);
             }
 
-            chull.chull.push_back(pcl::PointXYZ(p.x, p.y, p.z));
-
             chull.center_point += p;
         }
 
-        chull.center_point = chull.center_point / (segment.i_end - segment.i_start + 1);
+        chull.center_point = chull.center_point / segment_size;
+        chull.center_point.z = (chull.min_z + chull.max_z) / 2;
 
-        std::stringstream ss;
-        ss << "temp-id-" << i_id << std::endl;
-        ++i_id;
+        std::vector<int> chull_indices;
+        cv::convexHull(points, chull_indices);
 
-        req.setType(ss.str(), "bla");
-        req.setConvexHull(ss.str(), chull);
+        for(unsigned int i = 0; i < chull_indices.size(); ++i)
+        {
+            const cv::Vec2f& p = points.at<cv::Vec2f>(chull_indices[i]);
+            chull.chull.push_back(pcl::PointXYZ(p[0], p[1], 0));
+        }
+
+        // Check for collisions with convex hulls of existing entities
+        bool associated = false;
+        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+        {
+            const ed::EntityConstPtr& e = *e_it;
+            if (e->shape())
+                continue;
+
+            // Multiple measurements per entity BUT 1 entity per measurement
+            double overlap_factor;
+            if ( ed::helpers::ddp::polygonCollisionCheck(chull, e->convexHull(), overlap_factor) )
+            {
+                associated = true;
+                break;
+            }
+        }
+
+        if (!associated)
+        {
+            ed::UUID id = ed::Entity::generateID();
+            req.setConvexHull(id, chull);
+        }
     }
 
-//    std::cout << text_ << std::endl;
 }
 
 
