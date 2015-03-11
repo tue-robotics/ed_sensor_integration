@@ -17,20 +17,6 @@
 namespace edKinect
 {
 
-class ALMResult
-{
-
-public:
-
-    void addAssociation(const ed::UUID& id, const ed::MeasurementConstPtr& m)
-    {
-        associations[id].push_back(m);
-    }
-
-    std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> > associations;
-
-};
-
 class RGBDALModule
 {
 
@@ -50,7 +36,7 @@ public:
     virtual void process(const ed::RGBDData& rgbd_data,
                          ed::PointCloudMaskPtr& not_associated_mask,
                          const ed::WorldModel& world_model,
-                         ALMResult& result) = 0;
+                         ed::UpdateRequest& req) = 0;
 
     virtual void configure(tue::Configuration config) = 0;
 
