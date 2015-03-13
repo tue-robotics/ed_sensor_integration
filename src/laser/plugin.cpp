@@ -23,8 +23,67 @@ struct ScanSegment
     unsigned int i_end;
 };
 
+// ----------------------------------------------------------------------------------------------------
+
+bool checkConvexPolygonCollision(const ed::ConvexHull2D& c1, const ed::ConvexHull2D& c2, float xy_padding = 0, float z_padding = 0)
+{
+    if (c1.chull.size() < 3 || c2.chull.size() < 3)
+        return false;
+
+    if (c1.max_z < (c2.min_z - 2 * z_padding) || c2.max_z < (c1.min_z - 2 * z_padding))
+        return false;
+
+    for(unsigned int i = 0; i < c1.chull.size(); ++i)
+    {
+        unsigned int j = (i + 1) % c1.chull.size();
+        geo::Vec2f p1 = (c1.chull[i].x, c1.chull[i].y);
+
+        // Calculate edge
+        geo::Vec2f e = geo::Vec2f(c1.chull[j].x, c1.chull[j].y) - p1;
+
+        // Calculate normal
+        geo::Vec2f n(e.y, -e.x);
+
+        // Calculate min and max projection of pol1
+        float min1 = n.dot(geo::Vec2f(c1.chull[0].x, c1.chull[0].y) - p1);
+        float max1 = min1;
+        for(unsigned int k = 1; k < c1.chull.size(); ++k)
+        {
+            // Calculate projection
+            float p = n.dot(geo::Vec2f(c1.chull[k].x, c1.chull[k].y) - p1);
+            min1 = std::min(min1, p);
+            max1 = std::min(max1, p);
+        }
+
+        // Apply padding to both sides
+        min1 -= xy_padding;
+        max1 += xy_padding;
+
+        // If this bool stays true, there is definitely no collision
+        bool no_collision = true;
+
+        // Check if pol2's projected points are in pol1 projected bounds
+        for(unsigned int k = 1; k < c2.chull.size(); ++k)
+        {
+            // Calculate projection
+            float p = n.dot(geo::Vec2f(c2.chull[k].x, c2.chull[k].y) - p1);
+
+            // Check bounds
+            if (p > min1 && p < max1)
+            {
+                no_collision = false;
+                break;
+            }
+        }
+
+        if (no_collision)
+            return false;
+    }
+
+    return true;
 }
 
+}
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -56,6 +115,14 @@ void LaserPlugin::configure(tue::Configuration config)
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 10, &LaserPlugin::scanCallback, this);
 
     tf_listener_ = new tf::TransformListener;
+
+    min_segment_size_ = 10;
+    world_association_distance_ = 0.2;
+    segment_depth_threshold_ = 0.1;
+
+    // Collision check padding
+    xy_padding_ = 0.02;
+    z_padding_ = 0.02;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -142,12 +209,12 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         bool skip = (rs <= 0
                      || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
-                     || (std::abs(rm - rs) < 0.2)); // If the sensor point is within a certain distance of the world model point, skip it (it is associated)
+                     || (std::abs(rm - rs) < world_association_distance_)); // If the sensor point is within a certain distance of the world model point, skip it (it is associated)
 
-        if (skip || (i != current_segment.i_start && std::abs(rs - last_point_dist) > 0.1)) // Check the distance of this points to the last.
+        if (skip || (i != current_segment.i_start && std::abs(rs - last_point_dist) > segment_depth_threshold_)) // Check the distance of this points to the last.
         {
             // Check if the segment is long enough
-            if (i - current_segment.i_start > 10)
+            if (i - current_segment.i_start > min_segment_size_)
             {
                 current_segment.i_end = i - 1;
                 segments.push_back(current_segment);
@@ -223,9 +290,8 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             if (e->shape())
                 continue;
 
-            // Multiple measurements per entity BUT 1 entity per measurement
-            double overlap_factor;
-            if ( ed::helpers::ddp::polygonCollisionCheck(chull, e->convexHull(), overlap_factor) )
+            // Check if the convex hulls collide
+            if (checkConvexPolygonCollision(chull, e->convexHull(), xy_padding_, z_padding_))
             {
                 associated = true;
                 break;

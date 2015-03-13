@@ -42,7 +42,13 @@ private:
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
 
+    // PARAMETERS
 
+    float xy_padding_;
+    float z_padding_;
+    int min_segment_size_;
+    float world_association_distance_;
+    float segment_depth_threshold_;
 
 };
 
