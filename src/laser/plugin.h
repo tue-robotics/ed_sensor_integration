@@ -15,6 +15,11 @@
 // Messages
 #include <sensor_msgs/LaserScan.h>
 
+// Properties
+#include "ed_sensor_integration/properties/convex_hull.h"
+
+// ----------------------------------------------------------------------------------------------------
+
 class LaserPlugin : public ed::Plugin
 {
 
@@ -24,11 +29,19 @@ public:
 
     virtual ~LaserPlugin();
 
-    void configure(tue::Configuration config);
+    void initialize(ed::InitData& init);
 
     void process(const ed::WorldModel& world, ed::UpdateRequest& req);
 
 private:
+
+    // PROPERTIES
+
+    ed::PropertyKey<ConvexHull> k_convex_hull_;
+    ed::PropertyKey<geo::Pose3D> k_pose_;
+
+
+    //
 
     ros::CallbackQueue cb_queue_;
 
@@ -41,6 +54,7 @@ private:
     geo::LaserRangeFinder lrf_model_;
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+
 
     // PARAMETERS
 
