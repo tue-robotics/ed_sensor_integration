@@ -50,7 +50,7 @@ public:
     void process(ed::RGBDData &rgbd_data,
                  ed::PointCloudMaskPtr& not_associated_mask,
                  const ed::WorldModel& world_model,
-                 ALMResult& result);
+                 ed::UpdateRequest &req);
 
     geo::Transform eigenMat2geoTransform(Eigen::Matrix<float,4,4> T);
 
