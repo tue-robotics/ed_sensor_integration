@@ -248,7 +248,14 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     // Calculate normal
                     geo::Vector3 n = ((p3 - p1).cross(p2 - p1)).normalized();
 
-                    model_normals.push_back(sensor_pose.R * n);
+                    // Transform to camera frame
+                    n = pose.R * n;
+
+                    // Why is this needed? (geolib vs ROS frame?)
+                    n.x = -n.x;
+                    n.y = -n.y;
+
+                    model_normals.push_back(n);
                 }
 
                 res.i_normal_offset += triangles.size();
@@ -265,9 +272,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     for(unsigned int i = 0; i < size; ++i)
     {
         int i_normal = normal_map.at<int>(i);
-
-//        std::cout << i_normal << " / " << model_normals.size() << std::endl;
-
 
         if (i_normal >= 0)
         {
