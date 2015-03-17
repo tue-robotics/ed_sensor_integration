@@ -46,7 +46,7 @@ public:
     void process(const ed::RGBDData& rgbd_data,
                  ed::PointCloudMaskPtr& not_associated_mask,
                  const ed::WorldModel &world_model,
-                 ALMResult& result);
+                 ed::UpdateRequest& req);
 
     void configure(tue::Configuration config);
 

@@ -5,6 +5,7 @@
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
+#include <ed/helpers/depth_data_processing.h>
 
 
 #include <pcl/filters/passthrough.h>
@@ -388,18 +389,9 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     for(unsigned int i = 0; i < pc_mask->size(); ++i)
         (*pc_mask)[i] = i;
 
-    edKinect::ALMResult alm_result;
-
     // process data using hard coded modules
-    point_normal_alm_.process(rgbd_data,pc_mask,world,alm_result);
-    polygon_height_alm_.process(rgbd_data,pc_mask,world,alm_result);
-
-    for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = alm_result.associations.begin(); it != alm_result.associations.end(); ++it)
-    {
-        const std::vector<ed::MeasurementConstPtr>& measurements = it->second;
-        req.addMeasurements(it->first, measurements);
-    }
-
+    point_normal_alm_.process(rgbd_data, pc_mask, world, req);
+    polygon_height_alm_.process(rgbd_data, pc_mask, world, req);
 
     // - - - - - - - - - - - - - - - - - -
     // Segmentation of residual sensor data
@@ -415,7 +407,11 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         {
 
             ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
-            req.addMeasurement(ed::Entity::generateID(), m);
+            ed::UUID id = ed::Entity::generateID();
+            ed::ConvexHull2D chull;
+            ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, **it, sensor_pose, chull);
+            req.addMeasurement(id, m);
+            req.setConvexHull(id, chull);
         }
     }
 
