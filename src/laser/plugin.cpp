@@ -80,40 +80,6 @@ void LaserPlugin::initialize(ed::InitData& init)
 
 void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 {
-    // Temp
-
-    std::stringstream ss;
-    ed::io::JSONWriter w(ss);
-    w.writeArray("entities");
-
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-    {
-        w.addArrayItem();
-
-        const ed::EntityConstPtr& e = *it;
-
-        w.writeValue("id", e->id().str());
-
-        const std::map<ed::Idx, ed::Property>& props = e->properties();
-        for(std::map<ed::Idx, ed::Property>::const_iterator it2 = props.begin(); it2 != props.end(); ++it2)
-        {
-            const ed::Property& prop = it2->second;
-            if (prop.entry->info->serializable())
-            {
-                w.writeGroup(prop.entry->name);
-                prop.entry->info->serialize(prop.value, w);
-                w.endGroup();
-            }
-        }
-        w.endArrayItem();
-    }
-    w.endArray();
-
-    w.finish();
-
-    std::cout << ss.str() << std::endl;
-
-
     scan_msg_.reset();
     cb_queue_.callAvailable();
 
@@ -312,18 +278,6 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, pose);
             req.setProperty(id, k_convex_hull_, chull);          
-
-            std::stringstream ss;
-            ed::io::JSONWriter w(ss);
-
-            ConvexHullInfo inf;
-//            inf.serialize(chull, w);
-            k_convex_hull_.entry->info->serialize(chull, w);
-            w.finish();
-
-            std::cout << ss.str() << std::endl;
-
-            std::cout << "Added convex hull at " << pose << std::endl;
         }
     }
 }
