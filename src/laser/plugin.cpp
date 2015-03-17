@@ -10,9 +10,16 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/update_request.h>
-#include <ed/helpers/depth_data_processing.h>
+//#include <ed/helpers/depth_data_processing.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
+
+#include "ed_sensor_integration/properties/convex_hull_info.h"
+#include "ed_sensor_integration/properties/convex_hull_calc.h"
+
+#include "ed_sensor_integration/properties/pose_info.h"
+
+#include <ed/io/json_writer.h>
 
 namespace
 {
@@ -22,66 +29,6 @@ struct ScanSegment
     unsigned int i_start;
     unsigned int i_end;
 };
-
-// ----------------------------------------------------------------------------------------------------
-
-bool checkConvexPolygonCollision(const ed::ConvexHull2D& c1, const ed::ConvexHull2D& c2, float xy_padding = 0, float z_padding = 0)
-{
-    if (c1.chull.size() < 3 || c2.chull.size() < 3)
-        return false;
-
-    if (c1.max_z < (c2.min_z - 2 * z_padding) || c2.max_z < (c1.min_z - 2 * z_padding))
-        return false;
-
-    for(unsigned int i = 0; i < c1.chull.size(); ++i)
-    {
-        unsigned int j = (i + 1) % c1.chull.size();
-        geo::Vec2f p1 = (c1.chull[i].x, c1.chull[i].y);
-
-        // Calculate edge
-        geo::Vec2f e = geo::Vec2f(c1.chull[j].x, c1.chull[j].y) - p1;
-
-        // Calculate normal
-        geo::Vec2f n(e.y, -e.x);
-
-        // Calculate min and max projection of pol1
-        float min1 = n.dot(geo::Vec2f(c1.chull[0].x, c1.chull[0].y) - p1);
-        float max1 = min1;
-        for(unsigned int k = 1; k < c1.chull.size(); ++k)
-        {
-            // Calculate projection
-            float p = n.dot(geo::Vec2f(c1.chull[k].x, c1.chull[k].y) - p1);
-            min1 = std::min(min1, p);
-            max1 = std::min(max1, p);
-        }
-
-        // Apply padding to both sides
-        min1 -= xy_padding;
-        max1 += xy_padding;
-
-        // If this bool stays true, there is definitely no collision
-        bool no_collision = true;
-
-        // Check if pol2's projected points are in pol1 projected bounds
-        for(unsigned int k = 1; k < c2.chull.size(); ++k)
-        {
-            // Calculate projection
-            float p = n.dot(geo::Vec2f(c2.chull[k].x, c2.chull[k].y) - p1);
-
-            // Check bounds
-            if (p > min1 && p < max1)
-            {
-                no_collision = false;
-                break;
-            }
-        }
-
-        if (no_collision)
-            return false;
-    }
-
-    return true;
-}
 
 }
 
@@ -100,12 +47,12 @@ LaserPlugin::~LaserPlugin()
 
 // ----------------------------------------------------------------------------------------------------
 
-void LaserPlugin::configure(tue::Configuration config)
+void LaserPlugin::initialize(ed::InitData& init)
 {
     std::string laser_topic;
-    config.value("laser_topic", laser_topic);
+    init.config.value("laser_topic", laser_topic);
 
-    if (config.hasError())
+    if (init.config.hasError())
         return;
 
     ros::NodeHandle nh;
@@ -123,6 +70,10 @@ void LaserPlugin::configure(tue::Configuration config)
     // Collision check padding
     xy_padding_ = 0.02;
     z_padding_ = 0.02;
+
+    // Register properties
+    init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
+    init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -238,11 +189,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         const ScanSegment& segment = *it;
         unsigned int segment_size = segment.i_end - segment.i_start + 1;
 
-        ed::ConvexHull2D chull;
-        chull.center_point = geo::Vector3(0, 0, 0);
-
         cv::Mat_<cv::Vec2f> points(1, segment_size);
 
+        float z_min, z_max;
         for(unsigned int i = 0; i < segment_size; ++i)
         {
             unsigned int j = segment.i_start + i;
@@ -258,29 +207,51 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
             if (i == 0)
             {
-                chull.min_z = p.z;
-                chull.max_z = p.z;
+                z_min = p.z;
+                z_max = p.z;
             }
             else
             {
-                chull.min_z = std::min(chull.min_z, p.z);
-                chull.max_z = std::min(chull.max_z, p.z);
+                z_min = std::min<float>(z_min, p.z);
+                z_max = std::min<float>(z_max, p.z);
             }
-
-            chull.center_point += p;
         }
 
-        chull.center_point = chull.center_point / segment_size;
-        chull.center_point.z = (chull.min_z + chull.max_z) / 2;
+        geo::Pose3D pose = geo::Pose3D::identity();
+        pose.t.z = (z_min + z_max) / 2;
 
         std::vector<int> chull_indices;
         cv::convexHull(points, chull_indices);
 
+        ConvexHull chull;
+        chull.z_min = z_min - pose.t.z;
+        chull.z_max = z_max - pose.t.z;
+
         for(unsigned int i = 0; i < chull_indices.size(); ++i)
         {
-            const cv::Vec2f& p = points.at<cv::Vec2f>(chull_indices[i]);
-            chull.chull.push_back(pcl::PointXYZ(p[0], p[1], 0));
+            const cv::Vec2f& p_cv = points.at<cv::Vec2f>(chull_indices[i]);
+            geo::Vec2f p(p_cv[0], p_cv[1]);
+
+            chull.points.push_back(p);
+
+            pose.t.x += p.x;
+            pose.t.y += p.y;
         }
+
+        // Average segment position
+        pose.t.x /= chull.points.size();
+        pose.t.y /= chull.points.size();
+
+        // Move all points to the pose frame
+        for(unsigned int i = 0; i < chull.points.size(); ++i)
+        {
+            geo::Vec2f& p = chull.points[i];
+            p.x -= pose.t.x;
+            p.y -= pose.t.y;
+        }
+
+        // Calculate normals and edges
+        convex_hull::calculateEdgesAndNormals(chull);
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
@@ -290,8 +261,12 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             if (e->shape())
                 continue;
 
+            const geo::Pose3D* other_pose = e->property(k_pose_);
+            const ConvexHull* other_chull = e->property(k_convex_hull_);
+
             // Check if the convex hulls collide
-            if (checkConvexPolygonCollision(chull, e->convexHull(), xy_padding_, z_padding_))
+            if (other_pose && other_chull
+                    && convex_hull::collide(*other_chull, other_pose->t, chull, pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
                 break;
@@ -301,12 +276,11 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         if (!associated)
         {
             ed::UUID id = ed::Entity::generateID();
-            req.setConvexHull(id, chull);
+            req.setProperty(id, k_pose_, pose);
+            req.setProperty(id, k_convex_hull_, chull);          
         }
     }
-
 }
-
 
 // ----------------------------------------------------------------------------------------------------
 
