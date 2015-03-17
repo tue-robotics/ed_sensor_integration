@@ -78,20 +78,24 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
                 if (e->shape())
                     continue;
 
-                // Multiple measurements per entity BUT 1 entity per measurement
+                // 1 measurement per entity and 1 entity per measurement
                 double overlap_factor;
                 if ( ed::helpers::ddp::polygonCollisionCheck(polygon, e->convexHull(), overlap_factor) )
                 {
-                    associated = true;
-                    associated_id = e->id();
-                    break;
+                    if ( associated )
+                    {
+                        associated_entities.erase(e->id());
+                    }
+                    else
+                    {
+                        // Keep track of entities that have been associated
+                        associated_entities[e->id()].push_back(std::make_pair<ed::PointCloudMaskPtr, ed::ConvexHull2D>(cluster,polygon));
+                        associated = true;
+                    }
                 }
             }
 
-            if (associated)
-                // Keep track of entities that have been associated
-                associated_entities[associated_id].push_back(std::make_pair<ed::PointCloudMaskPtr, ed::ConvexHull2D>(cluster,polygon));
-            else
+            if (!associated)
                 not_associated_mask->insert(not_associated_mask->end(), cluster->begin(), cluster->end());
         }
         profiler_.stopTimer();
