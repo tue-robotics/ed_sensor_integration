@@ -19,6 +19,9 @@
 #include <pcl/features/integral_image_normal.h>
 //#include <pcl/visualization/cloud_viewer.h>
 
+// Rendering
+#include <ed/world_model/transform_crawler.h>
+
 #include <opencv2/highgui/highgui.hpp>
 
 #include <tue/profiling/timer.h>
@@ -218,12 +221,70 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     SampleRenderResult res(model, normal_map);
 
+    geo::Pose3D p_corr(geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1), geo::Vector3(0, 0, 0));
+
+    std::set<ed::UUID> rendered_entities;
+
+    std::string cam_id = rgbd_image->getFrameId();
+    if (cam_id[0] == '/')
+        cam_id = cam_id.substr(1);
+
+    for(ed::world_model::TransformCrawler tc(world, cam_id, rgbd_image->getTimestamp()); tc.hasNext(); tc.next())
+    {
+        const ed::EntityConstPtr& e = tc.entity();
+        if (e->shape())
+        {
+            res.in_view = false;
+
+            const geo::Mesh& mesh = e->shape()->getMesh();
+
+            geo::Pose3D pose = p_corr * tc.transform();
+            geo::RenderOptions opt;
+            opt.setMesh(mesh, pose);
+
+            // Render
+            cam_model.render(opt, res);
+
+            if (res.in_view)
+            {
+                const std::vector<geo::TriangleI>& triangles = mesh.getTriangleIs();
+                const std::vector<geo::Vector3>& vertices = mesh.getPoints();
+
+                for(unsigned int i = 0; i < triangles.size(); ++i)
+                {
+                    const geo::TriangleI& t = triangles[i];
+                    const geo::Vector3& p1 = vertices[t.i1_];
+                    const geo::Vector3& p2 = vertices[t.i2_];
+                    const geo::Vector3& p3 = vertices[t.i3_];
+
+                    // Calculate normal
+                    geo::Vector3 n = ((p3 - p1).cross(p2 - p1)).normalized();
+
+                    // Transform to camera frame
+                    n = pose.R * n;
+
+                    // Why is this needed? (geolib vs ROS frame?)
+                    n.x = -n.x;
+                    n.y = -n.y;
+
+                    model_normals.push_back(n);
+                }
+
+                res.i_normal_offset += triangles.size();
+            }
+
+            rendered_entities.insert(e->id());
+        }
+    }
+
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape())
+        if (e->shape() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
+            res.in_view = false;
+
             const geo::Mesh& mesh = e->shape()->getMesh();
 
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();

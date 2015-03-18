@@ -74,7 +74,7 @@ void PointNormalALM::process(const ed::RGBDData& sensor_data,
         edKinect::WorldModelRenderer wmr;
         cv::Mat wm_depth_img = cv::Mat::zeros(sensor_view.getHeight(), sensor_view.getWidth(), CV_32F);
         pcl::PointCloud<pcl::PointXYZ>::Ptr world_model_pcl(new pcl::PointCloud<pcl::PointXYZ>);
-        wmr.render(sensor_data.sensor_pose, world_model, render_max_range_, sensor_view, wm_depth_img, *world_model_pcl, world_model_pc_entity_ptrs);
+        wmr.render(sensor_data, world_model, render_max_range_, sensor_view, wm_depth_img, *world_model_pcl, world_model_pc_entity_ptrs);
 
         profiler_.stopTimer();
 
