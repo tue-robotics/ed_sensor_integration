@@ -59,6 +59,32 @@ public:
 
 // ----------------------------------------------------------------------------------------------------
 
+bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal>& pc, int x, int y, float& min_dist_sq)
+{
+    const pcl::PointNormal& p2 = pc.points[pc.width * y + x];
+
+    float dx = p2.x - p.x;
+    float dy = p2.y - p.y;
+    float dz = p2.z - p.z;
+
+    float dist_sq = dx * dx + dy * dy + dz * dz;
+
+    if (dist_sq < min_dist_sq)
+    {
+        // Check normals
+        float dot = p.normal_x * p2.normal_x + p.normal_y * p2.normal_y + p.normal_z * p2.normal_z;
+        if (dot > 0.8)
+        {
+            min_dist_sq = dist_sq;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 // Define a new point representation for the association
 class AssociationPR : public pcl::PointRepresentation <pcl::PointNormal>
 {
@@ -454,45 +480,92 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     cv::waitKey(3);
 
     // - - - - - - - - - - - - - - - - - -
+    // Filter sensor points behind world model
+
+    for(unsigned int i = 0; i < size; ++i)
+    {
+        pcl::PointNormal& ps = pc->points[i];
+        const pcl::PointNormal& pm = pc_model->points[i];
+
+        if (ps.x == ps.x && pm.x == pm.x && ps.z > pm.z)
+            ps.x = NAN;
+    }
+
+    // - - - - - - - - - - - - - - - - - -
     // Perform point normal association
 
+    tue::Timer t_assoc;
+    t_assoc.start();
+
     double association_correspondence_distance_ = 0.2;
-    float pw = 1;//position_weight_;
-    float cw = 0.3;//1;//normal_weight_;
-    float alpha[6] = {pw,pw,pw,cw,cw,cw};
+//    float pw = 1;//position_weight_;
+//    float cw = 0.3;//1;//normal_weight_;
+//    float alpha[6] = {pw,pw,pw,cw,cw,cw};
 
-    std::cout << pc_model->points.size() << " " << pc_model_unorganized->points.size() << std::endl;
+//    AssociationPR point_representation_;
+//    point_representation_.setRescaleValues (alpha);
 
-    AssociationPR point_representation_;
-    point_representation_.setRescaleValues (alpha);
+//    pcl::KdTreeFLANN<pcl::PointNormal>::Ptr tree_(new pcl::KdTreeFLANN<pcl::PointNormal>);
 
-    pcl::KdTreeFLANN<pcl::PointNormal>::Ptr tree_(new pcl::KdTreeFLANN<pcl::PointNormal>);
+//    tree_->setPointRepresentation (boost::make_shared<const AssociationPR> (point_representation_));
+//    tree_->setInputCloud(pc_model_unorganized);
 
-    tree_->setPointRepresentation (boost::make_shared<const AssociationPR> (point_representation_));
-    tree_->setInputCloud(pc_model_unorganized);
+    cv::Mat viz_assoc(depth.rows, depth.cols, CV_32FC1, 0.0);
 
-    cv::Mat viz_assoc = depth.clone();
-
-    for (unsigned int i = 0; i < size; ++i)
+    int w_max = 10;
+    for(int y = w_max; y < depth.rows - w_max; ++y)
     {
-        const pcl::PointNormal& p = pc->points[i];
-
-        if (p.x == p.x && p.normal_x == p.normal_x)
+        for(int x = w_max; x < depth.cols - w_max; ++x)
         {
-            std::vector<int> k_indices(1);
-            std::vector<float> k_sqr_distances(1);
+            const pcl::PointNormal& p = pc->points[depth.cols * y + x];
 
-            if (tree_->radiusSearch(p, association_correspondence_distance_, k_indices, k_sqr_distances, 1))
+            if (p.x != p.x || p.normal_x != p.normal_x)
+                continue;
+
+            bool associates = false;
+            float min_dist_sq = association_correspondence_distance_;
+
+            int w = std::min<int>(min_dist_sq * cam_model.getOpticalCenterX() / p.z, w_max);
+
+            for(int dx = 0; dx < w && !associates; ++dx)
             {
-                viz_assoc.at<float>(i) = 0;
-                // associates
+                associates = pointAssociates(p, *pc_model, x - dx, y, min_dist_sq) || pointAssociates(p, *pc_model, x + dx, y, min_dist_sq);
+            }
+
+            for(int dy = 0; dy < w && !associates; ++dy)
+            {
+                associates = pointAssociates(p, *pc_model, x, y - dy, min_dist_sq) || pointAssociates(p, *pc_model, x, y + dy, min_dist_sq);
+            }
+
+            if (!associates)
+            {
+                viz_assoc.at<float>(y, x) = depth.at<float>(y, x);
             }
         }
-        else
-        {
-            viz_assoc.at<float>(i) = 0;
-        }
     }
+
+    std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+//    for (unsigned int i = 0; i < size; ++i)
+//    {
+//        const pcl::PointNormal& p = pc->points[i];
+
+//        if (p.x == p.x && p.normal_x == p.normal_x)
+//        {
+//            std::vector<int> k_indices(1);
+//            std::vector<float> k_sqr_distances(1);
+
+//            if (tree_->radiusSearch(p, association_correspondence_distance_, k_indices, k_sqr_distances, 1))
+//            {
+//                viz_assoc.at<float>(i) = 0;
+//                // associates
+//            }
+//        }
+//        else
+//        {
+//            viz_assoc.at<float>(i) = 0;
+//        }
+//    }
 
     cv::imshow("residual", viz_assoc / 8);
     cv::waitKey(3);
