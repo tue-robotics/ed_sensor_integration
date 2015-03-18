@@ -406,13 +406,16 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         for (std::vector<ed::PointCloudMaskPtr>::const_iterator it = segments.begin(); it != segments.end(); ++it)
         {
-
-            ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
-            ed::UUID id = ed::Entity::generateID();
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, **it, sensor_pose, chull);
-            req.addMeasurement(id, m);
-            req.setConvexHull(id, chull);
+
+            if (chull.area() > 0.001)
+            {
+                ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
+                ed::UUID id = ed::Entity::generateID();
+                req.addMeasurement(id, m);
+                req.setConvexHull(id, chull);
+            }
         }
     }
 
