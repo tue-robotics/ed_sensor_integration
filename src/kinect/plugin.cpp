@@ -409,6 +409,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, **it, sensor_pose, chull);
 
+            // Only add wm entity when chull is big enough
             if (chull.area() > 0.001)
             {
                 ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));

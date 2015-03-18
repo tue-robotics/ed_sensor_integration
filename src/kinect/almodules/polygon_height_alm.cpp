@@ -144,7 +144,6 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, *pcl_mask, rgbd_data.sensor_pose, chull);
 
-            std::cout << chull.area() << std::endl;
             if ( chull.area() > 0.001 ) // TODO: magic numbers!
             {
                 ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
