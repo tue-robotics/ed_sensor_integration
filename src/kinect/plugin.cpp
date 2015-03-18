@@ -405,7 +405,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 ed::MeasurementConstPtr m = e->lastMeasurement();
 
-                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0)
+                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0) // TODO: get rid of this
                 {
                     entities_in_view_not_associated.push_back(e->id());
                 }
