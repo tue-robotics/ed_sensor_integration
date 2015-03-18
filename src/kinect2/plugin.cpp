@@ -125,11 +125,33 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     std::cout << sensor_pose << std::endl;
 
+    // - - - - - - - - - - - - - - - - - -
+    // Downsample depth image
+
+    int factor = 2;
+
+    const cv::Mat& depth_original = rgbd_image->getDepthImage();
+
+    cv::Mat depth;
+    if (factor == 1)
+    {
+        depth = depth_original;
+    }
+    else
+    {
+        depth = cv::Mat(depth_original.rows / factor, depth_original.cols / factor, CV_32FC1, 0.0);
+
+        for(int y = 0; y < depth.rows; ++y)
+        {
+            for(int x = 0; x < depth.cols; ++x)
+            {
+                depth.at<float>(y, x) = depth_original.at<float>(y * factor, x * factor);
+            }
+        }
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Convert depth map to point cloud
-
-    const cv::Mat& depth = rgbd_image->getDepthImage();
 
     rgbd::View view(*rgbd_image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
@@ -177,7 +199,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
     ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
     ne.setMaxDepthChangeFactor(0.02f);
-    ne.setNormalSmoothingSize(20.0f);
+    ne.setNormalSmoothingSize(20.0f / factor);
     ne.setViewPoint(0, 0, 0);
     ne.setInputCloud(pc);
     ne.compute(*normals);
