@@ -406,13 +406,17 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         for (std::vector<ed::PointCloudMaskPtr>::const_iterator it = segments.begin(); it != segments.end(); ++it)
         {
-
-            ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
-            ed::UUID id = ed::Entity::generateID();
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, **it, sensor_pose, chull);
-            req.addMeasurement(id, m);
-            req.setConvexHull(id, chull);
+
+            // Only add wm entity when chull is big enough
+            if (chull.area() > 0.001)
+            {
+                ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
+                ed::UUID id = ed::Entity::generateID();
+                req.addMeasurement(id, m);
+                req.setConvexHull(id, chull);
+            }
         }
     }
 
@@ -432,7 +436,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 ed::MeasurementConstPtr m = e->lastMeasurement();
 
-                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0)
+                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0) // TODO: get rid of this
                 {
                     entities_in_view_not_associated.push_back(e->id());
                 }
