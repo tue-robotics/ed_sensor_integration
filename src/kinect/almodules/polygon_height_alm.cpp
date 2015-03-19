@@ -22,9 +22,9 @@ void PolygonHeightALM::configure(tue::Configuration config)
 {
     if (config.readGroup("parameters"))
     {
+        config.value("max_range",max_range_);
         config.value("tolerance", tolerance_);
         config.value("min_cluster_size", min_cluster_size_);
-
         config.value("visualize", visualize_);
 
         std::cout << "Parameters polygon height association: \n" <<
@@ -147,7 +147,7 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
             if ( chull.area() > 0.001 ) // TODO: magic numbers!
             {
                 ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
-                ed::helpers::ddp::removeInViewConvexHullPoints(rgbd_data.image, rgbd_data.sensor_pose, chull);
+                ed::helpers::ddp::removeInViewConvexHullPoints(rgbd_data.image, rgbd_data.sensor_pose, chull, max_range_);
                 req.addMeasurement(it->first, m);
                 req.setConvexHull(it->first, chull);
             }

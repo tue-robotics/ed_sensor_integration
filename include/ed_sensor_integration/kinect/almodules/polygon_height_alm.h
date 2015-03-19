@@ -27,6 +27,7 @@ protected:
     /// Tunable params
     double tolerance_;
     int min_cluster_size_;
+    float max_range_;
 
 };
 
