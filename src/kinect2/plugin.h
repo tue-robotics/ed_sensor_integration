@@ -26,6 +26,13 @@ public:
 
 private:
 
+    // PARAMETERS
+
+    float association_correspondence_distance_;
+    float max_range_;
+
+    // COMMUNICATION
+
     std::string topic_;
 
     rgbd::Client kinect_client_;

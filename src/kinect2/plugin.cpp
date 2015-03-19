@@ -136,6 +136,9 @@ void KinectPlugin::initialize(ed::InitData& init)
         kinect_client_.intialize(topic_);
     }
 
+    config.value("max_correspondence_distance", association_correspondence_distance_);
+    config.value("max_range", max_range_);
+
     tf_listener_ = new tf::TransformListener;
 }
 
@@ -408,10 +411,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     pc_model->height = depth_model.rows;
     pc_model->is_dense = false; // may contain NaNs
 
-    pcl::PointCloud<pcl::PointNormal>::Ptr pc_model_unorganized(new pcl::PointCloud<pcl::PointNormal>);
-    pc_model_unorganized->is_dense = true;
-    pc_model_unorganized->height = 1;
-
     {
         unsigned int i = 0;
         for(int y = 0; y < depth_model.rows; ++y)
@@ -434,8 +433,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     p.normal_x = n.x;
                     p.normal_y = n.y;
                     p.normal_z = n.z;
-
-                    pc_model_unorganized->points.push_back(p);
                 }
                 else
                 {
@@ -451,7 +448,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 
     std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
-
 
     // Visualize
     cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -480,15 +476,18 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     cv::waitKey(3);
 
     // - - - - - - - - - - - - - - - - - -
-    // Filter sensor points behind world model
+    // Filter sensor points that are too far or behind world model
 
     for(unsigned int i = 0; i < size; ++i)
     {
         pcl::PointNormal& ps = pc->points[i];
         const pcl::PointNormal& pm = pc_model->points[i];
 
-        if (ps.x == ps.x && pm.x == pm.x && ps.z > pm.z)
-            ps.x = NAN;
+        if (ps.x == ps.x)
+        {
+            if ((ps.z > max_range_) || (pm.x == pm.x && ps.z > pm.z))
+                ps.x = NAN;
+        }
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -496,19 +495,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     tue::Timer t_assoc;
     t_assoc.start();
-
-    double association_correspondence_distance_ = 0.2;
-//    float pw = 1;//position_weight_;
-//    float cw = 0.3;//1;//normal_weight_;
-//    float alpha[6] = {pw,pw,pw,cw,cw,cw};
-
-//    AssociationPR point_representation_;
-//    point_representation_.setRescaleValues (alpha);
-
-//    pcl::KdTreeFLANN<pcl::PointNormal>::Ptr tree_(new pcl::KdTreeFLANN<pcl::PointNormal>);
-
-//    tree_->setPointRepresentation (boost::make_shared<const AssociationPR> (point_representation_));
-//    tree_->setInputCloud(pc_model_unorganized);
 
     cv::Mat viz_assoc(depth.rows, depth.cols, CV_32FC1, 0.0);
 
@@ -527,14 +513,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             int w = std::min<int>(min_dist_sq * cam_model.getOpticalCenterX() / p.z, w_max);
 
-            for(int dx = 0; dx < w && !associates; ++dx)
-            {
-                associates = pointAssociates(p, *pc_model, x - dx, y, min_dist_sq) || pointAssociates(p, *pc_model, x + dx, y, min_dist_sq);
-            }
+            associates = pointAssociates(p, *pc_model, x, y, min_dist_sq);
 
-            for(int dy = 0; dy < w && !associates; ++dy)
+            for(int d = 1; d < w && !associates; ++d)
             {
-                associates = pointAssociates(p, *pc_model, x, y - dy, min_dist_sq) || pointAssociates(p, *pc_model, x, y + dy, min_dist_sq);
+                associates =
+                        pointAssociates(p, *pc_model, x - d, y, min_dist_sq) ||
+                        pointAssociates(p, *pc_model, x + d, y, min_dist_sq) ||
+                        pointAssociates(p, *pc_model, x, y - d, min_dist_sq) ||
+                        pointAssociates(p, *pc_model, x, y + d, min_dist_sq);
             }
 
             if (!associates)
@@ -545,27 +532,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
-
-//    for (unsigned int i = 0; i < size; ++i)
-//    {
-//        const pcl::PointNormal& p = pc->points[i];
-
-//        if (p.x == p.x && p.normal_x == p.normal_x)
-//        {
-//            std::vector<int> k_indices(1);
-//            std::vector<float> k_sqr_distances(1);
-
-//            if (tree_->radiusSearch(p, association_correspondence_distance_, k_indices, k_sqr_distances, 1))
-//            {
-//                viz_assoc.at<float>(i) = 0;
-//                // associates
-//            }
-//        }
-//        else
-//        {
-//            viz_assoc.at<float>(i) = 0;
-//        }
-//    }
 
     cv::imshow("residual", viz_assoc / 8);
     cv::waitKey(3);
