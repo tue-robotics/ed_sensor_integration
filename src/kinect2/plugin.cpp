@@ -496,14 +496,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     tue::Timer t_assoc;
     t_assoc.start();
 
-    cv::Mat viz_assoc(depth.rows, depth.cols, CV_32FC1, 0.0);
+    cv::Mat depth_non_assoc(depth.rows, depth.cols, CV_32FC1, 0.0);
+    cv::Mat cluster_visited_map(depth.rows, depth.cols, CV_8UC1, cv::Scalar(1));
+    std::vector<unsigned int> non_assoc_mask;
 
     int w_max = 10;
     for(int y = w_max; y < depth.rows - w_max; ++y)
     {
         for(int x = w_max; x < depth.cols - w_max; ++x)
         {
-            const pcl::PointNormal& p = pc->points[depth.cols * y + x];
+            unsigned int i = depth.cols * y + x;
+            const pcl::PointNormal& p = pc->points[i];
 
             if (p.x != p.x || p.normal_x != p.normal_x)
                 continue;
@@ -526,14 +529,103 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             if (!associates)
             {
-                viz_assoc.at<float>(y, x) = depth.at<float>(y, x);
+                depth_non_assoc.at<float>(i) = depth.at<float>(i);
+                non_assoc_mask.push_back(i);
+                cluster_visited_map.at<unsigned char>(i) = 0;
             }
         }
     }
 
     std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    cv::imshow("residual", viz_assoc / 8);
+    cv::imshow("residual", depth_non_assoc / 8);
+    cv::waitKey(3);
+
+    // - - - - - - - - - - - - - - - - - -
+    // Cluster residual points
+
+    // Mark borders as visited
+    for(int x = 0; x < depth.cols; ++x)
+    {
+        cluster_visited_map.at<unsigned char>(0, x) = 1;
+        cluster_visited_map.at<unsigned char>(depth.rows - 1, x) = 1;
+    }
+
+    for(int y = 0; y < depth.rows; ++y)
+    {
+        cluster_visited_map.at<unsigned char>(y, 0) = 1;
+        cluster_visited_map.at<unsigned char>(y, depth.cols - 1) = 1;
+    }
+
+    std::vector<std::vector<unsigned int> > clusters;
+
+    int dirs[] = { -1, 1, -depth.cols, depth.cols };
+
+    for(unsigned int i = 0; i < non_assoc_mask.size(); ++i)
+    {
+        unsigned int p = non_assoc_mask[i];
+
+        if (cluster_visited_map.at<unsigned char>(p) == 1)
+            continue;
+
+        // Create cluster
+        clusters.push_back(std::vector<unsigned int>());
+        std::vector<unsigned int>& cluster = clusters.back();
+
+        std::queue<unsigned int> Q;
+        Q.push(p);
+
+        // Mark visited
+        cluster_visited_map.at<unsigned char>(p) = 1;
+
+        while(!Q.empty())
+        {
+            unsigned int p1 = Q.front();
+            Q.pop();
+
+            float p1_d = depth.at<float>(p1);
+
+            // Add to cluster
+            cluster.push_back(p1);
+
+            for(int d = 0;  d < 4; ++d)
+            {
+                unsigned int p2 = p1 + dirs[d];
+                float p2_d = depth.at<float>(p2);
+
+                // If not yet visited, and depth is within bounds
+                if (cluster_visited_map.at<unsigned char>(p2) == 0 && std::abs<float>(p2_d - p1_d) < 0.1)
+                {
+                    // Mark visited
+                    cluster_visited_map.at<unsigned char>(p2) = 1;
+                    Q.push(p2);
+                }
+            }
+        }
+
+        // Check if cluster has enough points. If not, remove it from the list
+        if (cluster.size() < 30)
+            clusters.pop_back();
+    }
+
+    std::cout << "Num clusters = " << clusters.size() << std::endl;
+
+    cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    for(unsigned int i = 0; i < clusters.size(); ++i)
+    {
+        const std::vector<unsigned int>& cluster = clusters[i];
+
+        int c = 255 * i / clusters.size();
+        cv::Vec3b clr(c, 255 - c, c);
+
+        for(unsigned int j = 0; j < cluster.size(); ++j)
+        {
+            viz_clusters.at<cv::Vec3b>(cluster[j]) = clr;
+        }
+    }
+
+    cv::imshow("clusters", viz_clusters);
     cv::waitKey(3);
 }
 
