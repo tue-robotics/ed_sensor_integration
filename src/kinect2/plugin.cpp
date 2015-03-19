@@ -447,7 +447,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 continue;
 
             bool associates = false;
-            float min_dist_sq = association_correspondence_distance_;
+            float min_dist_sq = association_correspondence_distance_ * association_correspondence_distance_;
 
             int w = std::min<int>(min_dist_sq * cam_model.getOpticalCenterX() / p.z, w_max);
 
