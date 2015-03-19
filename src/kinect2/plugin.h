@@ -9,6 +9,8 @@
 
 #include <tf/transform_listener.h>
 
+#include "ed_sensor_integration/properties/convex_hull.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 class KinectPlugin : public ed::Plugin
@@ -26,10 +28,17 @@ public:
 
 private:
 
+    // PROPERTIES
+
+    ed::PropertyKey<ConvexHull> k_convex_hull_;
+    ed::PropertyKey<geo::Pose3D> k_pose_;
+
     // PARAMETERS
 
     float association_correspondence_distance_;
     float max_range_;
+    float xy_padding_;
+    float z_padding_;
 
     // COMMUNICATION
 

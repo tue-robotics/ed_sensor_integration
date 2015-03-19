@@ -28,6 +28,12 @@
 
 #include <pcl/filters/filter.h>
 
+#include <ed/update_request.h>
+
+#include "ed_sensor_integration/properties/convex_hull_calc.h"
+#include "ed_sensor_integration/properties/convex_hull_info.h"
+#include "ed_sensor_integration/properties/pose_info.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 class SampleRenderResult : public geo::RenderResult
@@ -85,34 +91,6 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-// Define a new point representation for the association
-class AssociationPR : public pcl::PointRepresentation <pcl::PointNormal>
-{
-    using pcl::PointRepresentation<pcl::PointNormal>::nr_dimensions_;
-
-    public:
-        AssociationPR ()
-        {
-            // Define the number of dimensions
-            nr_dimensions_ = 6;
-        }
-
-        // Override the copyToFloatArray method to define our feature vector
-        virtual void copyToFloatArray (const pcl::PointNormal &p, float * out) const
-        {
-            // < x, y, z, curvature >
-            out[0] = p.x;
-            out[1] = p.y;
-            out[2] = p.z;
-            out[3] = p.normal_x;
-            out[4] = p.normal_y;
-            out[5] = p.normal_z;
-//            out[3] = p.curvature;
-        }
-};
-
-// ----------------------------------------------------------------------------------------------------
-
 KinectPlugin::KinectPlugin() : tf_listener_(0)
 {
 }
@@ -140,6 +118,13 @@ void KinectPlugin::initialize(ed::InitData& init)
     config.value("max_range", max_range_);
 
     tf_listener_ = new tf::TransformListener;
+
+    xy_padding_ = 0.1;
+    z_padding_ = 0.1;
+
+    // Register properties
+    init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
+    init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -183,6 +168,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     // Convert from ROS coordinate frame to geolib coordinate frame
+    geo::Pose3D sensor_pose_ros = sensor_pose;
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
     // - - - - - - - - - - - - - - - - - -
@@ -608,6 +594,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
+    // Visualize
+
     std::cout << "Num clusters = " << clusters.size() << std::endl;
 
     cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -627,6 +615,103 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     cv::imshow("clusters", viz_clusters);
     cv::waitKey(3);
+
+    // - - - - - - - - - - - - - - - - - -
+    // Calculate cluster convex hulls and check collisions
+
+    for(std::vector<std::vector<unsigned int> > ::iterator it = clusters.begin(); it != clusters.end(); ++it)
+    {
+        const std::vector<unsigned int>& cluster = *it;
+
+        cv::Mat_<cv::Vec2f> points_2d(1, cluster.size());
+
+        float z_min = 1e9;
+        float z_max = -1e9;
+
+        for(unsigned int j = 0; j < cluster.size(); ++j)
+        {
+            const pcl::PointNormal& p = pc->points[cluster[j]];
+
+            // Transform sensor point to map frame
+            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
+
+            points_2d(0, j) = cv::Vec2f(p_map.x, p_map.y);
+
+            z_min = std::min<float>(z_min, p_map.z);
+            z_max = std::max<float>(z_max, p_map.z);
+        }
+
+        geo::Pose3D pose = geo::Pose3D::identity();
+        pose.t.z = (z_min + z_max) / 2;
+
+        std::vector<int> chull_indices;
+        cv::convexHull(points_2d, chull_indices);
+
+        ConvexHull chull;
+        chull.z_min = z_min - pose.t.z;
+        chull.z_max = z_max - pose.t.z;
+
+        for(unsigned int i = 0; i < chull_indices.size(); ++i)
+        {
+            const cv::Vec2f& p_cv = points_2d.at<cv::Vec2f>(chull_indices[i]);
+            geo::Vec2f p(p_cv[0], p_cv[1]);
+
+            chull.points.push_back(p);
+
+            pose.t.x += p.x;
+            pose.t.y += p.y;
+        }
+
+        // Average segment position
+        pose.t.x /= chull.points.size();
+        pose.t.y /= chull.points.size();
+
+        std::cout << std::endl;
+        std::cout << "Convex hull at " << pose << std::endl;
+
+        // Move all points to the pose frame
+        for(unsigned int i = 0; i < chull.points.size(); ++i)
+        {
+            geo::Vec2f& p = chull.points[i];
+            p.x -= pose.t.x;
+            p.y -= pose.t.y;
+        }
+
+        // Calculate normals and edges
+        convex_hull::calculateEdgesAndNormals(chull);
+
+        // Check for collisions with convex hulls of existing entities
+        bool associated = false;
+        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+        {
+            const ed::EntityConstPtr& e = *e_it;
+            if (e->shape())
+                continue;
+
+            const geo::Pose3D* other_pose = e->property(k_pose_);
+            const ConvexHull* other_chull = e->property(k_convex_hull_);
+
+            // Check if the convex hulls collide
+            if (other_pose && other_chull
+                    && convex_hull::collide(*other_chull, other_pose->t, chull, pose.t, xy_padding_, z_padding_))
+            {
+                associated = true;
+
+                req.setProperty(e->id(), k_pose_, pose);
+                req.setProperty(e->id(), k_convex_hull_, chull);
+
+                break;
+            }
+        }
+
+        if (!associated)
+        {
+            ed::UUID id = ed::Entity::generateID();
+            req.setProperty(id, k_pose_, pose);
+            req.setProperty(id, k_convex_hull_, chull);
+        }
+    }
+
 }
 
 // ----------------------------------------------------------------------------------------------------

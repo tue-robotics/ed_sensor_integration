@@ -213,7 +213,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             else
             {
                 z_min = std::min<float>(z_min, p.z);
-                z_max = std::min<float>(z_max, p.z);
+                z_max = std::max<float>(z_max, p.z);
             }
         }
 
