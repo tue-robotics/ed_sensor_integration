@@ -619,6 +619,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Calculate cluster convex hulls and check collisions
 
+    std::set<ed::UUID> associated_ids;
+
     for(std::vector<std::vector<unsigned int> > ::iterator it = clusters.begin(); it != clusters.end(); ++it)
     {
         const std::vector<unsigned int>& cluster = *it;
@@ -666,9 +668,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         pose.t.x /= chull.points.size();
         pose.t.y /= chull.points.size();
 
-        std::cout << std::endl;
-        std::cout << "Convex hull at " << pose << std::endl;
-
         // Move all points to the pose frame
         for(unsigned int i = 0; i < chull.points.size(); ++i)
         {
@@ -697,8 +696,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             {
                 associated = true;
 
+                // Update pose and convex hull
                 req.setProperty(e->id(), k_pose_, pose);
                 req.setProperty(e->id(), k_convex_hull_, chull);
+
+                associated_ids.insert(e->id());
 
                 break;
             }
@@ -712,6 +714,34 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
+    // - - - - - - - - - - - - - - - - - -
+    // Clear unassociated clusters in view
+
+    for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+    {
+        const ed::EntityConstPtr& e = *e_it;
+        if (e->shape() || associated_ids.find(e->id()) != associated_ids.end())
+            continue;
+
+        const geo::Pose3D* pose = e->property(k_pose_);
+        const ConvexHull* chull = e->property(k_convex_hull_);
+
+        if (!pose || !chull)
+            continue;
+
+        geo::Vector3 p = sensor_pose.inverse() * pose->t;
+
+        cv::Point2d p_2d = cam_model.project3Dto2D(p);
+
+        if (p_2d.x > 0 && p_2d.x < depth.cols && p_2d.y > 0 && p_2d.y < depth.rows)
+        {
+            float d = depth.at<float>(p_2d);
+            if (d > 0 && -p.z < d)
+            {
+                req.removeEntity(e->id());
+            }
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
