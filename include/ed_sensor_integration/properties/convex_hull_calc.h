@@ -25,7 +25,7 @@ void calculateEdgesAndNormals(ConvexHull& c)
         c.edges[i] = e;
 
         // Calculate normal
-        c.normals[i] = geo::Vec2f(e.y, -e.x);
+        c.normals[i] = geo::Vec2f(e.y, -e.x).normalized();
     }
 }
 
@@ -48,7 +48,6 @@ bool collide(const ConvexHull& c1, const geo::Vector3& pos1,
     for(unsigned int i = 0; i < c1.points.size(); ++i)
     {
         const geo::Vec2f& p1 = c1.points[i];
-        const geo::Vec2f& e = c1.edges[i];
         const geo::Vec2f& n = c1.normals[i];
 
         // Calculate min and max projection of c1
@@ -59,7 +58,7 @@ bool collide(const ConvexHull& c1, const geo::Vector3& pos1,
             // Calculate projection
             float p = n.dot(c1.points[k] - p1);
             min1 = std::min(min1, p);
-            max1 = std::min(max1, p);
+            max1 = std::max(max1, p);
         }
 
         // Apply padding to both sides
@@ -72,21 +71,31 @@ bool collide(const ConvexHull& c1, const geo::Vector3& pos1,
         // If this bool stays true, there is definitely no collision
         bool no_collision = true;
 
-        // Check if pol2's projected points are in pol1 projected bounds
+        // True if projected points are found below c1's bounds
+        bool below = false;
+
+        // True if projected points are found above c1's bounds
+        bool above = false;
+
+        // Check if c2's points overlap with c1's bounds
         for(unsigned int k = 0; k < c2.points.size(); ++k)
         {
             // Calculate projection on p1's normal
             float p = n.dot(c2.points[k] - p1_c2);
 
-            // Check bounds
-            if (p > min1 && p < max1)
+            below = below || (p < max1);
+            above = above || (p > min1);
+
+            if (below && above)
             {
+                // There is overlap with c1's bound, so we may have a collision
                 no_collision = false;
                 break;
             }
         }
 
         if (no_collision)
+            // definitely no collision
             return false;
     }
 
