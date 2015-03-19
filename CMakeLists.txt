@@ -104,3 +104,6 @@ target_link_libraries(ed_laser_plugin ${catkin_LIBRARIES})
 #)
 #target_link_libraries(ed_sensor_integration_plugin ${catkin_LIBRARIES})
 
+# ------------------------------------------------------------------------------------------------
+
+add_executable(test_convex_hull test/test_convex_hull.cpp)
