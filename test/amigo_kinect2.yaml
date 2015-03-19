@@ -25,6 +25,7 @@ plugins:
       topic: /amigo/top_kinect/rgbd
       max_correspondence_distance: 0.2
       max_range: 3
+  frequency: 30
 - name: localization
   lib: libed_localization_plugin.so
   parameters:

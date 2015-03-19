@@ -143,7 +143,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         return;
     }
 
-
     // - - - - - - - - - - - - - - - - - -
     // Determine absolute kinect pose based on TF
 
@@ -168,8 +167,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     // Convert from ROS coordinate frame to geolib coordinate frame
-    geo::Pose3D sensor_pose_ros = sensor_pose;
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+
+    tue::Timer t_total;
+    t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
     // Downsample depth image
@@ -235,11 +236,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
+    // - - - - - - - - - - - - - - - - - -
+    // Estimate sensor point cloud normals
+
     tue::Timer t_normal;
     t_normal.start();
-
-    // estimate normals
-//    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
 
     pcl::IntegralImageNormalEstimation<pcl::PointNormal, pcl::PointNormal> ne;
     ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
@@ -250,31 +251,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.compute(*pc);
 
     std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
-
-    // Visualize
-    cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    for(unsigned int i = 0; i < size; ++i)
-    {
-        const pcl::PointNormal& n = pc->points[i];
-        if (n.normal_x == n.normal_x)
-        {
-            int res = 255;
-
-            int r = res * (n.normal_x + 1) / 2;
-            int g = res * (n.normal_y + 1) / 2;
-            int b = res * (n.normal_z + 1) / 2;
-
-            r *= (255 / res);
-            g *= (255 / res);
-            b *= (255 / res);
-
-
-            viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-        }
-    }
-
-    cv::imshow("normals", viz_normals);
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -435,32 +411,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    // Visualize
-    cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    for(unsigned int i = 0; i < size; ++i)
-    {
-        const pcl::PointNormal& n = pc_model->points[i];
-        if (n.normal_x == n.normal_x)
-        {
-            int res = 255;
-
-            int r = res * (n.normal_x + 1) / 2;
-            int g = res * (n.normal_y + 1) / 2;
-            int b = res * (n.normal_z + 1) / 2;
-
-            r *= (255 / res);
-            g *= (255 / res);
-            b *= (255 / res);
-
-
-            viz_model_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-        }
-    }
-
-    cv::imshow("model_normals", viz_model_normals);
-    cv::waitKey(3);
-
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
 
@@ -482,7 +432,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     tue::Timer t_assoc;
     t_assoc.start();
 
-    cv::Mat depth_non_assoc(depth.rows, depth.cols, CV_32FC1, 0.0);
     cv::Mat cluster_visited_map(depth.rows, depth.cols, CV_8UC1, cv::Scalar(1));
     std::vector<unsigned int> non_assoc_mask;
 
@@ -515,7 +464,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             if (!associates)
             {
-                depth_non_assoc.at<float>(i) = depth.at<float>(i);
                 non_assoc_mask.push_back(i);
                 cluster_visited_map.at<unsigned char>(i) = 0;
             }
@@ -524,11 +472,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    cv::imshow("residual", depth_non_assoc / 8);
-    cv::waitKey(3);
-
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
+
+    tue::Timer t_clustering;
+    t_clustering.start();
 
     // Mark borders as visited
     for(int x = 0; x < depth.cols; ++x)
@@ -594,30 +542,14 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-    // Visualize
+    std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    std::cout << "Num clusters = " << clusters.size() << std::endl;
-
-    cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    for(unsigned int i = 0; i < clusters.size(); ++i)
-    {
-        const std::vector<unsigned int>& cluster = clusters[i];
-
-        int c = 255 * i / clusters.size();
-        cv::Vec3b clr(c, 255 - c, c);
-
-        for(unsigned int j = 0; j < cluster.size(); ++j)
-        {
-            viz_clusters.at<cv::Vec3b>(cluster[j]) = clr;
-        }
-    }
-
-    cv::imshow("clusters", viz_clusters);
-    cv::waitKey(3);
 
     // - - - - - - - - - - - - - - - - - -
     // Calculate cluster convex hulls and check collisions
+
+    tue::Timer t_chull;
+    t_chull.start();
 
     std::set<ed::UUID> associated_ids;
 
@@ -714,8 +646,14 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
+    std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+
     // - - - - - - - - - - - - - - - - - -
     // Clear unassociated clusters in view
+
+    tue::Timer t_clear;
+    t_clear.start();
 
     for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
     {
@@ -741,6 +679,86 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.removeEntity(e->id());
             }
         }
+    }
+
+    std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    bool visualize = true;
+    if (visualize)
+    {
+        // Visualize
+        cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+        for(unsigned int i = 0; i < size; ++i)
+        {
+            const pcl::PointNormal& n = pc->points[i];
+            if (n.normal_x == n.normal_x)
+            {
+                int res = 255;
+
+                int r = res * (n.normal_x + 1) / 2;
+                int g = res * (n.normal_y + 1) / 2;
+                int b = res * (n.normal_z + 1) / 2;
+
+                r *= (255 / res);
+                g *= (255 / res);
+                b *= (255 / res);
+
+
+                viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
+            }
+        }
+
+        cv::imshow("normals", viz_normals);
+
+        // Visualize
+        cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+        for(unsigned int i = 0; i < size; ++i)
+        {
+            const pcl::PointNormal& n = pc_model->points[i];
+            if (n.normal_x == n.normal_x)
+            {
+                int res = 255;
+
+                int r = res * (n.normal_x + 1) / 2;
+                int g = res * (n.normal_y + 1) / 2;
+                int b = res * (n.normal_z + 1) / 2;
+
+                r *= (255 / res);
+                g *= (255 / res);
+                b *= (255 / res);
+
+
+                viz_model_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
+            }
+        }
+
+        cv::imshow("model_normals", viz_model_normals);
+
+        std::cout << "Num clusters = " << clusters.size() << std::endl;
+
+        cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+        for(unsigned int i = 0; i < clusters.size(); ++i)
+        {
+            const std::vector<unsigned int>& cluster = clusters[i];
+
+            int c = 255 * i / clusters.size();
+            cv::Vec3b clr(c, 255 - c, c);
+
+            for(unsigned int j = 0; j < cluster.size(); ++j)
+            {
+                viz_clusters.at<cv::Vec3b>(cluster[j]) = clr;
+            }
+        }
+
+        cv::imshow("clusters", viz_clusters);
+        cv::waitKey(3);
     }
 }
 
