@@ -114,7 +114,7 @@ void WorldModelRenderer::render(const ed::RGBDData& sensor_data,
     for(ed::WorldModel::const_iterator it = world_model.begin(); it != world_model.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
-        if (e->shape() && rendered_entities.find(e->id()) == rendered_entities.end())
+        if (e->shape() && e->has_pose() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
             geo::Pose3D pose = sensor_data.sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;

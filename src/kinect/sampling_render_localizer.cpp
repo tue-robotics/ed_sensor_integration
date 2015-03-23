@@ -86,7 +86,7 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && (loc_ids.empty() || loc_ids.find(e->id()) != loc_ids.end()))
+        if (e->shape() && e->has_pose() && (loc_ids.empty() || loc_ids.find(e->id()) != loc_ids.end()))
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;

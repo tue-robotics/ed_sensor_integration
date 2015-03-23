@@ -324,7 +324,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && rendered_entities.find(e->id()) == rendered_entities.end())
+        if (e->shape() && e->has_pose() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
             res.in_view = false;
 

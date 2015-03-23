@@ -82,7 +82,7 @@ void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e && e->shape() && rendered_entities.find(e->id()) == rendered_entities.end())
+        if (e->shape() && e->has_pose() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;
@@ -303,7 +303,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         {
             const ed::EntityConstPtr& e = *it;
 
-            if (e->shape())
+            if (e->shape() && e->has_pose())
             {
                 geo::Pose3D pose = sensor_pose.inverse() * e->pose();
                 geo::RenderOptions opt;
@@ -416,6 +416,14 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 ed::UUID id = ed::Entity::generateID();
                 req.addMeasurement(id, m);
                 req.setConvexHull(id, chull);
+
+                geo::Pose3D pose;
+                pose.t.x = chull.center_point.x;
+                pose.t.y = chull.center_point.y;
+                pose.t.z = (chull.min_z + chull.max_z) / 2;
+                pose.R = geo::Matrix3::identity();
+
+                req.setPose(id, pose);
             }
         }
     }

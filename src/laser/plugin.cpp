@@ -132,7 +132,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape())
+        if (e->shape() && e->has_pose())
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
