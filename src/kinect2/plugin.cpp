@@ -557,11 +557,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     {
         const std::vector<unsigned int>& cluster = *it;
 
-        cv::Mat_<cv::Vec2f> points_2d(1, cluster.size());
-
         float z_min = 1e9;
         float z_max = -1e9;
 
+        std::vector<geo::Vec2f> points_2d(cluster.size());
         for(unsigned int j = 0; j < cluster.size(); ++j)
         {
             const pcl::PointNormal& p = pc->points[cluster[j]];
@@ -569,47 +568,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             // Transform sensor point to map frame
             geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
 
-            points_2d(0, j) = cv::Vec2f(p_map.x, p_map.y);
+            points_2d[j] = geo::Vec2f(p_map.x, p_map.y);
 
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
         }
 
-        geo::Pose3D pose = geo::Pose3D::identity();
-        pose.t.z = (z_min + z_max) / 2;
-
-        std::vector<int> chull_indices;
-        cv::convexHull(points_2d, chull_indices);
-
         ConvexHull chull;
-        chull.z_min = z_min - pose.t.z;
-        chull.z_max = z_max - pose.t.z;
-
-        for(unsigned int i = 0; i < chull_indices.size(); ++i)
-        {
-            const cv::Vec2f& p_cv = points_2d.at<cv::Vec2f>(chull_indices[i]);
-            geo::Vec2f p(p_cv[0], p_cv[1]);
-
-            chull.points.push_back(p);
-
-            pose.t.x += p.x;
-            pose.t.y += p.y;
-        }
-
-        // Average segment position
-        pose.t.x /= chull.points.size();
-        pose.t.y /= chull.points.size();
-
-        // Move all points to the pose frame
-        for(unsigned int i = 0; i < chull.points.size(); ++i)
-        {
-            geo::Vec2f& p = chull.points[i];
-            p.x -= pose.t.x;
-            p.y -= pose.t.y;
-        }
-
-        // Calculate normals and edges
-        convex_hull::calculateEdgesAndNormals(chull);
+        geo::Pose3D pose;
+        convex_hull::create(points_2d, z_min, z_max, chull, pose);
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
@@ -629,8 +596,48 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 associated = true;
 
                 // Update pose and convex hull
-                req.setProperty(e->id(), k_pose_, pose);
-                req.setProperty(e->id(), k_convex_hull_, chull);
+
+                std::vector<geo::Vec2f> new_points_MAP;
+                for(std::vector<geo::Vec2f>::const_iterator p_it = other_chull->points.begin(); p_it != other_chull->points.end(); ++p_it)
+                {
+                    geo::Vec2f p_chull_MAP(p_it->x + other_pose->t.x, p_it->y + other_pose->t.y);
+
+                    // Calculate the 3d coordinate of this chull points in absolute frame, in the middle of the rib
+                    geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, other_pose->t.z);
+
+                    // Transform to the sensor frame
+                    geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
+
+                    // Project to image frame
+                    cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
+
+                    // Check if the point is in view, and is not occluded by sensor points
+                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight())
+                    {
+                        float dp = -p_rib_cam.z;
+                        float ds = depth.at<float>(p_2d);
+                        if (ds == 0 || dp > max_range_ || dp > ds)
+                            new_points_MAP.push_back(p_chull_MAP);
+                    }
+                    else
+                    {
+                        new_points_MAP.push_back(p_chull_MAP);
+                    }
+                }
+
+                // Add the points of the new convex hull
+                for(std::vector<geo::Vec2f>::const_iterator p_it = chull.points.begin(); p_it != chull.points.end(); ++p_it)
+                    new_points_MAP.push_back(geo::Vec2f(p_it->x + pose.t.x, p_it->y + pose.t.y));
+
+                // And calculate the convex hull of these points
+                ConvexHull new_chull;
+                geo::Pose3D new_pose;
+
+                // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
+                convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
+
+                req.setProperty(e->id(), k_pose_, new_pose);
+                req.setProperty(e->id(), k_convex_hull_, new_chull);
 
                 associated_ids.insert(e->id());
 
@@ -640,6 +647,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         if (!associated)
         {
+            // Add new entity
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, pose);
             req.setProperty(id, k_convex_hull_, chull);

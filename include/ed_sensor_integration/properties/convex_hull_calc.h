@@ -6,6 +6,8 @@
 namespace convex_hull
 {
 
+void create(const std::vector<geo::Vec2f>& points, float z_min, float z_max, ConvexHull& c, geo::Pose3D& pose);
+
 void calculateEdgesAndNormals(ConvexHull& c);
 
 bool collide(const ConvexHull& c1, const geo::Vector3& pos1,

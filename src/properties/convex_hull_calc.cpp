@@ -1,7 +1,61 @@
 #include "ed_sensor_integration/properties/convex_hull_calc.h"
 
+#include <opencv2/imgproc/imgproc.hpp>
+
 namespace convex_hull
 {
+
+// ----------------------------------------------------------------------------------------------------
+
+void create(const std::vector<geo::Vec2f>& points, float z_min, float z_max, ConvexHull& chull, geo::Pose3D& pose)
+{
+    cv::Mat_<cv::Vec2f> points_2d(1, points.size());
+    for(unsigned int i = 0; i < points.size(); ++i)
+        points_2d.at<cv::Vec2f>(i) = cv::Vec2f(points[i].x, points[i].y);
+
+    pose = geo::Pose3D::identity();
+
+    pose.t.z = (z_min + z_max) / 2;
+
+    std::vector<int> chull_indices;
+    cv::convexHull(points_2d, chull_indices);
+
+    chull.z_min = z_min - pose.t.z;
+    chull.z_max = z_max - pose.t.z;
+
+    geo::Vec2f xy_min(1e9, 1e9);
+    geo::Vec2f xy_max(-1e9, -1e9);
+
+    chull.points.clear();
+    for(unsigned int i = 0; i < chull_indices.size(); ++i)
+    {
+        const cv::Vec2f& p_cv = points_2d.at<cv::Vec2f>(chull_indices[i]);
+        geo::Vec2f p(p_cv[0], p_cv[1]);
+
+        chull.points.push_back(p);
+
+        xy_min.x = std::min(xy_min.x, p.x);
+        xy_min.y = std::min(xy_min.y, p.y);
+
+        xy_max.x = std::max(xy_max.x, p.x);
+        xy_max.y = std::max(xy_max.y, p.y);
+    }
+
+    // Average segment position
+    pose.t.x = (xy_min.x + xy_max.x) / 2;
+    pose.t.y = (xy_min.y + xy_max.y) / 2;
+
+    // Move all points to the pose frame
+    for(unsigned int i = 0; i < chull.points.size(); ++i)
+    {
+        geo::Vec2f& p = chull.points[i];
+        p.x -= pose.t.x;
+        p.y -= pose.t.y;
+    }
+
+    // Calculate normals and edges
+    convex_hull::calculateEdgesAndNormals(chull);
+}
 
 // ----------------------------------------------------------------------------------------------------
 
