@@ -68,8 +68,8 @@ void LaserPlugin::initialize(ed::InitData& init)
     segment_depth_threshold_ = 0.1;
 
     // Collision check padding
-    xy_padding_ = 0.02;
-    z_padding_ = 0.02;
+    xy_padding_ = 0;
+    z_padding_ = 0;
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
@@ -132,7 +132,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape())
+        if (e->shape() && e->has_pose())
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
@@ -213,7 +213,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             else
             {
                 z_min = std::min<float>(z_min, p.z);
-                z_max = std::min<float>(z_max, p.z);
+                z_max = std::max<float>(z_max, p.z);
             }
         }
 

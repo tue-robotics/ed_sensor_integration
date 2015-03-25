@@ -9,6 +9,11 @@
 
 #include <rgbd/View.h>
 
+namespace ed
+{
+    class RGBDData;
+}
+
 namespace edKinect
 {
 
@@ -21,7 +26,7 @@ public:
 
     virtual ~WorldModelRenderer();
 
-    void render(const geo::Pose3D& camera_pose,
+    void render(const ed::RGBDData& sensor_data,
                 const ed::WorldModel& world_model,
                 float max_range,
                 const rgbd::View& view,

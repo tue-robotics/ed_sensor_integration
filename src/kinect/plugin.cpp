@@ -33,6 +33,8 @@
 #include <geolib/sensors/DepthCamera.h>
 #include <geolib/Shape.h>
 
+#include <ed/world_model/transform_crawler.h>
+
 // visualization
 #include "visualization.h"
 
@@ -51,11 +53,36 @@ void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::
     geo::TriangleMap triangle_map;  // TODO: GET RID OF THIS
     geo::DefaultRenderResult res(wm_depth_image, 0, pointer_map, triangle_map);
 
+    //
+
+    geo::Pose3D p_corr(geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1), geo::Vector3(0, 0, 0));
+
+    std::set<ed::UUID> rendered_entities;
+
+    std::string cam_id = rgbd_image->getFrameId();
+    if (cam_id[0] == '/')
+        cam_id = cam_id.substr(1);
+
+    for(ed::world_model::TransformCrawler tc(world_model, cam_id, rgbd_image->getTimestamp()); tc.hasNext(); tc.next())
+    {
+        const ed::EntityConstPtr& e = tc.entity();
+        if (e->shape())
+        {
+            rendered_entities.insert(e->id());
+
+            geo::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), p_corr * tc.transform());
+
+            // Render
+            view.getRasterizer().render(opt, res);
+        }
+    }
+
     for(ed::WorldModel::const_iterator it = world_model.begin(); it != world_model.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e && e->shape())
+        if (e->shape() && e->has_pose() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;
@@ -279,7 +306,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         {
             const ed::EntityConstPtr& e = *it;
 
-            if (e->shape())
+            if (e->shape() && e->has_pose())
             {
                 geo::Pose3D pose = sensor_pose.inverse() * e->pose();
                 geo::RenderOptions opt;
@@ -405,13 +432,25 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         for (std::vector<ed::PointCloudMaskPtr>::const_iterator it = segments.begin(); it != segments.end(); ++it)
         {
-
-            ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
-            ed::UUID id = ed::Entity::generateID();
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, **it, sensor_pose, chull);
-            req.addMeasurement(id, m);
-            req.setConvexHull(id, chull);
+
+            // Only add wm entity when chull is big enough
+            if (chull.area() > 0.001)
+            {
+                ed::MeasurementConstPtr m(new ed::Measurement(rgbd_data, *it));
+                ed::UUID id = ed::Entity::generateID();
+                req.addMeasurement(id, m);
+                req.setConvexHull(id, chull);
+
+                geo::Pose3D pose;
+                pose.t.x = chull.center_point.x;
+                pose.t.y = chull.center_point.y;
+                pose.t.z = (chull.min_z + chull.max_z) / 2;
+                pose.R = geo::Matrix3::identity();
+
+                req.setPose(id, pose);
+            }
         }
     }
 
@@ -431,7 +470,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 ed::MeasurementConstPtr m = e->lastMeasurement();
 
-                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0)
+                if (m && ros::Time::now().toSec() - m->timestamp() > 1.0) // TODO: get rid of this
                 {
                     entities_in_view_not_associated.push_back(e->id());
                 }

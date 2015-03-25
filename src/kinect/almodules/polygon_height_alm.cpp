@@ -22,9 +22,9 @@ void PolygonHeightALM::configure(tue::Configuration config)
 {
     if (config.readGroup("parameters"))
     {
+        config.value("max_range",max_range_);
         config.value("tolerance", tolerance_);
         config.value("min_cluster_size", min_cluster_size_);
-
         config.value("visualize", visualize_);
 
         std::cout << "Parameters polygon height association: \n" <<
@@ -55,45 +55,75 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
         //! 2) Association
         unsigned int i = 0;
         profiler_.startTimer("association");
+
         // Keep track of the entities that have an association
         std::map<ed::UUID, std::vector<std::pair<ed::PointCloudMaskPtr,ed::ConvexHull2D> > > associated_entities;
-        for(std::vector<ed::PointCloudMaskPtr>::const_iterator it = clusters.begin(); it != clusters.end(); ++it )
+        // Loop through clusters
+        for(std::vector<ed::PointCloudMaskPtr>::const_iterator c_it = clusters.begin(); c_it != clusters.end(); ++c_it )
         {
-            const ed::PointCloudMaskPtr& cluster = *it;
+            const ed::PointCloudMaskPtr& cluster = *c_it;
 
-            //! Create the Polygon with Height
+            // Create the Polygon with Height
             ed::ConvexHull2D polygon;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, *cluster, rgbd_data.sensor_pose, polygon);
 
-            ed::helpers::visualization::publishConvexHull2DVisualizationMarker(polygon, vis_marker_pub_, i, "bla");
-            ++i;
+            if (visualize_)
+            {
+                ed::helpers::visualization::publishConvexHull2DVisualizationMarker(polygon, vis_marker_pub_, i, "bla");
+                ++i;
+            }
 
-
+            // Before anything is done to the cluster, it is not associated with any entity
             bool associated = false;
             ed::UUID associated_id = "";
+            int index = -1;
 
-            for(ed::WorldModel::const_iterator e_it = world_model.begin(); e_it != world_model.end(); ++e_it)
+            // Loop through world model entities
+            for(ed::WorldModel::const_iterator wm_it = world_model.begin(); wm_it != world_model.end(); ++wm_it)
             {
-                const ed::EntityConstPtr& e = *e_it;
+                const ed::EntityConstPtr& e = *wm_it;
+
+                // If entity has a shape, it is static, so go to next entity
                 if (e->shape())
                     continue;
 
-                // Multiple measurements per entity BUT 1 entity per measurement
+                // Check collision
                 double overlap_factor;
                 if ( ed::helpers::ddp::polygonCollisionCheck(polygon, e->convexHull(), overlap_factor) )
                 {
-                    associated = true;
-                    associated_id = e->id();
-                    break;
+                    // If the current cluster was already associated with another entity...
+                    if (associated)
+                    {
+                        // remove the cluster from the cluster list of the entity it was associated with earlier
+                        associated_entities[associated_id].erase(associated_entities[associated_id].begin() + index);
+
+                        // If this leaves an empty list of clusters with that entity, remove the entity from the map
+                        if ( associated_entities[associated_id].size() == 0 )
+                            associated_entities.erase(associated_id);
+                        break;
+                    }
+                    // If the current cluster was not yet associated with another entity...
+                    else
+                    {
+                        // it is now,
+                        associated = true;
+                        // so store the id of the entity it is associated with
+                        associated_id = e->id();
+                        // and add the cluster to the list of clusters associated to that entity
+                        associated_entities[associated_id].push_back(std::make_pair<ed::PointCloudMaskPtr, ed::ConvexHull2D>(cluster,polygon));
+                        // Also store its index in that list, so that it can be found and removed later, if necessary.
+                        index = associated_entities[associated_id].size()-1;
+                    }
                 }
             }
 
-            if (associated)
-                // Keep track of entities that have been associated
-                associated_entities[associated_id].push_back(std::make_pair<ed::PointCloudMaskPtr, ed::ConvexHull2D>(cluster,polygon));
-            else
+            // If after going through all wm entities, there is still no association, then add cluster to not_associated_mask
+            if (!associated)
                 not_associated_mask->insert(not_associated_mask->end(), cluster->begin(), cluster->end());
         }
+
+
+
         profiler_.stopTimer();
 
         // Add the associated clusters
@@ -113,10 +143,14 @@ void PolygonHeightALM::process(const ed::RGBDData& rgbd_data,
 
             ed::ConvexHull2D chull;
             ed::helpers::ddp::get2DConvexHull(rgbd_data.point_cloud, *pcl_mask, rgbd_data.sensor_pose, chull);
-            ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
-            ed::helpers::ddp::removeInViewConvexHullPoints(rgbd_data.image, rgbd_data.sensor_pose, chull);
-            req.addMeasurement(it->first, m);
-            req.setConvexHull(it->first, chull);
+
+            if ( chull.area() > 0.001 ) // TODO: magic numbers!
+            {
+                ed::helpers::ddp::add2DConvexHull(world_model.getEntity(it->first)->convexHull(), chull);
+                ed::helpers::ddp::removeInViewConvexHullPoints(rgbd_data.image, rgbd_data.sensor_pose, chull, max_range_);
+                req.addMeasurement(it->first, m);
+                req.setConvexHull(it->first, chull);
+            }
         }
     }
 
