@@ -117,6 +117,12 @@ void KinectPlugin::initialize(ed::InitData& init)
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
 
+    if (config.value("debug", debug_))
+    {
+        if (debug_)
+            std::cout << "[Kinect Plugin] Debug print statements on" << std::endl;
+    }
+
     tf_listener_ = new tf::TransformListener;
 
     xy_padding_ = 0.1;
@@ -250,7 +256,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.setInputCloud(pc);
     ne.compute(*pc);
 
-    std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -408,8 +415,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-
-    std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
@@ -470,7 +477,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
@@ -542,7 +550,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-    std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -654,7 +663,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -689,9 +699,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -721,7 +733,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        //cv::imshow("normals", viz_normals);
+        if (debug_)
+            cv::imshow("normals", viz_normals);
 
         // Visualize
         cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -746,9 +759,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        //cv::imshow("model_normals", viz_model_normals);
+        if (debug_)
+            cv::imshow("model_normals", viz_model_normals);
 
-        std::cout << "Num clusters = " << clusters.size() << std::endl;
+        if (debug_)
+            std::cout << "Num clusters = " << clusters.size() << std::endl;
 
         cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
 
@@ -765,8 +780,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        //cv::imshow("clusters", viz_clusters);
-        //cv::waitKey(3);
+        if (debug_)
+        {
+            cv::imshow("clusters", viz_clusters);
+            cv::waitKey(3);
+        }
     }
 }
 

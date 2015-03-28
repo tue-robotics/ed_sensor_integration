@@ -39,6 +39,7 @@ private:
     float max_range_;
     float xy_padding_;
     float z_padding_;
+    bool debug_;
 
     // COMMUNICATION
 
