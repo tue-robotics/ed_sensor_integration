@@ -34,6 +34,10 @@
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
 
+// Localization
+#include "../kinect/sampling_render_localizer.h"
+#include "../kinect/sampling_projector_localizer.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 class SampleRenderResult : public geo::RenderResult
@@ -116,6 +120,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
+    config.value("localize",localize_, tue::OPTIONAL);
 
     if (config.value("debug", debug_, tue::OPTIONAL))
     {
@@ -177,6 +182,29 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     tue::Timer t_total;
     t_total.start();
+
+    // - - - - - - - - - - - - - - - - - -
+    // Update sensor pose (localization)
+
+    if (localize_)
+    {
+        std::cout << "Got to 1" << std::endl;
+        std::set<ed::UUID> loc_ids;
+        loc_ids.insert(ed::UUID("floor"));
+
+        std::cout << "Got to 2" << std::endl;
+        SamplingRenderLocalizer localizer;
+//        SamplingProjectorLocalizer localizer;
+
+        std::cout << "Got to 3" << std::endl;
+        tue::Timer timer;
+        timer.start();
+
+        sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
+
+        std::cout << "Got to 4" << std::endl;
+        std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Downsample depth image

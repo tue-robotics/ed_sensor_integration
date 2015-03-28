@@ -40,6 +40,7 @@ private:
     float xy_padding_;
     float z_padding_;
     bool debug_;
+    bool localize_;
 
     // COMMUNICATION
 
