@@ -721,7 +721,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        cv::imshow("normals", viz_normals);
+        //cv::imshow("normals", viz_normals);
 
         // Visualize
         cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -746,7 +746,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        cv::imshow("model_normals", viz_model_normals);
+        //cv::imshow("model_normals", viz_model_normals);
 
         std::cout << "Num clusters = " << clusters.size() << std::endl;
 
@@ -765,8 +765,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        cv::imshow("clusters", viz_clusters);
-        cv::waitKey(3);
+        //cv::imshow("clusters", viz_clusters);
+        //cv::waitKey(3);
     }
 }
 
