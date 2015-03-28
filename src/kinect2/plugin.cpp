@@ -91,7 +91,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-KinectPlugin::KinectPlugin() : tf_listener_(0)
+KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
 
@@ -110,17 +110,17 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     if (config.value("topic", topic_))
     {
-        std::cout << "Initializing kinect client with topic '" << topic_ << "'." << std::endl;
+        std::cout << "[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic_ << "'." << std::endl;
         kinect_client_.intialize(topic_);
     }
 
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
 
-    if (config.value("debug", debug_))
+    if (config.value("debug", debug_, tue::OPTIONAL))
     {
         if (debug_)
-            std::cout << "[Kinect Plugin] Debug print statements on" << std::endl;
+            std::cout << "[ED KINECT PLUGIN] Debug print statements on" << std::endl;
     }
 
     tf_listener_ = new tf::TransformListener;
