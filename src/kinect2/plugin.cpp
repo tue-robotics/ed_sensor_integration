@@ -702,13 +702,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         int res1 = 400;
         int res2 = 400;
         cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+        cv::Mat viz_normals_world(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Mat normal_stats(res1,res2, CV_8UC1, cv::Scalar(0));
 
         for(unsigned int i = 0; i < size; ++i)
         {
             const pcl::PointNormal& n = pc->points[i];
+            geo::Vec3d normal_kinect(n.normal_x,n.normal_y,n.normal_z);
+            geo::Vec3d normal_world(0.0,0.0,0.0);
             if (n.normal_x == n.normal_x)
             {
+                // RGBD image normals
                 int res = 255;
 
                 int r = res * (n.normal_x + 1) / 2;
@@ -721,15 +725,31 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
 
-                double d = sqrt(n.normal_x*n.normal_x + n.normal_y*n.normal_y);
-                int x = res1 * (atan2(n.normal_y,n.normal_x)/3.14159265 + 1) / 2;
-                int y = res2 * (atan2(d,n.normal_z)/3.14159265 + 1) / 2;
+                // RGBD image normal distribution
+                normal_world = sensor_pose.inverse().R * normal_kinect; // TODO: This goes horribly wrong somehow...
+                double d = sqrt(normal_world.x*normal_world.x + normal_world.y*normal_world.y);
+
+                int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
+                int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
+
                 normal_stats.at<uchar>(x,y)++;
+
+                // RGBD image normals in map frame
+
+                r = res * (normal_world.x + 1) / 2;
+                g = res * (normal_world.y + 1) / 2;
+                b = res * (normal_world.z + 1) / 2;
+
+                r *= (255 / res);
+                g *= (255 / res);
+                b *= (255 / res);
+
+                viz_normals_world.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
             }
         }
 
         cv::imshow("normal statistics",normal_stats);
-//        cv::imshow("normals", viz_normals);
+        cv::imshow("normals", viz_normals_world);
 
         // Visualize
         cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
