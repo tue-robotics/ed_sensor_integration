@@ -94,7 +94,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-KinectPlugin::KinectPlugin() : tf_listener_(0)
+KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
 
@@ -113,12 +113,18 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     if (config.value("topic", topic_))
     {
-        std::cout << "Initializing kinect client with topic '" << topic_ << "'." << std::endl;
+        std::cout << "[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic_ << "'." << std::endl;
         kinect_client_.intialize(topic_);
     }
 
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
+
+    if (config.value("debug", debug_, tue::OPTIONAL))
+    {
+        if (debug_)
+            std::cout << "[ED KINECT PLUGIN] Debug print statements on" << std::endl;
+    }
 
     tf_listener_ = new tf::TransformListener;
 
@@ -259,7 +265,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.setInputCloud(pc);
     ne.compute(*pc);
 
-    std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -417,8 +424,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-
-    std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
@@ -479,7 +486,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
@@ -551,7 +559,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-    std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -663,7 +672,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -698,9 +708,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize (will only send out images if someones listening to them)
