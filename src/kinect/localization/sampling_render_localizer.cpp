@@ -108,7 +108,7 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     geo::Pose3D best_pose;
 
 
-    for(double dyaw = -0.1; dyaw < 0.1; dyaw += 0.05)
+    for(double dyaw = -0.05; dyaw < 0.05; dyaw += 0.05)
     {
         for (double dpitch = -0.05; dpitch <= 0.05; dpitch += 0.05)
         {
