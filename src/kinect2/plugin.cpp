@@ -699,7 +699,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     if (visualize)
     {
         // Visualize
+        int res1 = 400;
+        int res2 = 400;
         cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+        cv::Mat normal_stats(res1,res2, CV_8UC1, cv::Scalar(0));
 
         for(unsigned int i = 0; i < size; ++i)
         {
@@ -716,12 +719,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 g *= (255 / res);
                 b *= (255 / res);
 
-
                 viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
+
+                double d = sqrt(n.normal_x*n.normal_x + n.normal_y*n.normal_y);
+                int x = res1 * (atan2(n.normal_y,n.normal_x)/3.14159265 + 1) / 2;
+                int y = res2 * (atan2(d,n.normal_z)/3.14159265 + 1) / 2;
+                normal_stats.at<uchar>(x,y)++;
             }
         }
 
-        cv::imshow("normals", viz_normals);
+        cv::imshow("normal statistics",normal_stats);
+//        cv::imshow("normals", viz_normals);
 
         // Visualize
         cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -746,7 +754,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        cv::imshow("model_normals", viz_model_normals);
+//        cv::imshow("model_normals", viz_model_normals);
 
         std::cout << "Num clusters = " << clusters.size() << std::endl;
 
@@ -765,7 +773,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
-        cv::imshow("clusters", viz_clusters);
+//        cv::imshow("clusters", viz_clusters);
         cv::waitKey(3);
     }
 }
