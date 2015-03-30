@@ -726,7 +726,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
 
                 // RGBD image normal distribution
-                normal_world = sensor_pose.inverse().R * normal_kinect; // TODO: This goes horribly wrong somehow...
+                normal_world = sensor_pose.R * normal_kinect; // TODO: This goes horribly wrong somehow...
                 double d = sqrt(normal_world.x*normal_world.x + normal_world.y*normal_world.y);
 
                 int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
