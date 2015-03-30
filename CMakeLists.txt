@@ -98,6 +98,8 @@ target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${
 add_library(ed_kinect2_plugin
     src/kinect2/plugin.cpp
     src/kinect2/plugin.h
+    src/kinect2/visualization.cpp
+    src/kinect2/visualization.h
 )
 target_link_libraries(ed_kinect2_plugin ed_sensor_integration_properties ${catkin_LIBRARIES})
 
