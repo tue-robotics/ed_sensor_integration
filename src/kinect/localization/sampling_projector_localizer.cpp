@@ -1,4 +1,4 @@
-#include "sampling_projector_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_projector_localizer.h"
 
 #include <rgbd/View.h>
 

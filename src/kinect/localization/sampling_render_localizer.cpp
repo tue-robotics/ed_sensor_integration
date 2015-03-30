@@ -1,4 +1,4 @@
-#include "sampling_render_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_render_localizer.h"
 
 #include <rgbd/View.h>
 
@@ -61,12 +61,12 @@ SamplingRenderLocalizer::~SamplingRenderLocalizer()
 
 // ----------------------------------------------------------------------------------------------------
 
-geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids)
+geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids, const int factor)
 {
     // - - - - - - - - - - - - - - - - - -
     // Render world model based on pose calculated above
 
-    rgbd::View view(image, 80);
+    rgbd::View view(image, image.getDepthImage().cols/factor);
 
     const geo::DepthCamera& rasterizer = view.getRasterizer();
 
@@ -108,67 +108,70 @@ geo::Pose3D SamplingRenderLocalizer::localize(const geo::Pose3D& sensor_pose, co
     geo::Pose3D best_pose;
 
 
-    for(double da = -0.1; da < 0.1; da += 0.05)
+    for(double dyaw = -0.1; dyaw < 0.1; dyaw += 0.05)
     {
-        geo::Matrix3 m;
-        m.setRPY(0, 0, da);
-
-        for(double dx = -0.2; dx < 0.2; dx += 0.05)
+        for (double dpitch = -0.05; dpitch <= 0.05; dpitch += 0.05)
         {
-            for(double dy = -0.2; dy < 0.2; dy += 0.05)
+            geo::Matrix3 m;
+            m.setRPY(0, dpitch, dyaw);
+
+            for(double dx = -0.1; dx < 0.1; dx += 0.05)
             {
-
-                geo::Pose3D test_pose;
-                test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
-                test_pose.R = m * sensor_pose.R;
-
-                // Render world
-                cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
-                SampleRenderResult res(model, pixels);
-                for(std::vector<ed::EntityConstPtr>::const_iterator it = entities.begin(); it != entities.end(); ++it)
+                for(double dy = -0.1; dy < 0.1; dy += 0.05)
                 {
-                    const ed::EntityConstPtr& e = *it;
 
-                    geo::Pose3D pose = test_pose.inverse() * e->pose();
-                    geo::RenderOptions opt;
-                    opt.setMesh(e->shape()->getMesh(), pose);                    
+                    geo::Pose3D test_pose;
+                    test_pose.t = sensor_pose.t + geo::Vector3(dx, dy, 0);
+                    test_pose.R = m * sensor_pose.R;
 
-                    // Render
-                    rasterizer.render(opt, res);
-                }
-
-                int n = 0;
-                double total_error = 0;
-                for(unsigned int i = 0; i < res.pixels.size(); ++i)
-                {
-                    unsigned int p_idx = res.pixels[i];
-
-                    float ds = depth_image.at<float>(p_idx);
-
-                    if (ds > 0) // TODO
+                    // Render world
+                    cv::Mat model(view.getHeight(), view.getWidth(), CV_32FC1, 0.0);
+                    SampleRenderResult res(model, pixels);
+                    for(std::vector<ed::EntityConstPtr>::const_iterator it = entities.begin(); it != entities.end(); ++it)
                     {
-                        float dm = model.at<float>(p_idx);
-                        float err = std::min<float>(0.05, std::abs(dm - ds));
-                        total_error += (err * err);
-                        ++n;
-                    }
-                }
+                        const ed::EntityConstPtr& e = *it;
 
-                if (n > 0)
-                {
-                    double avg_error = total_error / n;
-                    if (avg_error < min_error)
+                        geo::Pose3D pose = test_pose.inverse() * e->pose();
+                        geo::RenderOptions opt;
+                        opt.setMesh(e->shape()->getMesh(), pose);
+
+                        // Render
+                        rasterizer.render(opt, res);
+                    }
+
+                    int n = 0;
+                    double total_error = 0;
+                    for(unsigned int i = 0; i < res.pixels.size(); ++i)
                     {
-                        min_error = avg_error;
-                        best_pose = test_pose;
-                        best_model = model;
+                        unsigned int p_idx = res.pixels[i];
+
+                        float ds = depth_image.at<float>(p_idx);
+
+                        if (ds > 0) // TODO
+                        {
+                            float dm = model.at<float>(p_idx);
+                            float err = std::min<float>(0.05, std::abs(dm - ds));
+                            total_error += (err * err);
+                            ++n;
+                        }
                     }
-                }
+
+                    if (n > 0)
+                    {
+                        double avg_error = total_error / n;
+                        if (avg_error < min_error)
+                        {
+                            min_error = avg_error;
+                            best_pose = test_pose;
+                            best_model = model;
+                        }
+                    }
 
 
-            }
-        }
-    }
+                } // y loop
+            } // x loop
+        } // pitch loop
+    } // yaw loop
 
     return best_pose;
 }

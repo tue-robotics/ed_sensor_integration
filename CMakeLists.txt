@@ -82,16 +82,20 @@ add_library(kinect_segmentation
 )
 add_dependencies(kinect_segmentation ${PROJECT_NAME}_gencpp)
 
-target_link_libraries(kinect_segmentation kinect_association)
+add_library(kinect_localization
+    src/kinect/localization/sampling_projector_localizer.cpp
+    src/kinect/localization/sampling_render_localizer.cpp
+)
+add_dependencies(kinect_localization ${PROJECT_NAME}_gencpp)
+
+# target_link_libraries(kinect_segmentation kinect_association)
 
 add_library(ed_kinect_plugin
     src/kinect/plugin.cpp
     src/kinect/plugin.h
-    src/kinect/sampling_projector_localizer.cpp
-    src/kinect/sampling_render_localizer.cpp
     src/kinect/visualization.cpp
 )
-target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association kinect_localization ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
@@ -99,7 +103,7 @@ add_library(ed_kinect2_plugin
     src/kinect2/plugin.cpp
     src/kinect2/plugin.h
 )
-target_link_libraries(ed_kinect2_plugin ed_sensor_integration_properties ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect2_plugin kinect_localization ed_sensor_integration_properties ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 

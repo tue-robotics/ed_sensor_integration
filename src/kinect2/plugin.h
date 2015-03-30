@@ -41,6 +41,8 @@ private:
     float z_padding_;
     bool debug_;
     bool localize_;
+    float average_time_;
+    int loop_;
 
     // COMMUNICATION
 

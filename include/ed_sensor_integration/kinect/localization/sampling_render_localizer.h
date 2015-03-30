@@ -14,7 +14,7 @@ public:
 
     ~SamplingRenderLocalizer();
 
-    geo::Pose3D localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids);
+    geo::Pose3D localize(const geo::Pose3D& sensor_pose, const rgbd::Image& image, const ed::WorldModel& world, const std::set<ed::UUID>& loc_ids, const int factor);
 
 };
 

@@ -24,8 +24,8 @@
 // END For copy-pasted kinect sensor module code
 
 // Localization
-#include "sampling_render_localizer.h"
-#include "sampling_projector_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_render_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_projector_localizer.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -274,6 +274,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     // - - - - - - - - - - - - - - - - - -
     // Update sensor pose (localization)
+//    float loc_downsample_factor = 1;
 
 //    std::set<ed::UUID> loc_ids;
 //    loc_ids.insert(ed::UUID("plastic_cabinet"));

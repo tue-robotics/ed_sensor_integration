@@ -35,8 +35,8 @@
 #include "ed_sensor_integration/properties/pose_info.h"
 
 // Localization
-#include "../kinect/sampling_render_localizer.h"
-#include "../kinect/sampling_projector_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_render_localizer.h"
+#include "ed_sensor_integration/kinect/localization/sampling_projector_localizer.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -95,7 +95,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
+KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false), average_time_(0.0), loop_(0)
 {
 }
 
@@ -184,29 +184,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
-    // Update sensor pose (localization)
-
-    if (localize_)
-    {
-        std::cout << "Got to 1" << std::endl;
-        std::set<ed::UUID> loc_ids;
-        loc_ids.insert(ed::UUID("floor"));
-
-        std::cout << "Got to 2" << std::endl;
-        SamplingRenderLocalizer localizer;
-//        SamplingProjectorLocalizer localizer;
-
-        std::cout << "Got to 3" << std::endl;
-        tue::Timer timer;
-        timer.start();
-
-        sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
-
-        std::cout << "Got to 4" << std::endl;
-        std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
-    }
-
-    // - - - - - - - - - - - - - - - - - -
     // Downsample depth image
 
     int factor = 2;
@@ -229,6 +206,26 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 depth.at<float>(y, x) = depth_original.at<float>(y * factor, x * factor);
             }
         }
+    }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Update sensor pose (localization)
+
+    if (localize_)
+    {
+        int loc_factor = 8;
+        std::set<ed::UUID> loc_ids;
+        loc_ids.insert(ed::UUID("floor"));
+        loc_ids.insert(ed::UUID("walls"));
+
+        SamplingRenderLocalizer localizer;
+
+        tue::Timer timer;
+        timer.start();
+
+        sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids, loc_factor);
+
+        std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << " ms" << std::endl;
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -728,10 +725,24 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     if (debug_)
+    {
         std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
-
-    if (debug_)
         std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+        // Calculate average loop time
+        if (loop_ == 0){
+            average_time_ = t_total.getElapsedTimeInMilliSec();
+        }
+        else
+        {
+            average_time_ = (average_time_*loop_ + t_total.getElapsedTimeInMilliSec())/(loop_+1);
+        }
+        loop_++;
+
+        std::cout << "On average, Kinect plugin runs in " << average_time_ << " ms." << std::endl;
+    }
+
+
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
