@@ -63,9 +63,11 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
     if (cam_id[0] == '/')
         cam_id = cam_id.substr(1);
 
+    //std::cout << world_model.entities().size() << cam_id <<std::endl;
     for(ed::world_model::TransformCrawler tc(world_model, cam_id, rgbd_image->getTimestamp()); tc.hasNext(); tc.next())
     {
         const ed::EntityConstPtr& e = tc.entity();
+        std::cout << "filterPointBehindworldmodel transforming id " << e->id() << std::endl;
         if (e->shape())
         {
             rendered_entities.insert(e->id());
@@ -76,12 +78,17 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
             // Render
             view.getRasterizer().render(opt, res);
         }
+        else
+        {
+            std::cout << "filterPointBehindworldmodel tried rendering id " << e->id() << "but has no shape" << std::endl;
+        }
     }
 
     for(ed::WorldModel::const_iterator it = world_model.begin(); it != world_model.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
 
+        //std::cout << "filterPointBehindworldmodel checking whether to render id: " << e->id() << std::endl;
         if (e->shape() && e->has_pose() && rendered_entities.find(e->id()) == rendered_entities.end())
         {
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
@@ -90,6 +97,14 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 
             // Render
             view.getRasterizer().render(opt, res);
+        }
+        else
+        {    
+             ed::UUID id = e->id();
+             bool shape = e->shape();
+             bool has_pose = e->has_pose();
+             bool in_rendered_entities = rendered_entities.find(e->id()) == rendered_entities.end();
+        //     std::cout << "filterPointBehindworldmodel NOT rendering id " << id << " because e->shape() =" << shape << " && e->has_pose() = " << has_pose << " && in_rendered_entities = " << in_rendered_entities << std::endl; 
         }
     }
 
