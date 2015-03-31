@@ -34,6 +34,9 @@
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
 
+// Visualization
+#include "visualization.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 class SampleRenderResult : public geo::RenderResult
@@ -91,7 +94,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-KinectPlugin::KinectPlugin() : tf_listener_(0)
+KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
 
@@ -110,12 +113,18 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     if (config.value("topic", topic_))
     {
-        std::cout << "Initializing kinect client with topic '" << topic_ << "'." << std::endl;
+        std::cout << "[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic_ << "'." << std::endl;
         kinect_client_.intialize(topic_);
     }
 
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
+
+    if (config.value("debug", debug_, tue::OPTIONAL))
+    {
+        if (debug_)
+            std::cout << "[ED KINECT PLUGIN] Debug print statements on" << std::endl;
+    }
 
     tf_listener_ = new tf::TransformListener;
 
@@ -125,6 +134,12 @@ void KinectPlugin::initialize(ed::InitData& init)
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
+
+    // Initialize image publishers for visualization
+    viz_sensor_normals_.intialize("ed/viz/sensor_normals");
+    viz_model_normals_.intialize("ed/viz/model_normals");
+    viz_clusters_.intialize("ed/viz/clusters");
+    viz_world_.intialize("ed/viz/world");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -250,7 +265,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.setInputCloud(pc);
     ne.compute(*pc);
 
-    std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -408,8 +424,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-
-    std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
@@ -470,7 +486,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
@@ -542,7 +559,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-    std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -654,7 +672,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -689,126 +708,19 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Visualize (will only send out images if someones listening to them)
 
-    bool visualize = true;
-    if (visualize)
-    {
-        // Visualize
-        int res1 = 40;
-        int res2 = 40;
-        double max = 0.0;
-        cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-        cv::Mat viz_normals_world(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-        cv::Mat normal_stats(res1,res2, CV_64FC1, cv::Scalar(0));
-
-        for(unsigned int i = 0; i < size; ++i)
-        {
-            const pcl::PointNormal& n = pc->points[i];
-            geo::Vec3d normal_kinect(n.normal_x,n.normal_y,n.normal_z);
-            geo::Vec3d normal_world(0.0,0.0,0.0);
-            if (n.normal_x == n.normal_x)
-            {
-                // RGBD image normals
-                int res = 255;
-
-                int r = res * (n.normal_x + 1) / 2;
-                int g = res * (n.normal_y + 1) / 2;
-                int b = res * (n.normal_z + 1) / 2;
-
-                r *= (255 / res);
-                g *= (255 / res);
-                b *= (255 / res);
-
-                viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-
-                // RGBD image normal distribution
-                normal_world = normal_kinect; // TODO: This goes wrong somehow...
-                double d = sqrt(normal_world.x*normal_world.x + normal_world.y*normal_world.y);
-
-                // Not looking at z coordinates right now (not important in camera frame)
-                int y = res1 * (normal_world.x + 1) / 2;
-                int x = res2 * (normal_world.y + 1) / 2;
-
-                // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
-//                int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
-//                int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
-
-                normal_stats.at<double>(x,y)++;
-                if ( normal_stats.at<double>(x,y) > max )
-                    max = normal_stats.at<double>(x,y);
-
-                // RGBD image normals in map frame
-
-                r = res * (normal_world.x + 1) / 2;
-                g = res * (normal_world.y + 1) / 2;
-                b = res * (normal_world.z + 1) / 2;
-
-                r *= (255 / res);
-                g *= (255 / res);
-                b *= (255 / res);
-
-                viz_normals_world.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-            }
-        }
-        normal_stats /= max;
-
-        cv::Mat normal_stats_large(depth.rows, depth.cols, CV_64FC1, cv::Scalar(0, 0, 0));
-        cv::Size imsize(400,400);
-        cv::resize(normal_stats, normal_stats_large, imsize, 0, 0, cv::INTER_NEAREST);
-        cv::imshow("normal statistics",normal_stats_large);
-        cv::imshow("normals", viz_normals_world);
-
-
-        // Visualize
-        cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        for(unsigned int i = 0; i < size; ++i)
-        {
-            const pcl::PointNormal& n = pc_model->points[i];
-            if (n.normal_x == n.normal_x)
-            {
-                int res = 255;
-
-                int r = res * (n.normal_x + 1) / 2;
-                int g = res * (n.normal_y + 1) / 2;
-                int b = res * (n.normal_z + 1) / 2;
-
-                r *= (255 / res);
-                g *= (255 / res);
-                b *= (255 / res);
-
-
-                viz_model_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-            }
-        }
-
-//        cv::imshow("model_normals", viz_model_normals);
-
-        std::cout << "Num clusters = " << clusters.size() << std::endl;
-
-        cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        for(unsigned int i = 0; i < clusters.size(); ++i)
-        {
-            const std::vector<unsigned int>& cluster = clusters[i];
-
-            int c = 255 * i / clusters.size();
-            cv::Vec3b clr(c, 255 - c, c);
-
-            for(unsigned int j = 0; j < cluster.size(); ++j)
-            {
-                viz_clusters.at<cv::Vec3b>(cluster[j]) = clr;
-            }
-        }
-
-//        cv::imshow("clusters", viz_clusters);
-        cv::waitKey(3);
-    }
+    visualizeNormals(*pc, viz_sensor_normals_);
+    visualizeNormals(*pc_model, viz_model_normals_);
+    visualizeClusters(depth, clusters, viz_clusters_);
+//    visualizeWorldModel(world, sensor_pose, view, viz_world_);
 }
 
 // ----------------------------------------------------------------------------------------------------
