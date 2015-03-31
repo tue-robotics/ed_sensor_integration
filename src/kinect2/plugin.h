@@ -8,6 +8,7 @@
 #include <rgbd/Client.h>
 
 #include <tf/transform_listener.h>
+#include <image_transport/image_transport.h>
 
 #include "ed_sensor_integration/properties/convex_hull.h"
 
@@ -47,6 +48,8 @@ private:
     rgbd::Client kinect_client_;
 
     tf::TransformListener* tf_listener_;
+
+    ros::NodeHandle nh_;
 
 };
 

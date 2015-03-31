@@ -699,11 +699,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     if (visualize)
     {
         // Visualize
-        int res1 = 400;
-        int res2 = 400;
+        int res1 = 40;
+        int res2 = 40;
+        double max = 0.0;
         cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Mat viz_normals_world(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-        cv::Mat normal_stats(res1,res2, CV_8UC1, cv::Scalar(0));
+        cv::Mat normal_stats(res1,res2, CV_64FC1, cv::Scalar(0));
 
         for(unsigned int i = 0; i < size; ++i)
         {
@@ -726,13 +727,20 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
 
                 // RGBD image normal distribution
-                normal_world = sensor_pose.R * normal_kinect; // TODO: This goes horribly wrong somehow...
+                normal_world = normal_kinect; // TODO: This goes wrong somehow...
                 double d = sqrt(normal_world.x*normal_world.x + normal_world.y*normal_world.y);
 
-                int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
-                int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
+                // Not looking at z coordinates right now (not important in camera frame)
+                int y = res1 * (normal_world.x + 1) / 2;
+                int x = res2 * (normal_world.y + 1) / 2;
 
-                normal_stats.at<uchar>(x,y)++;
+                // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
+//                int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
+//                int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
+
+                normal_stats.at<double>(x,y)++;
+                if ( normal_stats.at<double>(x,y) > max )
+                    max = normal_stats.at<double>(x,y);
 
                 // RGBD image normals in map frame
 
@@ -747,9 +755,14 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 viz_normals_world.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
             }
         }
+        normal_stats /= max;
 
-        cv::imshow("normal statistics",normal_stats);
+        cv::Mat normal_stats_large(depth.rows, depth.cols, CV_64FC1, cv::Scalar(0, 0, 0));
+        cv::Size imsize(400,400);
+        cv::resize(normal_stats, normal_stats_large, imsize, 0, 0, cv::INTER_NEAREST);
+        cv::imshow("normal statistics",normal_stats_large);
         cv::imshow("normals", viz_normals_world);
+
 
         // Visualize
         cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
