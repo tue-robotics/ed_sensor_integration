@@ -47,6 +47,8 @@ private:
     float clearing_padding_fraction_;
     int normal_k_search_;
     bool visualize_;
+    bool debug_;
+    bool localize_;
 
     // Visualization
     ros::NodeHandle nh_;

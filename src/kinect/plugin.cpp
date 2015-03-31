@@ -178,13 +178,8 @@ void KinectPlugin::configure(tue::Configuration config)
     config.value("clearing_padding_fraction", clearing_padding_fraction_);
     config.value("normal_k_search", normal_k_search_);
     config.value("visualize",visualize_);
-
-    std::cout << "Parameters kinect plugin: \n" <<
-                 "- voxel size: " << voxel_size_ << "\n" <<
-                 "- max_range_: " << max_range_ << "\n" <<
-                 "- clearing_padding_fraction_: " << clearing_padding_fraction_ << "\n" <<
-                 "- normal_k_search_: " << normal_k_search_ <<
-                 "- visualize_: " << visualize_ << std::endl;
+    config.value("localize",localize_, tue::OPTIONAL);
+    config.value("debug", debug_, tue::OPTIONAL);
 
     if (config.readArray("association_modules"))
     {
@@ -232,6 +227,9 @@ void KinectPlugin::configure(tue::Configuration config)
 
 void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 {
+    tue::Timer total;
+    total.start();
+
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image
 
@@ -269,25 +267,26 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // Convert from ROS coordinate frame to geolib coordinate frame
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
-    
-
-
     // - - - - - - - - - - - - - - - - - -
     // Update sensor pose (localization)
-//    float loc_downsample_factor = 1;
 
-//    std::set<ed::UUID> loc_ids;
-//    loc_ids.insert(ed::UUID("plastic_cabinet"));
+    if (true)
+    {
+        std::set<ed::UUID> loc_ids;
+        loc_ids.insert(ed::UUID("walls"));
+        loc_ids.insert(ed::UUID("floor"));
 
-//    SamplingRenderLocalizer localizer;
-//    SamplingProjectorLocalizer localizer;
+        SamplingRenderLocalizer localizer;
+//        SamplingProjectorLocalizer localizer;
 
-//    tue::Timer timer;
-//    timer.start();
+        tue::Timer timer;
+        timer.start();
 
-//    sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids);
+        sensor_pose = localizer.localize(sensor_pose, *rgbd_image, world, loc_ids, 8);
 
-//    std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << "ms" << std::endl;
+        if (true)
+            std::cout << "Localization took " << timer.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Visualize
@@ -467,6 +466,9 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         drawImageWithMeasurements(wm_new, rgbd_data.image, viz);
         pub_viz_.publish(viz);
     }
+
+    if (debug_)
+        std::cout << "Total took " << total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 }
 

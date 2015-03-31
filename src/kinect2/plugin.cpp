@@ -34,14 +34,12 @@
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
 
-<<<<<<< HEAD
 // Localization
 #include "ed_sensor_integration/kinect/localization/sampling_render_localizer.h"
 #include "ed_sensor_integration/kinect/localization/sampling_projector_localizer.h"
-=======
+
 // Visualization
 #include "visualization.h"
->>>>>>> master
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -126,12 +124,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     config.value("max_correspondence_distance", association_correspondence_distance_);
     config.value("max_range", max_range_);
     config.value("localize",localize_, tue::OPTIONAL);
-
-    if (config.value("debug", debug_, tue::OPTIONAL))
-    {
-        if (debug_)
-            std::cout << "[ED KINECT PLUGIN] Debug print statements on" << std::endl;
-    }
+    config.value("debug", debug_, tue::OPTIONAL);
 
     tf_listener_ = new tf::TransformListener;
 
