@@ -140,6 +140,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_model_normals_.intialize("ed/viz/model_normals");
     viz_clusters_.intialize("ed/viz/clusters");
     viz_world_.intialize("ed/viz/world");
+    viz_normal_stats_.intialize("kinect/viz/normal_stats");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -720,7 +721,41 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
-//    visualizeWorldModel(world, sensor_pose, view, viz_world_);
+    //    visualizeWorldModel(world, sensor_pose, view, viz_world_);
+
+    // Visualize normals histogram
+    int hist_res = 40; // number of bins (horizontally and vertically)
+    double hist_max = 0.0;
+    cv::Mat normal_stats(hist_res,hist_res, CV_32FC1, cv::Scalar(0.0));
+
+    for(unsigned int i = 0; i < size; ++i)
+    {
+        const pcl::PointNormal& n = pc->points[i];
+        if (n.normal_x == n.normal_x)
+        {
+            // RGBD image normal distribution
+
+            // Not looking at z coordinates right now (not important in camera frame)
+            int x = hist_res * (n.normal_x + 1) / 2;
+            int y = hist_res * (n.normal_y + 1) / 2;
+
+            // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
+            // First convert to some world fixed frame and find a better parametrization for finding clusters in two horizontal and one vertical direction.
+//            double d = sqrt(n.normal_x*n.normal_x + n.normal_y*n.normal_y);
+//            int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
+//            int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
+
+            normal_stats.at<double>(y,x)++;
+            if ( normal_stats.at<double>(y,x) > hist_max )
+                hist_max = normal_stats.at<double>(y,x);
+        }
+    }
+    normal_stats /= hist_max;
+
+    cv::Mat normal_stats_large(depth.rows, depth.cols, CV_8UC1, cv::Scalar(0));
+    cv::Size imsize(depth.rows, depth.cols);
+    cv::resize(normal_stats, normal_stats_large, imsize, 0, 0, cv::INTER_NEAREST);
+    viz_normal_stats_.publish(normal_stats_large);
 }
 
 // ----------------------------------------------------------------------------------------------------

@@ -48,6 +48,7 @@ private:
     ed::ImagePublisher viz_model_normals_;
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_world_;
+    ed::ImagePublisher viz_normal_stats_;
 
     // COMMUNICATION
 
