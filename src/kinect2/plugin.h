@@ -44,6 +44,13 @@ private:
     float average_time_;
     int loop_;
 
+    // VISUALIZATION
+
+    ed::ImagePublisher viz_sensor_normals_;
+    ed::ImagePublisher viz_model_normals_;
+    ed::ImagePublisher viz_clusters_;
+    ed::ImagePublisher viz_world_;
+
     // COMMUNICATION
 
     std::string topic_;

@@ -34,9 +34,14 @@
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
 
+<<<<<<< HEAD
 // Localization
 #include "ed_sensor_integration/kinect/localization/sampling_render_localizer.h"
 #include "ed_sensor_integration/kinect/localization/sampling_projector_localizer.h"
+=======
+// Visualization
+#include "visualization.h"
+>>>>>>> master
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -136,6 +141,12 @@ void KinectPlugin::initialize(ed::InitData& init)
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
+
+    // Initialize image publishers for visualization
+    viz_sensor_normals_.intialize("ed/viz/sensor_normals");
+    viz_model_normals_.intialize("ed/viz/model_normals");
+    viz_clusters_.intialize("ed/viz/clusters");
+    viz_world_.intialize("ed/viz/world");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -745,86 +756,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Visualize (will only send out images if someones listening to them)
 
-    bool visualize = true;
-    if (visualize)
-    {
-        // Visualize
-        cv::Mat viz_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        for(unsigned int i = 0; i < size; ++i)
-        {
-            const pcl::PointNormal& n = pc->points[i];
-            if (n.normal_x == n.normal_x)
-            {
-                int res = 255;
-
-                int r = res * (n.normal_x + 1) / 2;
-                int g = res * (n.normal_y + 1) / 2;
-                int b = res * (n.normal_z + 1) / 2;
-
-                r *= (255 / res);
-                g *= (255 / res);
-                b *= (255 / res);
-
-
-                viz_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-            }
-        }
-
-        if (debug_)
-            cv::imshow("normals", viz_normals);
-
-        // Visualize
-        cv::Mat viz_model_normals(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        for(unsigned int i = 0; i < size; ++i)
-        {
-            const pcl::PointNormal& n = pc_model->points[i];
-            if (n.normal_x == n.normal_x)
-            {
-                int res = 255;
-
-                int r = res * (n.normal_x + 1) / 2;
-                int g = res * (n.normal_y + 1) / 2;
-                int b = res * (n.normal_z + 1) / 2;
-
-                r *= (255 / res);
-                g *= (255 / res);
-                b *= (255 / res);
-
-
-                viz_model_normals.at<cv::Vec3b>(i) = cv::Vec3b(b, g, r);
-            }
-        }
-
-        if (debug_)
-            cv::imshow("model_normals", viz_model_normals);
-
-        if (debug_)
-            std::cout << "Num clusters = " << clusters.size() << std::endl;
-
-        cv::Mat viz_clusters(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        for(unsigned int i = 0; i < clusters.size(); ++i)
-        {
-            const std::vector<unsigned int>& cluster = clusters[i];
-
-            int c = 255 * i / clusters.size();
-            cv::Vec3b clr(c, 255 - c, c);
-
-            for(unsigned int j = 0; j < cluster.size(); ++j)
-            {
-                viz_clusters.at<cv::Vec3b>(cluster[j]) = clr;
-            }
-        }
-
-        if (debug_)
-        {
-            cv::imshow("clusters", viz_clusters);
-            cv::waitKey(3);
-        }
-    }
+    visualizeNormals(*pc, viz_sensor_normals_);
+    visualizeNormals(*pc_model, viz_model_normals_);
+    visualizeClusters(depth, clusters, viz_clusters_);
+//    visualizeWorldModel(world, sensor_pose, view, viz_world_);
 }
 
 // ----------------------------------------------------------------------------------------------------
