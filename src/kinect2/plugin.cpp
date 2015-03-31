@@ -14,10 +14,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-//#include <pcl/io/io.h>
-//#include <pcl/io/pcd_io.h>
 #include <pcl/features/integral_image_normal.h>
-//#include <pcl/visualization/cloud_viewer.h>
 
 // Rendering
 #include <ed/world_model/transform_crawler.h>
@@ -33,6 +30,9 @@
 #include "ed_sensor_integration/properties/convex_hull_calc.h"
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
+
+#include <ed/measurement.h>
+#include <ed/mask.h>
 
 // Visualization
 #include "visualization.h"
@@ -94,6 +94,40 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
+ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, const cv::Mat& depth, const std::vector<unsigned int>& cluster)
+{
+    const cv::Mat& rgb = rgbd_image->getRGBImage();
+
+    int f = rgb.cols / depth.cols;
+
+    ed::ImageMask image_mask(rgb.cols, rgb.rows);
+    for(unsigned int j = 0; j < cluster.size(); ++j)
+    {
+        int p = cluster[j];
+
+        int x_depth = p % depth.cols;
+        int y_depth = p / depth.cols;
+        int x_rgb = x_depth * f;
+        int y_rgb = y_depth * f;
+
+        for(int x = x_rgb; x < x_rgb + f; ++x)
+        {
+            for(int y = y_rgb; y < y_rgb + f; ++y)
+            {
+                image_mask.addPoint(x, y);
+//                std::cout << x << ", " << y << " (" << x_depth << ", " << y_depth << ")" << std::endl;
+            }
+        }
+    }
+
+    // Create measurement
+    ed::MeasurementPtr m(new ed::Measurement(rgbd_image, image_mask));
+
+    return m;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
@@ -139,7 +173,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_sensor_normals_.intialize("ed/viz/sensor_normals");
     viz_model_normals_.intialize("ed/viz/model_normals");
     viz_clusters_.intialize("ed/viz/clusters");
-    viz_world_.intialize("ed/viz/world");
+    viz_update_req_.intialize("ed/viz/update_request");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -657,6 +691,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
 
+                // Add measurement
+                req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, cluster));
+
                 associated_ids.insert(e->id());
 
                 break;
@@ -669,6 +706,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, pose);
             req.setProperty(id, k_convex_hull_, chull);
+
+            // Add measurement
+            req.addMeasurement(id, createMeasurement(rgbd_image, depth, cluster));
         }
     }
 
@@ -720,7 +760,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
-//    visualizeWorldModel(world, sensor_pose, view, viz_world_);
+    visualizeUpdateRequest(req, viz_update_req_);
 }
 
 // ----------------------------------------------------------------------------------------------------

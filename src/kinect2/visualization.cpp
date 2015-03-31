@@ -2,6 +2,8 @@
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
+#include <ed/update_request.h>
+#include <ed/measurement.h>
 
 #include "ed_sensor_integration/properties/convex_hull.h"
 
@@ -56,41 +58,32 @@ void visualizeClusters(const cv::Mat& depth, const std::vector<std::vector<unsig
 
 // ----------------------------------------------------------------------------------------------------
 
-//void visualizeWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose, const rgbd::View& view, ed::ImagePublisher& pub)
-//{
-//    if (!pub.enabled())
-//        return;
+void visualizeUpdateRequest(const ed::UpdateRequest& req, ed::ImagePublisher& pub)
+{
+    if (!pub.enabled())
+        return;
 
-//    cv::Mat canvas(view.getHeight(), view.getWidth(), CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat canvas;
+    const cv::Mat* rgb = 0;
 
-//    for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
-//    {
-//        const ed::EntityConstPtr& e = *e_it;
-//        if (e->shape())
-//            continue;
+    for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = req.measurements.begin(); it != req.measurements.end(); ++it)
+    {
+        const std::vector<ed::MeasurementConstPtr>& measurements = it->second;
+        for(std::vector<ed::MeasurementConstPtr>::const_iterator it2 = measurements.begin(); it2 != measurements.end(); ++it2)
+        {
+            const ed::MeasurementConstPtr& m = *it2;
 
-//        const geo::Pose3D* pose = e->property(k_pose_);
-//        const ConvexHull* chull = e->property(k_convex_hull_);
+            if (!rgb)
+            {
+                rgb = &m->image()->getRGBImage();
+                canvas = 0.1 * rgb->clone();
+            }
 
-//        if (!pose || !chull)
-//            continue;
+            for(ed::ImageMask::const_iterator it_p = m->imageMask().begin(canvas.cols); it_p != m->imageMask().end(); ++it_p)
+                canvas.at<cv::Vec3b>(*it_p) = rgb->at<cv::Vec3b>(*it_p);
+        }
+    }
 
-//        for(unsigned int i = 0; i < chull->points.size(); ++i)
-//        {
-//            unsigned int j = (i + 1) % chull->points.size();
-
-//            const geo::Vec2f& p1c = chull->points[i];
-//            const geo::Vec2f& p2c = chull->points[j];
-
-//            geo::Vector3 p1 = sensor_pose.inverse() * geo::Vector3(p1c.x + pose->t.x, p1c.y + pose->t.y, chull->z_max + pose->t.z);
-//            geo::Vector3 p2 = sensor_pose.inverse() * geo::Vector3(p2c.x + pose->t.x, p2c.y + pose->t.y, chull->z_max + pose->t.z);
-
-//            cv::Point2d p1_2d = view.getRasterizer().project3Dto2D(p1);
-//            cv::Point2d p2_2d = view.getRasterizer().project3Dto2D(p2);
-
-//            cv::line(canvas, p1_2d, p2_2d, cv::Scalar(255, 0, 0));
-//        }
-//    }
-
-//    pub.publish(canvas);
-//}
+    if (canvas.data)
+        pub.publish(canvas);
+}
