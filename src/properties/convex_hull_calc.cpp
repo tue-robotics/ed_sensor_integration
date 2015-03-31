@@ -91,7 +91,7 @@ bool collide(const ConvexHull& c1, const geo::Vector3& pos1,
 
     float z_diff = pos2.z - pos1.z;
 
-    if (c1.z_max < (c2.z_min + z_diff - 2 * z_padding) || c2.z_max < (c1.z_min + z_diff - 2 * z_padding))
+    if (c1.z_max < (c2.z_min + z_diff - 2 * z_padding) || c2.z_max < (c1.z_min - z_diff - 2 * z_padding))
         return false;
 
     geo::Vec2f pos_diff(pos2.x - pos1.x, pos2.y - pos1.y);
