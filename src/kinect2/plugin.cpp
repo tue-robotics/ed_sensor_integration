@@ -164,6 +164,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     xy_padding_ = 0.1;
     z_padding_ = 0.1;
+    border_padding_ = 0.05;
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
@@ -299,8 +300,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.setInputCloud(pc);
     ne.compute(*pc);
 
-    if (debug_)
-        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -458,8 +459,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    if (debug_)
-        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
@@ -520,8 +521,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    if (debug_)
-        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
@@ -593,8 +594,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-    if (debug_)
-        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -611,6 +612,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         float z_min = 1e9;
         float z_max = -1e9;
+        bool complete = true;
 
         // Calculate z_min and z_max of cluster
         std::vector<geo::Vec2f> points_2d(cluster.size());
@@ -625,11 +627,22 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
+
+            // If cluster is completely within a frame inside the view, it is called complete
+            if ( p.x <    border_padding_  * view.getWidth() && p.y <    border_padding_  * view.getHeight() &&
+                 p.x > (1-border_padding_) * view.getWidth() && p.y > (1-border_padding_) * view.getHeight() )
+            {
+                complete = false;
+            }
         }
 
         ConvexHull cluster_chull;
         geo::Pose3D cluster_pose;
         convex_hull::create(points_2d, z_min, z_max, cluster_chull, cluster_pose);
+        cluster_chull.complete = complete;
+
+        if (debug_)
+            std::cout << "New measurement is complete: " << cluster_chull.complete << std::endl;
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
@@ -655,7 +668,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 {
                     geo::Vec2f p_chull_MAP(p_it->x + entity_pose->t.x, p_it->y + entity_pose->t.y);
 
-                    // Calculate the 3d coordinate of this chull points in absolute frame, in the middle of the rib
+                    // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
                     geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, entity_pose->t.z);
 
                     // Transform to the sensor frame
@@ -665,8 +678,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
 
                     // Check if the point is in view, and is not occluded by sensor points
-                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight())
+                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight() && !entity_chull->complete)
                     {
+                        // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
                         float dp = -p_rib_cam.z;
                         float ds = depth.at<float>(p_2d);
                         if (ds == 0 || dp > max_range_ || dp > ds)
@@ -678,9 +692,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     }
                 }
 
-                // Add the points of the new convex hull
-                for(std::vector<geo::Vec2f>::const_iterator p_it = cluster_chull.points.begin(); p_it != cluster_chull.points.end(); ++p_it)
-                    new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster_pose.t.x, p_it->y + cluster_pose.t.y));
+                if ( !entity_chull->complete )
+                {
+                    // Add the points of the new convex hull.
+                    for(std::vector<geo::Vec2f>::const_iterator p_it = cluster_chull.points.begin(); p_it != cluster_chull.points.end(); ++p_it)
+                    {
+                        new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster_pose.t.x, p_it->y + cluster_pose.t.y));
+                    }
+                }
+                // TODO: Else: Remove overlap with complete entity chull from cluster, threshold on size and add cluster to cluster list to be associated with something else?
 
                 // And calculate the convex hull of these points
                 ConvexHull new_chull;
@@ -688,6 +708,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
                 convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
+                if (cluster_chull.complete)
+                    new_chull.complete = true;
 
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
@@ -697,12 +719,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 associated_ids.insert(e->id());
 
+                if (debug_)
+                    std::cout << "and associated" << std::endl << std::endl;
+
                 break;
             }
         }
 
         if (!associated)
         {
+            if (debug_)
+                std::cout << "Adding new entity at pose " << cluster_pose << std::endl << std::endl;
             // Add new entity
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, cluster_pose);
@@ -713,8 +740,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    if (debug_)
-        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -749,11 +776,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    if (debug_)
-        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-    if (debug_)
-        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+//    if (debug_)
+//        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize (will only send out images if someones listening to them)
