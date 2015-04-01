@@ -739,6 +739,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             int x = hist_res * (n.normal_x + 1) / 2;
             int y = hist_res * (n.normal_y + 1) / 2;
 
+            // Transform sensor point to map frame using this:
+//            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
             // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
             // First convert to some world fixed frame and find a better parametrization for finding clusters in two horizontal and one vertical direction.
 //            double d = sqrt(n.normal_x*n.normal_x + n.normal_y*n.normal_y);
