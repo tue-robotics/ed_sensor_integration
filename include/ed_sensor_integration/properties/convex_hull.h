@@ -10,6 +10,8 @@ struct ConvexHull
     std::vector<geo::Vec2f> normals;
     float z_min, z_max;
     bool complete;
+
+    ConvexHull() { complete = false; }
 };
 
 #endif
