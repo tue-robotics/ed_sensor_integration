@@ -128,6 +128,19 @@ ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, cons
 
 // ----------------------------------------------------------------------------------------------------
 
+void convertConvexHull(const ConvexHull& c, const geo::Pose3D& pose, ed::ConvexHull2D& c2)
+{
+    c2.min_z = c.z_min + pose.t.z;
+    c2.max_z = c.z_max + pose.t.z;
+    c2.center_point = pose.t;
+
+    c2.chull.resize(c.points.size());
+    for(unsigned int i = 0; i < c.points.size(); ++i)
+        c2.chull.points[i] = pcl::PointXYZ(c.points[i].x + pose.t.x, c.points[i].y + pose.t.y, 0);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
@@ -691,6 +704,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
 
+                // Set old chull (is used in other plugins, e.g. navigation)
+                ed::ConvexHull2D chull_old;
+                convertConvexHull(new_chull, new_pose, chull_old);
+                req.setConvexHull(e->id(), chull_old);
+                req.setPose(e->id(), new_pose);
+
                 // Add measurement
                 req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, cluster));
 
@@ -706,6 +725,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, pose);
             req.setProperty(id, k_convex_hull_, chull);
+
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(chull, pose, chull_old);
+            req.setConvexHull(id, chull_old);
+            req.setPose(id, pose);
 
             // Add measurement
             req.addMeasurement(id, createMeasurement(rgbd_image, depth, cluster));
