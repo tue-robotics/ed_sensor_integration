@@ -9,6 +9,7 @@ struct ConvexHull
     std::vector<geo::Vec2f> edges;
     std::vector<geo::Vec2f> normals;
     float z_min, z_max;
+    bool complete;
 };
 
 #endif
