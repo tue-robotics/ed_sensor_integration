@@ -13,6 +13,6 @@ void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePubl
 
 void visualizeClusters(const cv::Mat& rgb, const std::vector<std::vector<unsigned int> >& clusters, ed::ImagePublisher& pub);
 
-//void visualizeWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose, const rgbd::View& view, ed::ImagePublisher& pub);
+void visualizeUpdateRequest(const ed::UpdateRequest& req, ed::ImagePublisher& pub);
 
 #endif

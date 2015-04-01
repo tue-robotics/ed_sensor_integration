@@ -39,6 +39,7 @@ private:
     float max_range_;
     float xy_padding_;
     float z_padding_;
+    float border_padding_;
     bool debug_;
     bool localize_;
     float average_time_;
@@ -49,7 +50,7 @@ private:
     ed::ImagePublisher viz_sensor_normals_;
     ed::ImagePublisher viz_model_normals_;
     ed::ImagePublisher viz_clusters_;
-    ed::ImagePublisher viz_world_;
+    ed::ImagePublisher viz_update_req_;
 
     // COMMUNICATION
 
