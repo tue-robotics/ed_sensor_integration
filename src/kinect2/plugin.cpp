@@ -770,7 +770,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             // Set old chull (is used in other plugins, e.g. navigation)
             ed::ConvexHull2D chull_old;
             convertConvexHull(cluster_chull, cluster_pose, chull_old);
-            req.setConvexHull(cluster_chull, chull_old);
+            req.setConvexHull(id, chull_old);
             req.setPose(id, cluster_pose);
 
             // Add measurement
