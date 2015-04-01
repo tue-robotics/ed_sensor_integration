@@ -300,8 +300,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     ne.setInputCloud(pc);
     ne.compute(*pc);
 
-//    if (debug_)
-//        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Calculating normals took " << t_normal.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model and calculate normals
@@ -459,8 +459,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-//    if (debug_)
-//        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Rendering (with normals) took " << t_render.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Filter sensor points that are too far or behind world model
@@ -521,8 +521,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-//    if (debug_)
-//        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Point association took " << t_assoc.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - -
     // Cluster residual points
@@ -594,8 +594,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             clusters.pop_back();
     }
 
-//    if (debug_)
-//        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -640,9 +640,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         geo::Pose3D cluster_pose;
         convex_hull::create(points_2d, z_min, z_max, cluster_chull, cluster_pose);
         cluster_chull.complete = complete;
-
-        if (debug_)
-            std::cout << "New measurement is complete: " << cluster_chull.complete << std::endl;
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
@@ -719,17 +716,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 associated_ids.insert(e->id());
 
-                if (debug_)
-                    std::cout << "and associated" << std::endl << std::endl;
-
                 break;
             }
         }
 
         if (!associated)
         {
-            if (debug_)
-                std::cout << "Adding new entity at pose " << cluster_pose << std::endl << std::endl;
             // Add new entity
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, cluster_pose);
@@ -740,8 +732,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-//    if (debug_)
-//        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -776,11 +768,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-//    if (debug_)
-//        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
-//    if (debug_)
-//        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    if (debug_)
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize (will only send out images if someones listening to them)
