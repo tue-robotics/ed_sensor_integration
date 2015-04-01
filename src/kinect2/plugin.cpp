@@ -507,8 +507,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             unsigned int i = depth.cols * y + x;
             const pcl::PointNormal& p = pc->points[i];
 
-            if (p.x != p.x || p.normal_x != p.normal_x)
+            if (p.x != p.x)
                 continue;
+
+            if (p.normal_x != p.normal_x)
+            {
+                // No normal, but we do have a depth measurement at this pixel. Make sure it
+                // can still be visited by the clustering algorithm
+                cluster_visited_map.at<unsigned char>(i) = 0;
+                continue;
+            }
 
             bool associates = false;
             float min_dist_sq = association_correspondence_distance_ * association_correspondence_distance_;
