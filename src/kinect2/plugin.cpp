@@ -181,8 +181,6 @@ void KinectPlugin::initialize(ed::InitData& init)
     z_padding_ = 0.1;
     border_padding_ = 0.05;
 
-    loop_timer_.start();
-
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
@@ -192,6 +190,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_model_normals_.initialize("kinect/viz/model_normals");
     viz_clusters_.initialize("kinect/viz/clusters");
     viz_update_req_.initialize("kinect/viz/update_request");
+    viz_model_render_.initialize("kinect/viz/depth_render");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -452,6 +451,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
     }
+
+    // Visualize depth model (if asked for)
+    visualizeDepthImage(depth_model, viz_model_render_);
 
     pcl::PointCloud<pcl::PointNormal>::Ptr pc_model(new pcl::PointCloud<pcl::PointNormal>);
     pc_model->points.resize(size);
@@ -830,12 +832,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // Visualize (will only send out images if someones listening to them)
+    // Visualize (will only send out images if someone's listening to them)
 
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
-    visualizeUpdateRequest(world, req, viz_update_req_);
+    visualizeUpdateRequest(world, req, rgbd_image, viz_update_req_);
 }
 
 // ----------------------------------------------------------------------------------------------------

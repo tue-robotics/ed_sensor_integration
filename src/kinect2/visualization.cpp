@@ -11,6 +11,24 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+void visualizeDepthImage(const cv::Mat& depth_image, ed::ImagePublisher& pub)
+{
+    if (!pub.enabled())
+        return;
+
+    cv::Mat canvas(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    for(unsigned int i = 0; i < depth_image.cols * depth_image.rows; ++i)
+    {
+        int c = 255 * (depth_image.at<float>(i) / 10);
+        canvas.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
+    }
+
+    pub.publish(canvas);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePublisher& pub)
 {
     if (!pub.enabled())
@@ -73,15 +91,15 @@ struct VisualizationLabel
 
 // ----------------------------------------------------------------------------------------------------
 
-void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, ed::ImagePublisher& pub)
+void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, const rgbd::ImageConstPtr& image, ed::ImagePublisher& pub)
 {
     ed::ErrorContext errc("Kinect 2 plugin: visualizeUpdateRequest");
 
     if (!pub.enabled())
         return;
 
-    cv::Mat canvas;
-    const cv::Mat* rgb = 0;
+    const cv::Mat& rgb = image->getRGBImage();
+    cv::Mat canvas = 0.1 * rgb.clone();
 
     std::vector<VisualizationLabel> labels;
 
@@ -95,15 +113,9 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
         {
             const ed::MeasurementConstPtr& m = *it2;
 
-            if (!rgb)
-            {
-                rgb = &m->image()->getRGBImage();
-                canvas = 0.1 * rgb->clone();
-            }
-
             for(ed::ImageMask::const_iterator it_p = m->imageMask().begin(canvas.cols); it_p != m->imageMask().end(); ++it_p)
             {
-                canvas.at<cv::Vec3b>(*it_p) = rgb->at<cv::Vec3b>(*it_p);
+                canvas.at<cv::Vec3b>(*it_p) = rgb.at<cv::Vec3b>(*it_p);
                 p_top_left.x = std::min(p_top_left.x, it_p->x);
                 p_top_left.y = std::min(p_top_left.y, it_p->y);
 
@@ -174,6 +186,5 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
 
     }
 
-    if (canvas.data)
-        pub.publish(canvas);
+    pub.publish(canvas);
 }

@@ -50,6 +50,7 @@ private:
     ed::ImagePublisher viz_model_normals_;
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_update_req_;
+    ed::ImagePublisher viz_model_render_;
 
     // COMMUNICATION
 
