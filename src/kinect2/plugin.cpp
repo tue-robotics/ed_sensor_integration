@@ -70,6 +70,8 @@ public:
 
 bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal>& pc, int x, int y, float& min_dist_sq)
 {
+//    std::cout << "    " << x << ", " << y << std::endl;
+
     const pcl::PointNormal& p2 = pc.points[pc.width * y + x];
 
     float dx = p2.x - p.x;
@@ -82,7 +84,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
     {
         // Check normals
         float dot = p.normal_x * p2.normal_x + p.normal_y * p2.normal_y + p.normal_z * p2.normal_z;
-        if (dot > 0.8)
+        if (dot > 0.8)  // TODO: magic number
         {
             min_dist_sq = dist_sq;
             return true;
@@ -505,7 +507,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     cv::Mat cluster_visited_map(depth.rows, depth.cols, CV_8UC1, cv::Scalar(1));
     std::vector<unsigned int> non_assoc_mask;
 
-    int w_max = 10;
+    int w_max = 20; // TODO: magic number
     for(int y = w_max; y < depth.rows - w_max; ++y)
     {
         for(int x = w_max; x < depth.cols - w_max; ++x)
@@ -527,7 +529,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             bool associates = false;
             float min_dist_sq = association_correspondence_distance_ * association_correspondence_distance_;
 
-            int w = std::min<int>(min_dist_sq * cam_model.getOpticalCenterX() / p.z, w_max);
+            int w = std::min<int>(association_correspondence_distance_ * cam_model.getOpticalCenterX() / p.z, w_max);
 
             associates = pointAssociates(p, *pc_model, x, y, min_dist_sq);
 
@@ -538,6 +540,21 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                         pointAssociates(p, *pc_model, x + d, y, min_dist_sq) ||
                         pointAssociates(p, *pc_model, x, y - d, min_dist_sq) ||
                         pointAssociates(p, *pc_model, x, y + d, min_dist_sq);
+
+//                int x2 = x - d;
+//                int y2 = y - d;
+
+//                for(; !associates && x2 < x + d; ++x2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && y2 < y + d; ++y2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && x2 > x - d; --x2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && y2 > y - d; --y2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
             }
 
             if (!associates)
