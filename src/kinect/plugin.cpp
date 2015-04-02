@@ -42,6 +42,7 @@
 
 void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image)
 {
+    //std::cout << "filterPointsBehindWorldModel" << std::endl;
     rgbd::View view(*rgbd_image, 160);
 
     // Visualize the frustrum
@@ -63,7 +64,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
     if (cam_id[0] == '/')
         cam_id = cam_id.substr(1);
 
-    //std::cout << world_model.entities().size() << cam_id <<std::endl;
+    std::cout << world_model.entities().size() << cam_id <<std::endl;
     for(ed::world_model::TransformCrawler tc(world_model, cam_id, rgbd_image->getTimestamp()); tc.hasNext(); tc.next())
     {
         const ed::EntityConstPtr& e = tc.entity();
