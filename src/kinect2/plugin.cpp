@@ -186,11 +186,11 @@ void KinectPlugin::initialize(ed::InitData& init)
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 
     // Initialize image publishers for visualization
-    viz_sensor_normals_.intialize("ed/viz/sensor_normals");
-    viz_model_normals_.intialize("ed/viz/model_normals");
-    viz_clusters_.intialize("ed/viz/clusters");
-    viz_update_req_.intialize("ed/viz/update_request");
-    viz_model_render_.intialize("ed/viz/depth_render");
+    viz_sensor_normals_.initialize("ed/viz/sensor_normals");
+    viz_model_normals_.initialize("ed/viz/model_normals");
+    viz_clusters_.initialize("ed/viz/clusters");
+    viz_update_req_.initialize("ed/viz/update_request");
+    viz_model_render_.initialize("ed/viz/depth_render");
 }
 
 // ----------------------------------------------------------------------------------------------------
