@@ -35,6 +35,8 @@ private:
 
     tf::TransformListener* tf_listener_;
 
+    void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image);
+
     // Hard coded module declarations
     edKinect::PointNormalALM point_normal_alm_;
     edKinect::PolygonHeightALM polygon_height_alm_;
@@ -52,6 +54,7 @@ private:
     ros::NodeHandle nh_;
     ros::Publisher vis_marker_pub_;
     ed::ImagePublisher pub_viz_;
+    ed::ImagePublisher depth_viz_;
 
 };
 

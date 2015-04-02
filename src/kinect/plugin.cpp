@@ -40,7 +40,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image)
+void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::Pose3D& sensor_pose, rgbd::ImagePtr rgbd_image)
 {
     rgbd::View view(*rgbd_image, 160);
 
@@ -123,6 +123,17 @@ void filterPointsBehindWorldModel(const ed::WorldModel& world_model, const geo::
     }
 
     rgbd_image->setDepthImage(new_depth_image);
+    if(depth_viz_.enabled())
+    {
+        cv::Mat rgb(wm_depth_image.rows, wm_depth_image.cols, CV_8UC3, cv::Scalar(0,0,0));
+
+        for(unsigned int i = 0; i < wm_depth_image.rows * wm_depth_image.cols; ++i)
+        {
+            int c = 255 * (wm_depth_image.at<float>(i) / 10);
+            rgb.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
+        }    
+        depth_viz_.publish(rgb);
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -224,6 +235,7 @@ void KinectPlugin::configure(tue::Configuration config)
     }
 
     pub_viz_.intialize("viz/kinect");
+    depth_viz_.intialize("viz/wm_depth");
 
     tf_listener_ = new tf::TransformListener;
 }
