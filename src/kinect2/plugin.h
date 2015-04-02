@@ -1,6 +1,8 @@
 #ifndef ED_SENSOR_INTEGRATION_KINECT2_PLUGIN_H_
 #define ED_SENSOR_INTEGRATION_KINECT2_PLUGIN_H_
 
+#include <queue>
+
 #include <ed/plugin.h>
 #include <ed/types.h>
 #include <ed/helpers/image_publisher.h>
@@ -58,6 +60,7 @@ private:
 
     tf::TransformListener* tf_listener_;
 
+    std::queue<rgbd::ImageConstPtr> image_buffer_;
 };
 
 #endif

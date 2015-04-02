@@ -188,45 +188,65 @@ void KinectPlugin::initialize(ed::InitData& init)
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 
     // Initialize image publishers for visualization
-    viz_sensor_normals_.initialize("ed/viz/sensor_normals");
-    viz_model_normals_.initialize("ed/viz/model_normals");
-    viz_clusters_.initialize("ed/viz/clusters");
-    viz_update_req_.initialize("ed/viz/update_request");
-    viz_model_render_.initialize("ed/viz/depth_render");
+    viz_sensor_normals_.initialize("kinect/viz/sensor_normals");
+    viz_model_normals_.initialize("kinect/viz/model_normals");
+    viz_clusters_.initialize("kinect/viz/clusters");
+    viz_update_req_.initialize("kinect/viz/update_request");
+    viz_model_render_.initialize("kinect/viz/depth_render");
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
+    tue::Timer t_total;
+    t_total.start();
+
     const ed::WorldModel& world = data.world;
 
     // - - - - - - - - - - - - - - - - - -
-    // Fetch kinect image
+    // Fetch kinect image and place in image buffer
 
-    rgbd::ImagePtr rgbd_image = kinect_client_.nextImage();
-    if (!rgbd_image)
-    {
-        ROS_WARN_STREAM("No RGBD image available for sensor '" << topic_ << "'");
+    rgbd::ImageConstPtr rgbd_image = kinect_client_.nextImage();
+    if (rgbd_image)
+        image_buffer_.push(rgbd_image);
+
+    if (image_buffer_.empty())
         return;
-    }
+
+    rgbd_image = image_buffer_.front();
+
 
     // - - - - - - - - - - - - - - - - - -
     // Determine absolute kinect pose based on TF
 
     geo::Pose3D sensor_pose;
 
-    if (!tf_listener_->waitForTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(0.5)))
-    {
-        ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose");
-        return;
-    }
-
     try
     {
         tf::StampedTransform t_sensor_pose;
         tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
         geo::convert(t_sensor_pose, sensor_pose);
+        image_buffer_.pop();
+
+    }
+    catch(tf::ExtrapolationException& ex)
+    {
+        try
+        {
+            tf::StampedTransform latest_sensor_pose;
+            tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
+            // If image time stamp is older than latest transform, throw it out
+            if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
+                image_buffer_.pop();
+            else
+                ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose: %s", ex.what());
+            return;
+        }
+        catch(tf::TransformException& exc)
+        {
+            ROS_WARN("[ED KINECT PLUGIN] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+        }
     }
     catch(tf::TransformException& ex)
     {
@@ -237,8 +257,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // Convert from ROS coordinate frame to geolib coordinate frame
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
-    tue::Timer t_total;
-    t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
     // Downsample depth image
@@ -828,7 +846,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     if (debug_)
-        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize (will only send out images if someone's listening to them)
