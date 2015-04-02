@@ -94,7 +94,8 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
 // ----------------------------------------------------------------------------------------------------
 
-ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, const cv::Mat& depth, const std::vector<unsigned int>& cluster)
+ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, const cv::Mat& depth,
+                                     const geo::Pose3D& sensor_pose, const std::vector<unsigned int>& cluster)
 {
     const cv::Mat& rgb = rgbd_image->getRGBImage();
 
@@ -121,7 +122,8 @@ ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, cons
     }
 
     // Create measurement
-    ed::MeasurementPtr m(new ed::Measurement(rgbd_image, image_mask));
+    ed::MeasurementPtr m(new ed::Measurement(rgbd_image, image_mask, sensor_pose));
+
 
     return m;
 }
@@ -739,7 +741,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.setPose(e->id(), new_pose);
 
                 // Add measurement
-                req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, cluster));
+                req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, sensor_pose, cluster));
 
                 associated_ids.insert(e->id());
 
@@ -761,7 +763,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             req.setPose(id, cluster_pose);
 
             // Add measurement
-            req.addMeasurement(id, createMeasurement(rgbd_image, depth, cluster));
+            req.addMeasurement(id, createMeasurement(rgbd_image, depth, sensor_pose, cluster));
         }
     }
 
