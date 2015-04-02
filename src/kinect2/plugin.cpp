@@ -814,12 +814,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // Visualize (will only send out images if someones listening to them)
+    // Visualize (will only send out images if someone's listening to them)
 
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
-    visualizeUpdateRequest(world, req, viz_update_req_);
+    visualizeUpdateRequest(world, req, rgbd_image, viz_update_req_);
 }
 
 // ----------------------------------------------------------------------------------------------------

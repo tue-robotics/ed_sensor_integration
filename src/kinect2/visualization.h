@@ -15,6 +15,6 @@ void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePubl
 
 void visualizeClusters(const cv::Mat& rgb, const std::vector<std::vector<unsigned int> >& clusters, ed::ImagePublisher& pub);
 
-void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, ed::ImagePublisher& pub);
+void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, const rgbd::ImageConstPtr& image, ed::ImagePublisher& pub);
 
 #endif
