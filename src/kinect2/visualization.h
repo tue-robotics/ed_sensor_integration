@@ -9,6 +9,8 @@
 
 #include <rgbd/View.h>
 
+void visualizeDepthImage(const cv::Mat& depth_image, ed::ImagePublisher& pub);
+
 void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePublisher& pub);
 
 void visualizeClusters(const cv::Mat& rgb, const std::vector<std::vector<unsigned int> >& clusters, ed::ImagePublisher& pub);

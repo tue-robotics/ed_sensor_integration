@@ -11,6 +11,24 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+void visualizeDepthImage(const cv::Mat& depth_image, ed::ImagePublisher& pub)
+{
+    if (!pub.enabled())
+        return;
+
+    cv::Mat canvas(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    for(unsigned int i = 0; i < depth_image.cols * depth_image.rows; ++i)
+    {
+        int c = 255 * (depth_image.at<float>(i) / 10);
+        canvas.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
+    }
+
+    pub.publish(canvas);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePublisher& pub)
 {
     if (!pub.enabled())

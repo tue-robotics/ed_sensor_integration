@@ -190,6 +190,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_model_normals_.intialize("ed/viz/model_normals");
     viz_clusters_.intialize("ed/viz/clusters");
     viz_update_req_.intialize("ed/viz/update_request");
+    viz_model_render_.intialize("ed/viz/depth_render");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -432,6 +433,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
     }
+
+    // Visualize depth model (if asked for)
+    visualizeDepthImage(depth_model, viz_model_render_);
 
     pcl::PointCloud<pcl::PointNormal>::Ptr pc_model(new pcl::PointCloud<pcl::PointNormal>);
     pc_model->points.resize(size);
