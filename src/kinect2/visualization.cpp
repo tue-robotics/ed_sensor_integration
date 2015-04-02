@@ -7,6 +7,8 @@
 
 #include "ed_sensor_integration/properties/convex_hull.h"
 
+#include <ed/error_context.h>
+
 // ----------------------------------------------------------------------------------------------------
 
 void visualizeNormals(const pcl::PointCloud<pcl::PointNormal>& pc, ed::ImagePublisher& pub)
@@ -58,13 +60,30 @@ void visualizeClusters(const cv::Mat& depth, const std::vector<std::vector<unsig
 
 // ----------------------------------------------------------------------------------------------------
 
+namespace
+{
+struct VisualizationLabel
+{
+    cv::Rect rect;
+    std::string text;
+    cv::Scalar color;
+};
+
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, ed::ImagePublisher& pub)
 {
+    ed::ErrorContext errc("Kinect 2 plugin: visualizeUpdateRequest");
+
     if (!pub.enabled())
         return;
 
     cv::Mat canvas;
     const cv::Mat* rgb = 0;
+
+    std::vector<VisualizationLabel> labels;
 
     for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = req.measurements.begin(); it != req.measurements.end(); ++it)
     {
@@ -107,16 +126,51 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
             if (info.size() > 4)
                 info = info.substr(0, 4);
 
-            // draw name background rectangle
-            cv::rectangle(canvas, cv::Point(p_top_left.x, p_top_left.y) + cv::Point(0, -22),
-                          cv::Point(p_top_left.x, p_top_left.y) + cv::Point(((type.size() + 6) * 10), -2),
-                          color - cv::Scalar(140, 140, 140), CV_FILLED);
+            VisualizationLabel label;
+            label.text = type + "(" + info + ")";
+            label.rect = cv::Rect(p_top_left + cv::Point(0, -22), cv::Point(p_top_left.x, p_top_left.y) + cv::Point(((type.size() + 6) * 10)));
+            label.color = color;
 
-            // draw name and ID
-            cv::putText(canvas, type + "(" + info + ")",
-                        cv::Point(p_top_left.x, p_top_left.y) + cv::Point(5, -8),
-                        1, 1.0, color, 1, CV_AA);
+            labels.push_back(label);
         }
+
+    }
+
+    for(std::vector<VisualizationLabel>::iterator it = labels.begin(); it != labels.end(); ++it)
+    {
+        VisualizationLabel& label = *it;
+
+        while(true)
+        {
+            const cv::Rect& r1 = label.rect;
+
+            bool collides = false;
+
+            for(std::vector<VisualizationLabel>::const_iterator it2 = labels.begin(); it2 != labels.end(); ++it2)
+            {
+                if (it2->text == label.text)
+                    continue;
+
+                const cv::Rect& r2 = it2->rect;
+                if (r1.x + r1.width > r2.x && r2.x + r2.width > r1.x && r1.y + r1.height > r2.y && r2.y + r2.height > r1.y)
+                {
+                    collides = true;
+                    break;
+                }
+            }
+
+            if (!collides)
+                break;
+
+            label.rect.y -= label.rect.height;
+        }
+
+        // draw name background rectangle
+        cv::rectangle(canvas, label.rect, label.color - cv::Scalar(140, 140, 140), CV_FILLED);
+
+        // draw name and ID
+        cv::putText(canvas, label.text, cv::Point(label.rect.x + 5, label.rect.y + 14),
+                    1, 1.0, label.color, 1, CV_AA);
 
     }
 
