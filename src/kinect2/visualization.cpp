@@ -58,7 +58,7 @@ void visualizeClusters(const cv::Mat& depth, const std::vector<std::vector<unsig
 
 // ----------------------------------------------------------------------------------------------------
 
-void visualizeUpdateRequest(const ed::UpdateRequest& req, ed::ImagePublisher& pub)
+void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest& req, ed::ImagePublisher& pub)
 {
     if (!pub.enabled())
         return;
@@ -68,6 +68,9 @@ void visualizeUpdateRequest(const ed::UpdateRequest& req, ed::ImagePublisher& pu
 
     for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = req.measurements.begin(); it != req.measurements.end(); ++it)
     {
+        cv::Point2i p_top_left(1e6, 1e6);
+        cv::Point2i p_bottom_right(-1e6, -1e6);
+
         const std::vector<ed::MeasurementConstPtr>& measurements = it->second;
         for(std::vector<ed::MeasurementConstPtr>::const_iterator it2 = measurements.begin(); it2 != measurements.end(); ++it2)
         {
@@ -80,8 +83,41 @@ void visualizeUpdateRequest(const ed::UpdateRequest& req, ed::ImagePublisher& pu
             }
 
             for(ed::ImageMask::const_iterator it_p = m->imageMask().begin(canvas.cols); it_p != m->imageMask().end(); ++it_p)
+            {
                 canvas.at<cv::Vec3b>(*it_p) = rgb->at<cv::Vec3b>(*it_p);
+                p_top_left.x = std::min(p_top_left.x, it_p->x);
+                p_top_left.y = std::min(p_top_left.y, it_p->y);
+
+                p_bottom_right.x = std::max(p_bottom_right.x, it_p->x);
+                p_bottom_right.y = std::max(p_bottom_right.y, it_p->y);
+            }
         }
+
+        cv::Scalar color(0, 0, 200);
+
+        cv::rectangle(canvas, p_top_left, p_bottom_right, color, 1);
+
+        ed::EntityConstPtr e = world.getEntity(it->first);
+
+        if (e)
+        {
+            std::string type = e->type();
+            std::string info = e->id().str();
+
+            if (info.size() > 4)
+                info = info.substr(0, 4);
+
+            // draw name background rectangle
+            cv::rectangle(canvas, cv::Point(p_top_left.x, p_top_left.y) + cv::Point(0, -22),
+                          cv::Point(p_top_left.x, p_top_left.y) + cv::Point(((type.size() + 6) * 10), -2),
+                          color - cv::Scalar(140, 140, 140), CV_FILLED);
+
+            // draw name and ID
+            cv::putText(canvas, type + "(" + info + ")",
+                        cv::Point(p_top_left.x, p_top_left.y) + cv::Point(5, -8),
+                        1, 1.0, color, 1, CV_AA);
+        }
+
     }
 
     if (canvas.data)

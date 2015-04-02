@@ -813,7 +813,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
-    visualizeUpdateRequest(req, viz_update_req_);
+    visualizeUpdateRequest(world, req, viz_update_req_);
 }
 
 // ----------------------------------------------------------------------------------------------------
