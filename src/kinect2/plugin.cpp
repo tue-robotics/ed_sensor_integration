@@ -27,9 +27,11 @@
 
 #include <ed/update_request.h>
 
+// Properties
 #include "ed_sensor_integration/properties/convex_hull_calc.h"
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
+#include "ed_sensor_integration/properties/counter_info.h"
 
 #include <ed/measurement.h>
 #include <ed/mask.h>
@@ -181,11 +183,12 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     xy_padding_ = 0.1;
     z_padding_ = 0.1;
-    border_padding_ = 0.05;
+    border_padding_ = 0.20;
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
+    init.properties.registerProperty("clearing_counter", clearing_counter_, new CounterInfo);
 
     // Initialize image publishers for visualization
     viz_sensor_normals_.initialize("kinect/viz/sensor_normals");
@@ -193,6 +196,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_clusters_.initialize("kinect/viz/clusters");
     viz_update_req_.initialize("kinect/viz/update_request");
     viz_model_render_.initialize("kinect/viz/depth_render");
+    viz_model_sensor_diff_.initialize("kinect/viz/model_sensor_diff");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -719,9 +723,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     && convex_hull::collide(*entity_chull, entity_pose->t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
+                req.setProperty(e->id(), clearing_counter_, 0);
 
                 // Update pose and convex hull
-
                 std::vector<geo::Vec2f> new_points_MAP;
                 for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull->points.begin(); p_it != entity_chull->points.end(); ++p_it)
                 {
@@ -832,12 +836,24 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         cv::Point2d p_2d = cam_model.project3Dto2D(p);
 
-        if (p_2d.x > 0 && p_2d.x < depth.cols && p_2d.y > 0 && p_2d.y < depth.rows)
+        float clearing_padding_fraction = 0.2; // TODO: magic numbers
+
+        if ( p_2d.x > depth.cols*clearing_padding_fraction && p_2d.x < depth.cols*(1.0-clearing_padding_fraction) &&
+             p_2d.y > depth.rows*clearing_padding_fraction && p_2d.y < depth.rows*(1.0-clearing_padding_fraction) )
         {
             float d = depth.at<float>(p_2d);
             if (d > 0 && -p.z < d)
             {
-                req.removeEntity(e->id());
+                const int* count = e->property(clearing_counter_);
+                if (count)
+                {
+                    if ( *count > 2 )
+                        req.removeEntity(e->id());
+                    else
+                        req.setProperty(e->id(), clearing_counter_, *count+1);
+                }
+                else
+                    req.setProperty(e->id(), clearing_counter_, 1);
             }
         }
     }
@@ -853,6 +869,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
+    visualizeDepthImage(depth-depth_model,viz_model_sensor_diff_);
     visualizeClusters(depth, clusters, viz_clusters_);
     visualizeUpdateRequest(world, req, rgbd_image, viz_update_req_);
 }

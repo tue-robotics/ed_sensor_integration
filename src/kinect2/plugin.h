@@ -34,6 +34,7 @@ private:
 
     ed::PropertyKey<ConvexHull> k_convex_hull_;
     ed::PropertyKey<geo::Pose3D> k_pose_;
+    ed::PropertyKey<int> clearing_counter_;
 
     // PARAMETERS
 
@@ -51,6 +52,7 @@ private:
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_update_req_;
     ed::ImagePublisher viz_model_render_;
+    ed::ImagePublisher viz_model_sensor_diff_;
 
     // COMMUNICATION
 
