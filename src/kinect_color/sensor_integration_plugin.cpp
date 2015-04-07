@@ -108,7 +108,7 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 
                 // Initialize kinect client
                 kinect.client = new rgbd::Client();
-                kinect.client->intialize(topic);
+                kinect.client->initialize(topic);
             }
             else
             {
@@ -120,7 +120,7 @@ void SensorIntegrationPlugin::configure(tue::Configuration config)
 
                     // Initialize kinect client
                     kinect.client = new rgbd::Client();
-                    kinect.client->intialize(rgb_topic, depth_topic, info_topic);
+                    kinect.client->initialize(rgb_topic, depth_topic, info_topic);
                 }
             }
 
