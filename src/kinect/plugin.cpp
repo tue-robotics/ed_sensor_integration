@@ -81,7 +81,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
         }
         else
         {
-            std::cout << "filterPointBehindworldmodel tried rendering id " << e->id() << "but has no shape" << std::endl;
+            std::cout << "filterPointBehindworldmodel tried rendering id " << e->id() << " but has no shape" << std::endl;
         }
     }
 
@@ -105,7 +105,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
              bool shape = e->shape();
              bool has_pose = e->has_pose();
              bool in_rendered_entities = rendered_entities.find(e->id()) == rendered_entities.end();
-        //     std::cout << "filterPointBehindworldmodel NOT rendering id " << id << " because e->shape() =" << shape << " && e->has_pose() = " << has_pose << " && in_rendered_entities = " << in_rendered_entities << std::endl; 
+             std::cout << "filterPointBehindworldmodel NOT rendering id " << id << " because e->shape() = " << shape << " && e->has_pose() = " << has_pose << " && in_rendered_entities = " << in_rendered_entities << std::endl; 
         }
     }
 
