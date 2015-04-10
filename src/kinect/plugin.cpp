@@ -68,20 +68,24 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
     for(ed::world_model::TransformCrawler tc(world_model, cam_id, rgbd_image->getTimestamp()); tc.hasNext(); tc.next())
     {
         const ed::EntityConstPtr& e = tc.entity();
-        std::cout << "filterPointBehindworldmodel transforming id " << e->id() << std::endl;
+//        std::cout << "filterPointBehindworldmodel transforming id " << e->id() << std::endl;
         if (e->shape())
         {
             rendered_entities.insert(e->id());
+            
+//            std::cout << "filterPointBehindworldmodel inserted id " << e->id() << " into rendered_entities. There are now " << rendered_entities.size() << " items"  << std::endl;
 
             geo::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), p_corr * tc.transform());
 
+            std::cout << "filterPointBehindworldmodel: id " << e->id() << ", mesh triangles: " << e->shape()->getMesh().getTriangles().size() << ", p_corr = "<< p_corr << ", tc.transform() = " << tc.transform() << std::endl;
+            
             // Render
             view.getRasterizer().render(opt, res);
         }
         else
         {
-            std::cout << "filterPointBehindworldmodel tried rendering id " << e->id() << " but has no shape" << std::endl;
+//            std::cout << "filterPointBehindworldmodel tried rendering id " << e->id() << " but has no shape" << std::endl;
         }
     }
 
@@ -105,7 +109,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
              bool shape = e->shape();
              bool has_pose = e->has_pose();
              bool in_rendered_entities = rendered_entities.find(e->id()) == rendered_entities.end();
-             std::cout << "filterPointBehindworldmodel NOT rendering id " << id << " because e->shape() = " << shape << " && e->has_pose() = " << has_pose << " && in_rendered_entities = " << in_rendered_entities << std::endl; 
+//             std::cout << "filterPointBehindworldmodel NOT rendering id " << id << " because e->shape() = " << shape << " && e->has_pose() = " << has_pose << " && in_rendered_entities = " << in_rendered_entities << std::endl; 
         }
     }
 
