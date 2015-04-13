@@ -188,7 +188,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
-    init.properties.registerProperty("clearing_counter", clearing_counter_, new CounterInfo);
+    init.properties.registerProperty("clearing_counter", k_clearing_counter_, new CounterInfo);
 
     // Initialize image publishers for visualization
     viz_sensor_normals_.initialize("kinect/viz/sensor_normals");
@@ -723,7 +723,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     && convex_hull::collide(*entity_chull, entity_pose->t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
-                req.setProperty(e->id(), clearing_counter_, 0);
+                req.setProperty(e->id(), k_clearing_counter_, 0);
 
                 // Update pose and convex hull
                 std::vector<geo::Vec2f> new_points_MAP;
@@ -844,16 +844,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             float d = depth.at<float>(p_2d);
             if (d > 0 && -p.z < d)
             {
-                const int* count = e->property(clearing_counter_);
+                const int* count = e->property(k_clearing_counter_);
                 if (count)
                 {
                     if ( *count > 2 )
                         req.removeEntity(e->id());
                     else
-                        req.setProperty(e->id(), clearing_counter_, *count+1);
+                        req.setProperty(e->id(), k_clearing_counter_, *count+1);
                 }
                 else
-                    req.setProperty(e->id(), clearing_counter_, 1);
+                    req.setProperty(e->id(), k_clearing_counter_, 1);
             }
         }
     }

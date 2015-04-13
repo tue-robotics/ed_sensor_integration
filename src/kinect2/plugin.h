@@ -34,7 +34,7 @@ private:
 
     ed::PropertyKey<ConvexHull> k_convex_hull_;
     ed::PropertyKey<geo::Pose3D> k_pose_;
-    ed::PropertyKey<int> clearing_counter_;
+    ed::PropertyKey<int> k_clearing_counter_;
 
     // PARAMETERS
 
