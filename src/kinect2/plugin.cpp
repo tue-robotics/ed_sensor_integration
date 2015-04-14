@@ -181,9 +181,10 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     tf_listener_ = new tf::TransformListener;
 
-    xy_padding_ = 0.1;
-    z_padding_ = 0.1;
-    border_padding_ = 0.20;
+    xy_padding_ = 0.1; // TODO: Magic number
+    z_padding_ = 0.1; // TODO: Magic number
+    border_padding_ = 0.30; // TODO: Magic number
+    assoc_clear_thr_ = 10; // TODO: magic number
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
@@ -334,8 +335,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     pcl::IntegralImageNormalEstimation<pcl::PointNormal, pcl::PointNormal> ne;
     ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-    ne.setMaxDepthChangeFactor(0.02f);
-    ne.setNormalSmoothingSize(10.0f / factor);
+    ne.setMaxDepthChangeFactor(0.02f); // TODO: Magic number
+    ne.setNormalSmoothingSize(10.0f / factor); // TODO: Magic number
     ne.setViewPoint(0, 0, 0);
     ne.setInputCloud(pc);
     ne.compute(*pc);
@@ -770,9 +771,13 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 geo::Pose3D new_pose;
 
                 // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
-                convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
                 if (cluster_chull.complete)
-                    new_chull.complete = true;
+                {
+                    z_min = entity_chull->z_min + cluster_pose.t.z;
+                    z_max = entity_chull->z_max + cluster_pose.t.z;
+                }
+                convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
+                new_chull.complete = cluster_chull.complete;
 
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
@@ -792,26 +797,140 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             }
         }
 
+
+        // Check for collisions with convex hulls of existing entities
+        if (!associated)
+        {
+            for(std::vector<EntityPtr>::iterator le_it = local_entities_.begin(); le_it != local_entities_.end(); ++le_it)
+            {
+                EntityPtr e = *le_it;
+
+                geo::Pose3D entity_pose = e->pose;
+                ConvexHull entity_chull = e->chull;
+
+                // Check if the convex hulls collide
+                if (convex_hull::collide(entity_chull, entity_pose.t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
+                {
+                    associated = true;
+                    e->count++;
+
+                    // Update pose and convex hull
+                    std::vector<geo::Vec2f> new_points_MAP;
+                    std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin();
+
+                    for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
+                    {
+                        geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
+
+                        // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
+                        geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
+
+                        // Transform to the sensor frame
+                        geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
+
+                        // Project to image frame
+                        cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
+
+                        // Check if the point is in view, and is not occluded by sensor points. Only update chull if not complete
+                        if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight() && !entity_chull.complete)
+                        {
+                            // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
+                            float dp = -p_rib_cam.z;
+                            float ds = depth.at<float>(p_2d);
+                            if (ds == 0 || dp > max_range_ || dp > ds)
+                                new_points_MAP.push_back(p_chull_MAP);
+                        }
+                        else
+                        {
+                            new_points_MAP.push_back(p_chull_MAP);
+                        }
+                    }
+
+                    // Add points to chull (only if not complete)
+                    if ( !entity_chull.complete )
+                    {
+                        for(std::vector<geo::Vec2f>::const_iterator p_it = cluster_chull.points.begin(); p_it != cluster_chull.points.end(); ++p_it)
+                        {
+                            new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster_pose.t.x, p_it->y + cluster_pose.t.y));
+                        }
+                    }
+
+                    // And calculate the convex hull of these points
+                    ConvexHull new_chull;
+                    geo::Pose3D new_pose;
+
+                    // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
+                    if (cluster_chull.complete)
+                    {
+                        z_min = entity_chull.z_min + cluster_pose.t.z;
+                        z_max = entity_chull.z_max + cluster_pose.t.z;
+                    }
+                    convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
+                    new_chull.complete = cluster_chull.complete;
+
+                    e->pose = new_pose;
+                    e->chull = new_chull;
+
+                    // Add measurement
+                    e->measurements.push_back(createMeasurement(rgbd_image, depth, sensor_pose, cluster));
+
+                    associated_ids.insert(e->id);
+
+                    break;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------------------------------------------------
+
         if (!associated)
         {
             // Add new entity
             ed::UUID id = ed::Entity::generateID();
-            req.setProperty(id, k_pose_, cluster_pose);
-            req.setProperty(id, k_convex_hull_, cluster_chull);
 
             // Set old chull (is used in other plugins, e.g. navigation)
             ed::ConvexHull2D chull_old;
             convertConvexHull(cluster_chull, cluster_pose, chull_old);
-            req.setConvexHull(id, chull_old);
-            req.setPose(id, cluster_pose);
 
-            // Add measurement
-            req.addMeasurement(id, createMeasurement(rgbd_image, depth, sensor_pose, cluster));
+            EntityPtr e(new Entity);
+            e->id = id;
+            e->pose = cluster_pose;
+            e->chull = cluster_chull;
+            e->measurements.push_back(createMeasurement(rgbd_image, depth, sensor_pose, cluster));
+            e->count = 1;
+            local_entities_.push_back(e);
         }
     }
 
     if (debug_)
         std::cout << "Convex hull association took " << t_chull.getElapsedTimeInMilliSec() << " ms." << std::endl;
+
+    std::vector<EntityPtr>::iterator le_it = local_entities_.begin();
+    while (le_it != local_entities_.end())
+    {
+        EntityPtr e = *le_it;
+        if ( e->count >= assoc_clear_thr_ )
+        {
+            // Create ed entity from local entity and add to update request
+            // Also remove local entity from list
+            req.setProperty(e->id, k_pose_, e->pose);
+            req.setProperty(e->id, k_convex_hull_, e->chull);
+
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(e->chull, e->pose, chull_old);
+            req.setConvexHull(e->id, chull_old);
+            req.setPose(e->id, e->pose);
+
+            // Add measurements
+            for ( std::vector<ed::MeasurementPtr>::iterator m = e->measurements.begin(); m!=e->measurements.end(); ++m )
+                req.addMeasurement(e->id, *m);
+
+            le_it = local_entities_.erase(le_it);
+        }
+        else
+            le_it++;
+    }
 
 
     // - - - - - - - - - - - - - - - - - -
@@ -847,7 +966,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 const int* count = e->property(k_clearing_counter_);
                 if (count)
                 {
-                    if ( *count > 2 )
+                    if ( *count >= assoc_clear_thr_ )
                         req.removeEntity(e->id());
                     else
                         req.setProperty(e->id(), k_clearing_counter_, *count+1);
@@ -858,11 +977,42 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    if (debug_)
-        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    // - - - - - - - - - - - - - - - - - -
+    // Clear unassociated local entities in view
+    std::vector<EntityPtr>::iterator e_it = local_entities_.begin();
+    while (e_it != local_entities_.end())
+    {
+        EntityPtr e = *e_it;
+
+        geo::Pose3D pose = e->pose;
+
+        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+
+        cv::Point2d p_2d = cam_model.project3Dto2D(p);
+
+        float clearing_padding_fraction = 0.2; // TODO: magic numbers
+
+        if( p_2d.x > depth.cols*clearing_padding_fraction && p_2d.x < depth.cols*(1.0-clearing_padding_fraction) &&
+            p_2d.y > depth.rows*clearing_padding_fraction && p_2d.y < depth.rows*(1.0-clearing_padding_fraction) )
+        {
+            float d = depth.at<float>(p_2d);
+            if (d > 0 && -p.z < d)
+                e->count--;
+            if (e->count <= 0)
+                e_it = local_entities_.erase(e_it);
+            else
+                ++e_it;
+        }
+        else
+            ++e_it;
+    }
 
     if (debug_)
+    {
+        std::cout << "Current size of the internal entity list is " << local_entities_.size() << std::endl;
+        std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
         std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
+    }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize (will only send out images if someone's listening to them)

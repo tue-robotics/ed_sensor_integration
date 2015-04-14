@@ -6,6 +6,8 @@
 #include <ed/plugin.h>
 #include <ed/types.h>
 #include <ed/helpers/image_publisher.h>
+#include <ed/uuid.h>
+#include <ed/convex_hull_2d.h>
 
 #include <rgbd/Client.h>
 
@@ -30,6 +32,18 @@ public:
 
 private:
 
+    struct Entity
+    {
+        ed::UUID id;
+        geo::Pose3D pose;
+        ConvexHull chull;
+        std::vector<ed::MeasurementPtr> measurements;
+        int count;
+    };
+    typedef boost::shared_ptr<Entity> EntityPtr;
+
+    std::vector<EntityPtr> local_entities_;
+
     // PROPERTIES
 
     ed::PropertyKey<ConvexHull> k_convex_hull_;
@@ -44,6 +58,8 @@ private:
     float z_padding_;
     float border_padding_;
     bool debug_;
+    int assoc_clear_thr_;
+    float clearing_padding_fraction_;
 
     // VISUALIZATION
 
