@@ -144,6 +144,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
     }
 
     rgbd_image->setDepthImage(new_depth_image);
+
     if(wm_depth_viz_.enabled())
     {
         //Convert depth grayscale image to RGB image
@@ -155,6 +156,19 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
             rgb.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
         }    
         wm_depth_viz_.publish(rgb);
+    }
+
+    if(depth_before_wm_viz_.enabled())
+    {
+        //Convert depth before wm grayscale image to RGB image
+        cv::Mat rgb2(new_depth_image.rows, new_depth_image.cols, CV_8UC3, cv::Scalar(0,0,0));
+
+        for(unsigned int i = 0; i < new_depth_image.rows * new_depth_image.cols; ++i)
+        {
+            int c = 255 * (new_depth_image.at<float>(i) / 10);
+            rgb2.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
+        }
+        depth_before_wm_viz_.publish(rgb2);
     }
 }
 
@@ -258,6 +272,7 @@ void KinectPlugin::configure(tue::Configuration config)
 
     pub_viz_.initialize("viz/kinect");
     wm_depth_viz_.initialize("viz/wm_depth");
+    depth_before_wm_viz_.initialize("viz/depth_before_wm");
 
     tf_listener_ = new tf::TransformListener;
 }
