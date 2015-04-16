@@ -76,7 +76,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 //            std::cout << "filterPointBehindworldmodel inserted id " << e->id() << " into rendered_entities. There are now " << rendered_entities.size() << " items"  << std::endl;
 
             geo::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), p_corr * tc.transform());
+            opt.setMesh(e->shape()->getMesh(), tc.transform());
 
             std::cout << "filterPointBehindworldmodel: id " << std::setw(30) << e->id() << std::setw(14) << ", tc.transform() = " << tc.transform() << std::endl;
             
