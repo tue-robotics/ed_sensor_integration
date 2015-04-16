@@ -78,7 +78,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
             geo::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), p_corr * tc.transform());
 
-            std::cout << "filterPointBehindworldmodel: id " << e->id() << ", mesh triangles: " << e->shape()->getMesh().getTriangles().size() << ", p_corr = "<< p_corr << ", tc.transform() = " << tc.transform() << std::endl;
+            std::cout << "filterPointBehindworldmodel: id " << std::setw(20) << e->id()  << ", tc.transform() = " << tc.transform() << std::endl;
             
             // Render
             view.getRasterizer().render(opt, res);
