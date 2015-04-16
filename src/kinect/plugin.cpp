@@ -56,7 +56,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 
     //
 
-    geo::Pose3D p_corr(geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1), geo::Vector3(0, 0, 0));
+    geo::Pose3D p_corr(geo::Matrix3(0, -1, 0, 0, 0, 1, -1, 0, 0), geo::Vector3(0, 0, 0)); //TODO Loy [Improve]: This is a magic number obtained by trial and error. 
 
     std::set<ed::UUID> rendered_entities;
 
@@ -76,9 +76,9 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 //            std::cout << "filterPointBehindworldmodel inserted id " << e->id() << " into rendered_entities. There are now " << rendered_entities.size() << " items"  << std::endl;
 
             geo::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), tc.transform());
+            opt.setMesh(e->shape()->getMesh(), p_corr * tc.transform());
 
-            std::cout << "filterPointBehindworldmodel: id " << std::setw(30) << e->id() << std::setw(14) << ", tc.transform() = " << tc.transform() << std::endl;
+            //std::cout << "filterPointBehindworldmodel: id " << std::setw(30) << e->id() << std::setw(14) << ", tc.transform() = " << tc.transform() << std::endl;
             
             // Render
             view.getRasterizer().render(opt, res);
