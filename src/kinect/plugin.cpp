@@ -118,6 +118,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 
     float f = (float)view.getWidth() / depth_image.cols;
 
+    //Filter out/away pixels in the sensor image (depth_image) that are futher away (have a whiter value) than the corresponding pixel in the rendered world model (wm_depth_image)
     for(int y = 0; y < depth_image.rows; ++y)
     {
         for(int x = 0; x < depth_image.cols; ++x)
@@ -143,8 +144,10 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
     }
 
     rgbd_image->setDepthImage(new_depth_image);
-    if(depth_viz_.enabled())
+
+    if(wm_depth_viz_.enabled())
     {
+        //Convert depth grayscale image to RGB image
         cv::Mat rgb(wm_depth_image.rows, wm_depth_image.cols, CV_8UC3, cv::Scalar(0,0,0));
 
         for(unsigned int i = 0; i < wm_depth_image.rows * wm_depth_image.cols; ++i)
@@ -152,7 +155,20 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
             int c = 255 * (wm_depth_image.at<float>(i) / 10);
             rgb.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
         }    
-        depth_viz_.publish(rgb);
+        wm_depth_viz_.publish(rgb);
+    }
+
+    if(depth_before_wm_viz_.enabled())
+    {
+        //Convert depth before wm grayscale image to RGB image
+        cv::Mat rgb2(new_depth_image.rows, new_depth_image.cols, CV_8UC3, cv::Scalar(0,0,0));
+
+        for(unsigned int i = 0; i < new_depth_image.rows * new_depth_image.cols; ++i)
+        {
+            int c = 255 * (new_depth_image.at<float>(i) / 10);
+            rgb2.at<cv::Vec3b>(i) = cv::Vec3b(c, c, c);
+        }
+        depth_before_wm_viz_.publish(rgb2);
     }
 }
 
@@ -255,7 +271,8 @@ void KinectPlugin::configure(tue::Configuration config)
     }
 
     pub_viz_.initialize("viz/kinect");
-    depth_viz_.initialize("viz/wm_depth");
+    wm_depth_viz_.initialize("viz/wm_depth");
+    depth_before_wm_viz_.initialize("viz/depth_before_wm");
 
     tf_listener_ = new tf::TransformListener;
 }
