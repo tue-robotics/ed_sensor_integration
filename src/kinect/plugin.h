@@ -54,7 +54,7 @@ private:
     ros::NodeHandle nh_;
     ros::Publisher vis_marker_pub_;
     ed::ImagePublisher pub_viz_;
-    ed::ImagePublisher depth_viz_;
+    ed::ImagePublisher wm_depth_viz_;
 
 };
 
