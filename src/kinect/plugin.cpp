@@ -99,7 +99,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
             geo::Pose3D pose = sensor_pose.inverse() * e->pose();
             geo::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), pose);
-            std::cout << "filterPointBehindworldmodel: id " << std::setw(30) << e->id()  << std::setw(14) << ", pose = " << pose << std::endl;
+            //std::cout << "filterPointBehindworldmodel: id " << std::setw(30) << e->id()  << std::setw(14) << ", pose = " << pose << std::endl;
 
             // Render
             view.getRasterizer().render(opt, res);
