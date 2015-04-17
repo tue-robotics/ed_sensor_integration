@@ -300,7 +300,7 @@ void KinectPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     if (!tf_listener_->waitForTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(0.5)))
     {
-        ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose");
+        ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose %s to %s", rgbd_image->getFrameId().c_str(), "map");
         return;
     }
 
