@@ -99,33 +99,19 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, const cv::Mat& depth,
                                      const geo::Pose3D& sensor_pose, const std::vector<unsigned int>& cluster)
 {
-    const cv::Mat& rgb = rgbd_image->getRGBImage();
-
-    int f = rgb.cols / depth.cols;
-
-    ed::ImageMask image_mask(rgb.cols, rgb.rows);
+    ed::ImageMask image_mask(depth.cols, depth.rows);
     for(unsigned int j = 0; j < cluster.size(); ++j)
     {
         int p = cluster[j];
 
-        int x_depth = p % depth.cols;
-        int y_depth = p / depth.cols;
-        int x_rgb = x_depth * f;
-        int y_rgb = y_depth * f;
+        int x = p % depth.cols;
+        int y = p / depth.cols;
 
-        for(int x = x_rgb; x < x_rgb + f; ++x)
-        {
-            for(int y = y_rgb; y < y_rgb + f; ++y)
-            {
-                image_mask.addPoint(x, y);
-//                std::cout << x << ", " << y << " (" << x_depth << ", " << y_depth << ")" << std::endl;
-            }
-        }
+        image_mask.addPoint(x, y);
     }
 
     // Create measurement
     ed::MeasurementPtr m(new ed::Measurement(rgbd_image, image_mask, sensor_pose));
-
 
     return m;
 }
