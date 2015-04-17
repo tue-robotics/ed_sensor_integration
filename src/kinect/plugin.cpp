@@ -56,7 +56,7 @@ void KinectPlugin::filterPointsBehindWorldModel(const ed::WorldModel& world_mode
 
     //
 
-    geo::Pose3D p_corr(geo::Matrix3(0, -1, 0, 0, 0, 1, -1, 0, 0), geo::Vector3(0, 0, 0)); //TODO Loy [Improve]: This is a magic number obtained by trial and error. 
+    geo::Pose3D p_corr(geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1), geo::Vector3(0, 0, 0)); //TODO Loy [Improve]: This is a magic number obtained by trial and error. 
 
     std::set<ed::UUID> rendered_entities;
 
