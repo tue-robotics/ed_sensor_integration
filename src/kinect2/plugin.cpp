@@ -181,10 +181,12 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     tf_listener_ = new tf::TransformListener;
 
-    xy_padding_ = 0.1; // TODO: Magic number
-    z_padding_ = 0.1; // TODO: Magic number
-    border_padding_ = 0.30; // TODO: Magic number
-    association_and_clearing_threshold_ = 10; // TODO: magic number
+    // TODO: Magic numbers
+    xy_padding_ = 0.1;
+    z_padding_ = 0.1;
+    border_padding_ = 0.40;
+    association_and_clearing_threshold_ = 10; // Number of times an entity needs to be in view without association to clear it or to be seen to add it to the world model.
+    timing_offset_ = 0.07; // Time offset between rgbd image timestamp and tf timestamp
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
@@ -227,14 +229,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     geo::Pose3D sensor_pose;
 
+    // Try to get the camera pose at timestamp of most recent rgbd image. If successful, remove latest image from buffer
     try
     {
         tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+        tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp() - timing_offset_), t_sensor_pose);
         geo::convert(t_sensor_pose, sensor_pose);
         image_buffer_.pop();
 
     }
+    // If not yet available, check if rgbd image is too old or too new.
     catch(tf::ExtrapolationException& ex)
     {
         try
@@ -242,7 +246,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             tf::StampedTransform latest_sensor_pose;
             tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
             // If image time stamp is older than latest transform, throw it out
-            if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
+            if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp() - timing_offset_) )
                 image_buffer_.pop();
             else
                 ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose: %s", ex.what());

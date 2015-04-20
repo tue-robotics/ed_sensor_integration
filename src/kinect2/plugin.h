@@ -60,6 +60,7 @@ private:
     bool debug_;
     int association_and_clearing_threshold_;
     float clearing_padding_fraction_;
+    float timing_offset_;
 
     // VISUALIZATION
 
