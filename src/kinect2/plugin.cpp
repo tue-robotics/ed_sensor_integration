@@ -184,7 +184,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     xy_padding_ = 0.1; // TODO: Magic number
     z_padding_ = 0.1; // TODO: Magic number
     border_padding_ = 0.30; // TODO: Magic number
-    assoc_clear_thr_ = 10; // TODO: magic number
+    association_and_clearing_threshold_ = 10; // TODO: magic number
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
@@ -798,7 +798,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
 
 
-        // Check for collisions with convex hulls of existing entities
+        // Check for collisions with convex hulls of local entities
         if (!associated)
         {
             for(std::vector<EntityPtr>::iterator le_it = local_entities_.begin(); le_it != local_entities_.end(); ++le_it)
@@ -909,7 +909,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     while (le_it != local_entities_.end())
     {
         EntityPtr e = *le_it;
-        if ( e->count >= assoc_clear_thr_ )
+        if ( e->count >= association_and_clearing_threshold_ )
         {
             // Create ed entity from local entity and add to update request
             // Also remove local entity from list
@@ -934,7 +934,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 
     // - - - - - - - - - - - - - - - - - -
-    // Clear unassociated clusters in view
+    // Clear unassociated world model entities in view
 
     tue::Timer t_clear;
     t_clear.start();
@@ -966,7 +966,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 const int* count = e->property(k_clearing_counter_);
                 if (count)
                 {
-                    if ( *count >= assoc_clear_thr_ )
+                    if ( *count >= association_and_clearing_threshold_ )
                         req.removeEntity(e->id());
                     else
                         req.setProperty(e->id(), k_clearing_counter_, *count+1);

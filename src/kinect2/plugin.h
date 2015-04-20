@@ -58,7 +58,7 @@ private:
     float z_padding_;
     float border_padding_;
     bool debug_;
-    int assoc_clear_thr_;
+    int association_and_clearing_threshold_;
     float clearing_padding_fraction_;
 
     // VISUALIZATION
