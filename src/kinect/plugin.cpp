@@ -223,7 +223,7 @@ void KinectPlugin::configure(tue::Configuration config)
         vis_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("vis_markers",0);
     }
 
-    pub_viz_.intialize("viz/kinect");
+    pub_viz_.initialize("viz/kinect");
 
     tf_listener_ = new tf::TransformListener;
 }

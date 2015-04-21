@@ -14,10 +14,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-//#include <pcl/io/io.h>
-//#include <pcl/io/pcd_io.h>
 #include <pcl/features/integral_image_normal.h>
-//#include <pcl/visualization/cloud_viewer.h>
 
 // Rendering
 #include <ed/world_model/transform_crawler.h>
@@ -33,6 +30,9 @@
 #include "ed_sensor_integration/properties/convex_hull_calc.h"
 #include "ed_sensor_integration/properties/convex_hull_info.h"
 #include "ed_sensor_integration/properties/pose_info.h"
+
+#include <ed/measurement.h>
+#include <ed/mask.h>
 
 // Visualization
 #include "visualization.h"
@@ -70,6 +70,8 @@ public:
 
 bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal>& pc, int x, int y, float& min_dist_sq)
 {
+//    std::cout << "    " << x << ", " << y << std::endl;
+
     const pcl::PointNormal& p2 = pc.points[pc.width * y + x];
 
     float dx = p2.x - p.x;
@@ -82,7 +84,7 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
     {
         // Check normals
         float dot = p.normal_x * p2.normal_x + p.normal_y * p2.normal_y + p.normal_z * p2.normal_z;
-        if (dot > 0.8)
+        if (dot > 0.8)  // TODO: magic number
         {
             min_dist_sq = dist_sq;
             return true;
@@ -90,6 +92,41 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
     }
 
     return false;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+ed::MeasurementPtr createMeasurement(const rgbd::ImageConstPtr& rgbd_image, const cv::Mat& depth,
+                                     const geo::Pose3D& sensor_pose, const std::vector<unsigned int>& cluster)
+{
+    ed::ImageMask image_mask(depth.cols, depth.rows);
+    for(unsigned int j = 0; j < cluster.size(); ++j)
+    {
+        int p = cluster[j];
+
+        int x = p % depth.cols;
+        int y = p / depth.cols;
+
+        image_mask.addPoint(x, y);
+    }
+
+    // Create measurement
+    ed::MeasurementPtr m(new ed::Measurement(rgbd_image, image_mask, sensor_pose));
+
+    return m;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void convertConvexHull(const ConvexHull& c, const geo::Pose3D& pose, ed::ConvexHull2D& c2)
+{
+    c2.min_z = c.z_min + pose.t.z;
+    c2.max_z = c.z_max + pose.t.z;
+    c2.center_point = pose.t;
+
+    c2.chull.resize(c.points.size());
+    for(unsigned int i = 0; i < c.points.size(); ++i)
+        c2.chull.points[i] = pcl::PointXYZ(c.points[i].x + pose.t.x, c.points[i].y + pose.t.y, 0);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -130,51 +167,74 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     xy_padding_ = 0.1;
     z_padding_ = 0.1;
+    border_padding_ = 0.05;
 
     // Register properties
     init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
     init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 
     // Initialize image publishers for visualization
-    viz_sensor_normals_.intialize("ed/viz/sensor_normals");
-    viz_model_normals_.intialize("ed/viz/model_normals");
-    viz_clusters_.intialize("ed/viz/clusters");
-    viz_world_.intialize("ed/viz/world");
-    viz_normal_stats_.intialize("kinect/viz/normal_stats");
+    viz_sensor_normals_.initialize("kinect/viz/sensor_normals");
+    viz_model_normals_.initialize("kinect/viz/model_normals");
+    viz_clusters_.initialize("kinect/viz/clusters");
+    viz_world_.initialize("ed/viz/world");
+    viz_update_req_.initialize("kinect/viz/update_request");
+    viz_model_render_.initialize("kinect/viz/depth_render");
+    viz_normal_stats_.initialize("kinect/viz/normal_stats");
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
+    tue::Timer t_total;
+    t_total.start();
+
     const ed::WorldModel& world = data.world;
 
     // - - - - - - - - - - - - - - - - - -
-    // Fetch kinect image
+    // Fetch kinect image and place in image buffer
 
-    rgbd::ImagePtr rgbd_image = kinect_client_.nextImage();
-    if (!rgbd_image)
-    {
-        ROS_WARN_STREAM("No RGBD image available for sensor '" << topic_ << "'");
+    rgbd::ImageConstPtr rgbd_image = kinect_client_.nextImage();
+    if (rgbd_image)
+        image_buffer_.push(rgbd_image);
+
+    if (image_buffer_.empty())
         return;
-    }
+
+    rgbd_image = image_buffer_.front();
+
 
     // - - - - - - - - - - - - - - - - - -
     // Determine absolute kinect pose based on TF
 
     geo::Pose3D sensor_pose;
 
-    if (!tf_listener_->waitForTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(0.5)))
-    {
-        ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose");
-        return;
-    }
-
     try
     {
         tf::StampedTransform t_sensor_pose;
         tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
         geo::convert(t_sensor_pose, sensor_pose);
+        image_buffer_.pop();
+
+    }
+    catch(tf::ExtrapolationException& ex)
+    {
+        try
+        {
+            tf::StampedTransform latest_sensor_pose;
+            tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
+            // If image time stamp is older than latest transform, throw it out
+            if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
+                image_buffer_.pop();
+            else
+                ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose: %s", ex.what());
+            return;
+        }
+        catch(tf::TransformException& exc)
+        {
+            ROS_WARN("[ED KINECT PLUGIN] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+        }
     }
     catch(tf::TransformException& ex)
     {
@@ -185,8 +245,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // Convert from ROS coordinate frame to geolib coordinate frame
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
-    tue::Timer t_total;
-    t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
     // Downsample depth image
@@ -384,6 +442,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
+    // Visualize depth model (if asked for)
+    visualizeDepthImage(depth_model, viz_model_render_);
+
     pcl::PointCloud<pcl::PointNormal>::Ptr pc_model(new pcl::PointCloud<pcl::PointNormal>);
     pc_model->points.resize(size);
     pc_model->width = depth_model.cols;
@@ -452,7 +513,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     cv::Mat cluster_visited_map(depth.rows, depth.cols, CV_8UC1, cv::Scalar(1));
     std::vector<unsigned int> non_assoc_mask;
 
-    int w_max = 10;
+    int w_max = 20; // TODO: magic number
     for(int y = w_max; y < depth.rows - w_max; ++y)
     {
         for(int x = w_max; x < depth.cols - w_max; ++x)
@@ -460,13 +521,21 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             unsigned int i = depth.cols * y + x;
             const pcl::PointNormal& p = pc->points[i];
 
-            if (p.x != p.x || p.normal_x != p.normal_x)
+            if (p.x != p.x)
                 continue;
+
+            if (p.normal_x != p.normal_x)
+            {
+                // No normal, but we do have a depth measurement at this pixel. Make sure it
+                // can still be visited by the clustering algorithm
+                cluster_visited_map.at<unsigned char>(i) = 0;
+                continue;
+            }
 
             bool associates = false;
             float min_dist_sq = association_correspondence_distance_ * association_correspondence_distance_;
 
-            int w = std::min<int>(min_dist_sq * cam_model.getOpticalCenterX() / p.z, w_max);
+            int w = std::min<int>(association_correspondence_distance_ * cam_model.getOpticalCenterX() / p.z, w_max);
 
             associates = pointAssociates(p, *pc_model, x, y, min_dist_sq);
 
@@ -477,6 +546,21 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                         pointAssociates(p, *pc_model, x + d, y, min_dist_sq) ||
                         pointAssociates(p, *pc_model, x, y - d, min_dist_sq) ||
                         pointAssociates(p, *pc_model, x, y + d, min_dist_sq);
+
+//                int x2 = x - d;
+//                int y2 = y - d;
+
+//                for(; !associates && x2 < x + d; ++x2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && y2 < y + d; ++y2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && x2 > x - d; --x2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
+
+//                for(; !associates && y2 > y - d; --y2)
+//                    associates = associates || pointAssociates(p, *pc_model, x2, y2, min_dist_sq);
             }
 
             if (!associates)
@@ -578,24 +662,34 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         float z_min = 1e9;
         float z_max = -1e9;
+        bool complete = true;
 
+        // Calculate z_min and z_max of cluster
         std::vector<geo::Vec2f> points_2d(cluster.size());
         for(unsigned int j = 0; j < cluster.size(); ++j)
         {
             const pcl::PointNormal& p = pc->points[cluster[j]];
 
             // Transform sensor point to map frame
-            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
+            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z); //! Not a right handed frame?
 
             points_2d[j] = geo::Vec2f(p_map.x, p_map.y);
 
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
+
+            // If cluster is completely within a frame inside the view, it is called complete
+            if ( p.x <    border_padding_  * view.getWidth() && p.y <    border_padding_  * view.getHeight() &&
+                 p.x > (1-border_padding_) * view.getWidth() && p.y > (1-border_padding_) * view.getHeight() )
+            {
+                complete = false;
+            }
         }
 
-        ConvexHull chull;
-        geo::Pose3D pose;
-        convex_hull::create(points_2d, z_min, z_max, chull, pose);
+        ConvexHull cluster_chull;
+        geo::Pose3D cluster_pose;
+        convex_hull::create(points_2d, z_min, z_max, cluster_chull, cluster_pose);
+        cluster_chull.complete = complete;
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
@@ -605,24 +699,24 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (e->shape())
                 continue;
 
-            const geo::Pose3D* other_pose = e->property(k_pose_);
-            const ConvexHull* other_chull = e->property(k_convex_hull_);
+            const geo::Pose3D* entity_pose = e->property(k_pose_);
+            const ConvexHull* entity_chull = e->property(k_convex_hull_);
 
             // Check if the convex hulls collide
-            if (other_pose && other_chull
-                    && convex_hull::collide(*other_chull, other_pose->t, chull, pose.t, xy_padding_, z_padding_))
+            if (entity_pose && entity_chull
+                    && convex_hull::collide(*entity_chull, entity_pose->t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
 
                 // Update pose and convex hull
 
                 std::vector<geo::Vec2f> new_points_MAP;
-                for(std::vector<geo::Vec2f>::const_iterator p_it = other_chull->points.begin(); p_it != other_chull->points.end(); ++p_it)
+                for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull->points.begin(); p_it != entity_chull->points.end(); ++p_it)
                 {
-                    geo::Vec2f p_chull_MAP(p_it->x + other_pose->t.x, p_it->y + other_pose->t.y);
+                    geo::Vec2f p_chull_MAP(p_it->x + entity_pose->t.x, p_it->y + entity_pose->t.y);
 
-                    // Calculate the 3d coordinate of this chull points in absolute frame, in the middle of the rib
-                    geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, other_pose->t.z);
+                    // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
+                    geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, entity_pose->t.z);
 
                     // Transform to the sensor frame
                     geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
@@ -631,8 +725,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
 
                     // Check if the point is in view, and is not occluded by sensor points
-                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight())
+                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight() && !entity_chull->complete)
                     {
+                        // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
                         float dp = -p_rib_cam.z;
                         float ds = depth.at<float>(p_2d);
                         if (ds == 0 || dp > max_range_ || dp > ds)
@@ -644,9 +739,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     }
                 }
 
-                // Add the points of the new convex hull
-                for(std::vector<geo::Vec2f>::const_iterator p_it = chull.points.begin(); p_it != chull.points.end(); ++p_it)
-                    new_points_MAP.push_back(geo::Vec2f(p_it->x + pose.t.x, p_it->y + pose.t.y));
+                if ( !entity_chull->complete )
+                {
+                    // Add the points of the new convex hull.
+                    for(std::vector<geo::Vec2f>::const_iterator p_it = cluster_chull.points.begin(); p_it != cluster_chull.points.end(); ++p_it)
+                    {
+                        new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster_pose.t.x, p_it->y + cluster_pose.t.y));
+                    }
+                }
+                // TODO: Else: Remove overlap with complete entity chull from cluster, threshold on size and add cluster to cluster list to be associated with something else?
 
                 // And calculate the convex hull of these points
                 ConvexHull new_chull;
@@ -654,9 +755,20 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
                 convex_hull::create(new_points_MAP, z_min, z_max, new_chull, new_pose);
+                if (cluster_chull.complete)
+                    new_chull.complete = true;
 
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
+
+                // Set old chull (is used in other plugins, e.g. navigation)
+                ed::ConvexHull2D chull_old;
+                convertConvexHull(new_chull, new_pose, chull_old);
+                req.setConvexHull(e->id(), chull_old);
+                req.setPose(e->id(), new_pose);
+
+                // Add measurement
+                req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, sensor_pose, cluster));
 
                 associated_ids.insert(e->id());
 
@@ -668,8 +780,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         {
             // Add new entity
             ed::UUID id = ed::Entity::generateID();
-            req.setProperty(id, k_pose_, pose);
-            req.setProperty(id, k_convex_hull_, chull);
+            req.setProperty(id, k_pose_, cluster_pose);
+            req.setProperty(id, k_convex_hull_, cluster_chull);
+
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(cluster_chull, cluster_pose, chull_old);
+            req.setConvexHull(id, chull_old);
+            req.setPose(id, cluster_pose);
+
+            // Add measurement
+            req.addMeasurement(id, createMeasurement(rgbd_image, depth, sensor_pose, cluster));
         }
     }
 
@@ -713,14 +834,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
     if (debug_)
-        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+        std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // Visualize (will only send out images if someones listening to them)
+    // Visualize (will only send out images if someone's listening to them)
 
     visualizeNormals(*pc, viz_sensor_normals_);
     visualizeNormals(*pc_model, viz_model_normals_);
     visualizeClusters(depth, clusters, viz_clusters_);
+    visualizeUpdateRequest(world, req, rgbd_image, viz_update_req_);
     //    visualizeWorldModel(world, sensor_pose, view, viz_world_);
 
     // Visualize normals histogram

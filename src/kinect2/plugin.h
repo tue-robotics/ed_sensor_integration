@@ -1,6 +1,8 @@
 #ifndef ED_SENSOR_INTEGRATION_KINECT2_PLUGIN_H_
 #define ED_SENSOR_INTEGRATION_KINECT2_PLUGIN_H_
 
+#include <queue>
+
 #include <ed/plugin.h>
 #include <ed/types.h>
 #include <ed/helpers/image_publisher.h>
@@ -40,6 +42,7 @@ private:
     float max_range_;
     float xy_padding_;
     float z_padding_;
+    float border_padding_;
     bool debug_;
 
     // VISUALIZATION
@@ -49,6 +52,8 @@ private:
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_world_;
     ed::ImagePublisher viz_normal_stats_;
+    ed::ImagePublisher viz_update_req_;
+    ed::ImagePublisher viz_model_render_;
 
     // COMMUNICATION
 
@@ -60,6 +65,7 @@ private:
 
     ros::NodeHandle nh_;
 
+    std::queue<rgbd::ImageConstPtr> image_buffer_;
 };
 
 #endif
