@@ -232,6 +232,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         catch(tf::TransformException& exc)
         {
             ROS_WARN("[ED KINECT PLUGIN] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+            return;
         }
     }
     catch(tf::TransformException& ex)
