@@ -9,9 +9,15 @@ struct ConvexHull
     std::vector<geo::Vec2f> edges;
     std::vector<geo::Vec2f> normals;
     float z_min, z_max;
+    float area; // is calculated based on points
     bool complete;
 
-    ConvexHull() { complete = false; }
+    ConvexHull() : complete(false), area(0) {}
+
+    double height() const { return z_max - z_min; }
+
+    double volume() const { return height() * area; }
+
 };
 
 #endif

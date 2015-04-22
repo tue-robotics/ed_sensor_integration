@@ -55,6 +55,18 @@ void create(const std::vector<geo::Vec2f>& points, float z_min, float z_max, Con
 
     // Calculate normals and edges
     convex_hull::calculateEdgesAndNormals(chull);
+
+    // Calculate area
+    chull.area = 0;
+    for(unsigned int i = 0; i < chull.points.size(); ++i)
+    {
+        unsigned int j = (i + 1) % chull.points.size();
+
+        const geo::Vec2f& p1 = chull.points[i];
+        const geo::Vec2f& p2 = chull.points[j];
+
+        chull.area += 0.5 * (p1.x * p2.y - p2.x * p1.y);
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
