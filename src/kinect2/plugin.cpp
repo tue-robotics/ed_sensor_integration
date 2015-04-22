@@ -691,9 +691,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
 
+            int x_pixel = cluster[j] % depth.cols;
+            int y_pixel = cluster[j] / depth.cols;
+
             // If cluster is completely within a frame inside the view, it is called complete
-            if ( p.x <    border_padding_  * view.getWidth() && p.y <    border_padding_  * view.getHeight() &&
-                 p.x > (1-border_padding_) * view.getWidth() && p.y > (1-border_padding_) * view.getHeight() )
+            if ( x_pixel <    border_padding_  * view.getWidth() || y_pixel <    border_padding_  * view.getHeight() ||
+                 x_pixel > (1-border_padding_) * view.getWidth() || y_pixel > (1-border_padding_) * view.getHeight() )
             {
                 complete = false;
             }
@@ -715,9 +718,18 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             const geo::Pose3D* entity_pose = e->property(k_pose_);
             const ConvexHull* entity_chull = e->property(k_convex_hull_);
 
+            if (!entity_pose || !entity_chull)
+                continue;
+
+            if (entity_chull->complete)
+            {
+                double vol_ratio = entity_chull->volume() / cluster_chull.volume();
+                if (vol_ratio < 0.5 || vol_ratio > 2) // TODO magic number
+                    continue;
+            }
+
             // Check if the convex hulls collide
-            if (entity_pose && entity_chull
-                    && convex_hull::collide(*entity_chull, entity_pose->t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
+            if (convex_hull::collide(*entity_chull, entity_pose->t, cluster_chull, cluster_pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
 
