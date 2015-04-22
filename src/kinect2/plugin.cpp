@@ -227,13 +227,19 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     {
         try
         {
+            // Now we have to check if the error was an interpolation or extrapolation error (i.e., the image is too old or
+            // to new, respectively). If it is too old, discard it.
+
             tf::StampedTransform latest_sensor_pose;
             tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
             // If image time stamp is older than latest transform, throw it out
             if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
+            {
                 image_buffer_.pop();
-            else
-                ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose: %s", ex.what());
+                ROS_WARN_STREAM("[ED KINECT PLUGIN] Image too old to look-up tf: image timestamp = " << std::fixed
+                                << ros::Time(rgbd_image->getTimestamp()));
+            }
+
             return;
         }
         catch(tf::TransformException& exc)
