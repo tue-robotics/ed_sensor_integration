@@ -833,7 +833,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     req.removeEntity(e->id());
                 else
                 {
-                    req.setExistenceProbability(e->id(), std::max(1.0, p_exist - 0.3));  // TODO: very ugly prob update
+                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.3));  // TODO: very ugly prob update
                 }
             }
         }
