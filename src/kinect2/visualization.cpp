@@ -138,9 +138,13 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
             if (info.size() > 4)
                 info = info.substr(0, 4);
 
+            std::stringstream ss;
+            ss.precision(1);
+            ss << type << " (" << info << ") " << std::fixed << e->existenceProbability();
+
             VisualizationLabel label;
-            label.text = type + "(" + info + ")";
-            label.rect = cv::Rect(p_top_left + cv::Point(0, -22), cv::Point(p_top_left.x, p_top_left.y) + cv::Point(((type.size() + 6) * 10)));
+            label.text = ss.str();
+            label.rect = cv::Rect(p_top_left + cv::Point(0, -22), cv::Point(p_top_left.x, p_top_left.y) + cv::Point((label.text.size() * 10)));
             label.color = color;
 
             labels.push_back(label);

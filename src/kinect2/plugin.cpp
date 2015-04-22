@@ -760,6 +760,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.setProperty(e->id(), k_pose_, new_pose);
                 req.setProperty(e->id(), k_convex_hull_, new_chull);
 
+                double p_exist = e->existenceProbability();
+                req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
+
                 // Set old chull (is used in other plugins, e.g. navigation)
                 ed::ConvexHull2D chull_old;
                 convertConvexHull(new_chull, new_pose, chull_old);
@@ -781,6 +784,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             ed::UUID id = ed::Entity::generateID();
             req.setProperty(id, k_pose_, cluster_pose);
             req.setProperty(id, k_convex_hull_, cluster_chull);
+            req.setExistenceProbability(id, 0.7); // TODO magic number
 
             // Set old chull (is used in other plugins, e.g. navigation)
             ed::ConvexHull2D chull_old;
@@ -824,7 +828,13 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             float d = depth.at<float>(p_2d);
             if (d > 0 && -p.z < d)
             {
-                req.removeEntity(e->id());
+                double p_exist = e->existenceProbability();
+                if (p_exist < 0.3) // TODO: magic number
+                    req.removeEntity(e->id());
+                else
+                {
+                    req.setExistenceProbability(e->id(), std::max(1.0, p_exist - 0.3));  // TODO: very ugly prob update
+                }
             }
         }
     }
