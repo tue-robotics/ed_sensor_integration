@@ -82,6 +82,13 @@ bool pointAssociates(const pcl::PointNormal& p, pcl::PointCloud<pcl::PointNormal
 
     if (dist_sq < min_dist_sq)
     {
+        if (p.normal_x != p.normal_x)
+        {
+            // Point does not have normal
+            min_dist_sq = dist_sq;
+            return true;
+        }
+
         // Check normals
         float dot = p.normal_x * p2.normal_x + p.normal_y * p2.normal_y + p.normal_z * p2.normal_z;
         if (dot > 0.8)  // TODO: magic number
@@ -317,7 +324,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     pcl::IntegralImageNormalEstimation<pcl::PointNormal, pcl::PointNormal> ne;
     ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-    ne.setMaxDepthChangeFactor(0.02f);
+    ne.setMaxDepthChangeFactor(1.2f);
     ne.setNormalSmoothingSize(10.0f / factor);
     ne.setViewPoint(0, 0, 0);
     ne.setInputCloud(pc);
@@ -512,10 +519,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     cv::Mat cluster_visited_map(depth.rows, depth.cols, CV_8UC1, cv::Scalar(1));
     std::vector<unsigned int> non_assoc_mask;
 
-    int w_max = 20; // TODO: magic number
-    for(int y = w_max; y < depth.rows - w_max; ++y)
+    for(int y = 0; y < depth.rows; ++y)
     {
-        for(int x = w_max; x < depth.cols - w_max; ++x)
+        for(int x = 0; x < depth.cols; ++x)
         {
             unsigned int i = depth.cols * y + x;
             const pcl::PointNormal& p = pc->points[i];
@@ -523,28 +529,30 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (p.x != p.x)
                 continue;
 
-            if (p.normal_x != p.normal_x)
-            {
-                // No normal, but we do have a depth measurement at this pixel. Make sure it
-                // can still be visited by the clustering algorithm
-                cluster_visited_map.at<unsigned char>(i) = 0;
-                continue;
-            }
+//            if (p.normal_x != p.normal_x)
+//            {
+//                // No normal, but we do have a depth measurement at this pixel. Make sure it
+//                // can still be visited by the clustering algorithm
+//                cluster_visited_map.at<unsigned char>(i) = 0;
+//                continue;
+//            }
 
             bool associates = false;
-            float min_dist_sq = association_correspondence_distance_ * association_correspondence_distance_;
+            float assoc_corr_dist = association_correspondence_distance_ * p.z;
 
-            int w = std::min<int>(association_correspondence_distance_ * cam_model.getOpticalCenterX() / p.z, w_max);
+            float min_dist_sq = assoc_corr_dist * assoc_corr_dist;
+
+            int w = association_correspondence_distance_ * cam_model.getOpticalCenterX() / p.z;
 
             associates = pointAssociates(p, *pc_model, x, y, min_dist_sq);
 
             for(int d = 1; d < w && !associates; ++d)
             {
                 associates =
-                        pointAssociates(p, *pc_model, x - d, y, min_dist_sq) ||
-                        pointAssociates(p, *pc_model, x + d, y, min_dist_sq) ||
-                        pointAssociates(p, *pc_model, x, y - d, min_dist_sq) ||
-                        pointAssociates(p, *pc_model, x, y + d, min_dist_sq);
+                        (x - d >= 0 && pointAssociates(p, *pc_model, x - d, y, min_dist_sq)) ||
+                        (x + d < depth.cols && pointAssociates(p, *pc_model, x + d, y, min_dist_sq)) ||
+                        (y - d >= 0 && pointAssociates(p, *pc_model, x, y - d, min_dist_sq)) ||
+                        (y + d < depth.rows && pointAssociates(p, *pc_model, x, y + d, min_dist_sq));
 
 //                int x2 = x - d;
 //                int y2 = y - d;
