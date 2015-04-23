@@ -100,6 +100,8 @@ add_library(ed_kinect2_plugin
     src/kinect2/plugin.h
     src/kinect2/visualization.cpp
     src/kinect2/visualization.h
+    src/kinect2/association_matrix.cpp
+    src/kinect2/association_matrix.h
 )
 target_link_libraries(ed_kinect2_plugin ed_sensor_integration_properties ${catkin_LIBRARIES})
 

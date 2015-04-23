@@ -39,6 +39,9 @@
 
 #include <ed/error_context.h>
 
+// Association
+#include "association_matrix.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 struct Cluster
@@ -768,146 +771,142 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         }
     }
 
-    std::vector<const Cluster*> entity_to_cluster_assoc(entities.size(), 0);
-    std::vector<ed::EntityConstPtr> cluster_to_entity_assoc(clusters.size());
-
-    for (unsigned int i = 0; i < clusters.size(); ++i)
+    // Create association matrix
+    AssociationMatrix assoc_matrix(clusters.size());
+    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
-        const Cluster& cluster = clusters[i];
+        const Cluster& cluster = clusters[i_cluster];
 
-        float max_dist_sq = max_dist * max_dist;
-        int i_associated_entity = -1;
-
-        for (unsigned int j = 0; j < entities.size(); ++j)
+        for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
         {
-            if (entity_to_cluster_assoc[j])
-                continue;
-
-            const ed::EntityConstPtr& e = entities[j];
+            const ed::EntityConstPtr& e = entities[i_entity];
 
             const geo::Pose3D* entity_pose = e->property(k_pose_);
-            const ConvexHull* entity_chull = e->property(k_convex_hull_);
-
             float dist_sq = (entity_pose->t - cluster.pose.t).length2();
-            if (dist_sq < max_dist_sq)
-            {
-                i_associated_entity = j;
-                max_dist_sq = dist_sq;
-            }
-        }
 
-        if (i_associated_entity >= 0)
-        {
-            entity_to_cluster_assoc[i_associated_entity] = &cluster;
-            cluster_to_entity_assoc[i] = entities[i_associated_entity];
+            // TODO: better prob calculation
+            double prob = 1.0 / (1.0 + 100 * dist_sq);
+
+            assoc_matrix.setEntry(i_cluster, i_entity, prob);
         }
     }
 
-    // UPDATE ENTITIES
-    errc.change("Update entities");
-
-    for(unsigned int i = 0; i < cluster_to_entity_assoc.size(); ++i)
+    Assignment assig;
+    if (!assoc_matrix.calculateBestAssignment(assig))
     {
-        const ed::EntityConstPtr& e = cluster_to_entity_assoc[i];
-        if (!e)
-            continue;
+        std::cout << "WARNING: Association failed!" << std::endl;
+        return;
+    }
 
-        const Cluster& cluster = clusters[i];
+    std::vector<int> entities_associated(entities.size(), -1);
 
-        std::vector<geo::Vec2f> new_points_MAP;
-        for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
+    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
+    {
+        const Cluster& cluster = clusters[i_cluster];
+
+        // Get the assignment for this cluster
+        int i_entity = assig[i_cluster];
+
+        if (i_entity == AssociationMatrix::NO_ASSIGNMENT)
         {
-            geo::Vec2f p_chull_MAP(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y);
+            // Now assignment, so add as new cluster
 
-            // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
-            geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, cluster.pose.t.z);
+            std::cout << "Cluster " << i_cluster << ": New entity at " << cluster.pose << std::endl;
 
-            // Transform to the sensor frame
-            geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
+            // Add new entity
+            ed::UUID id = ed::Entity::generateID();
+            req.setProperty(id, k_pose_, cluster.pose);
+            req.setProperty(id, k_convex_hull_, cluster.chull);
+            req.setExistenceProbability(id, 0.7); // TODO magic number
 
-            // Project to image frame
-            cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(cluster.chull, cluster.pose, chull_old);
+            req.setConvexHull(id, chull_old);
+            req.setPose(id, cluster.pose);
 
-            // Check if the point is in view, and is not occluded by sensor points
-            if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight() && !cluster.chull.complete)
-            {
-                // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
-                float dp = -p_rib_cam.z;
-                float ds = depth.at<float>(p_2d);
-                if (ds == 0 || dp > max_range_ || dp > ds)
-                    new_points_MAP.push_back(p_chull_MAP);
-            }
-            else
-            {
-                new_points_MAP.push_back(p_chull_MAP);
-            }
+            // Add measurement
+            req.addMeasurement(id, createMeasurement(rgbd_image, depth, sensor_pose, cluster.mask));
         }
-
-        if (!cluster.chull.complete )
+        else
         {
-            // Add the points of the new convex hull.
+            // Update the entity
+            const ed::EntityConstPtr& e = entities[i_entity];
+
+            std::cout << "Cluster " << i_cluster << ": Associated with " << e->id() << std::endl;
+
+            // Mark the entity as being associated
+            entities_associated[i_entity] = i_cluster;
+
+            std::vector<geo::Vec2f> new_points_MAP;
             for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
             {
-                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
+                geo::Vec2f p_chull_MAP(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y);
+
+                // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
+                geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, cluster.pose.t.z);
+
+                // Transform to the sensor frame
+                geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
+
+                // Project to image frame
+                cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
+
+                // Check if the point is in view, and is not occluded by sensor points
+                if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight() && !cluster.chull.complete)
+                {
+                    // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
+                    float dp = -p_rib_cam.z;
+                    float ds = depth.at<float>(p_2d);
+                    if (ds == 0 || dp > max_range_ || dp > ds)
+                        new_points_MAP.push_back(p_chull_MAP);
+                }
+                else
+                {
+                    new_points_MAP.push_back(p_chull_MAP);
+                }
             }
+
+            if (!cluster.chull.complete )
+            {
+                // Add the points of the new convex hull.
+                for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
+                {
+                    new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
+                }
+            }
+            // TODO: Else: Remove overlap with complete entity chull from cluster, threshold on size and add cluster to cluster list to be associated with something else?
+
+            // And calculate the convex hull of these points
+            ConvexHull new_chull;
+            geo::Pose3D new_pose;
+
+            // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
+            convex_hull::create(new_points_MAP, cluster.pose.t.z + cluster.chull.z_min,
+                                cluster.pose.t.z + cluster.chull.z_max, new_chull, new_pose);
+
+            if (cluster.chull.complete)
+                new_chull.complete = true;
+
+    //        const ConvexHull& new_chull = cluster.chull;
+    //        const geo::Pose3D& new_pose = cluster.pose;
+
+            req.setProperty(e->id(), k_pose_, new_pose);
+            req.setProperty(e->id(), k_convex_hull_, new_chull);
+
+            double p_exist = e->existenceProbability();
+            req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
+
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(new_chull, new_pose, chull_old);
+            req.setConvexHull(e->id(), chull_old);
+            req.setPose(e->id(), new_pose);
+
+            // Add measurement
+            req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, sensor_pose, cluster.mask));
+
         }
-        // TODO: Else: Remove overlap with complete entity chull from cluster, threshold on size and add cluster to cluster list to be associated with something else?
-
-        // And calculate the convex hull of these points
-        ConvexHull new_chull;
-        geo::Pose3D new_pose;
-
-        // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
-        convex_hull::create(new_points_MAP, cluster.pose.t.z + cluster.chull.z_min,
-                            cluster.pose.t.z + cluster.chull.z_max, new_chull, new_pose);
-
-        if (cluster.chull.complete)
-            new_chull.complete = true;
-
-//        const ConvexHull& new_chull = cluster.chull;
-//        const geo::Pose3D& new_pose = cluster.pose;
-
-        req.setProperty(e->id(), k_pose_, new_pose);
-        req.setProperty(e->id(), k_convex_hull_, new_chull);
-
-        double p_exist = e->existenceProbability();
-        req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
-
-        // Set old chull (is used in other plugins, e.g. navigation)
-        ed::ConvexHull2D chull_old;
-        convertConvexHull(new_chull, new_pose, chull_old);
-        req.setConvexHull(e->id(), chull_old);
-        req.setPose(e->id(), new_pose);
-
-        // Add measurement
-        req.addMeasurement(e->id(), createMeasurement(rgbd_image, depth, sensor_pose, cluster.mask));
-    }
-
-    // ADD NEW ENTITIES
-    errc.change("Add new entities");
-
-    for (unsigned int i = 0; i < clusters.size(); ++i)
-    {
-        // If this cluster is associated, skip it;
-        if (cluster_to_entity_assoc[i])
-            continue;
-
-        const Cluster& cluster = clusters[i];
-
-        // Add new entity
-        ed::UUID id = ed::Entity::generateID();
-        req.setProperty(id, k_pose_, cluster.pose);
-        req.setProperty(id, k_convex_hull_, cluster.chull);
-        req.setExistenceProbability(id, 0.7); // TODO magic number
-
-        // Set old chull (is used in other plugins, e.g. navigation)
-        ed::ConvexHull2D chull_old;
-        convertConvexHull(cluster.chull, cluster.pose, chull_old);
-        req.setConvexHull(id, chull_old);
-        req.setPose(id, cluster.pose);
-
-        // Add measurement
-        req.addMeasurement(id, createMeasurement(rgbd_image, depth, sensor_pose, cluster.mask));
     }
 
     if (debug_)
@@ -920,10 +919,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     t_clear.start();
     errc.change("Clear entities");
 
-    for(unsigned int i = 0; i < entity_to_cluster_assoc.size(); ++i)
+    for(unsigned int i = 0; i < entities_associated.size(); ++i)
     {
         // If the entity is associated, skip it
-        if (entity_to_cluster_assoc[i])
+        if (entities_associated[i] >= 0)
             continue;
 
         const ed::EntityConstPtr& e = entities[i];
