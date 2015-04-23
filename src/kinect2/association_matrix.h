@@ -1,9 +1,13 @@
-#ifndef _ASSOCIATION_MATRIX_H_
-#define _ASSOCIATION_MATRIX_H_
+#ifndef ED_SENSOR_INTEGRATION_ASSOCIATION_MATRIX_H_
+#define ED_SENSOR_INTEGRATION_ASSOCIATION_MATRIX_H_
 
 #include <vector>
 
+namespace ed_sensor_integration
+{
+
 typedef std::vector<int> Assignment;
+
 
 class AssociationMatrix
 {
@@ -28,7 +32,7 @@ public:
 
     bool calculateBestAssignment(Assignment& assig);
 
-    static int NO_ASSIGNMENT;
+//    static int NO_ASSIGNMENT;
 
 private:
 
@@ -36,5 +40,7 @@ private:
 
     std::vector<std::vector<Entry> > matrix_;
 };
+
+}
 
 #endif

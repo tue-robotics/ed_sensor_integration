@@ -60,8 +60,8 @@ include_directories(
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_sensor_integration_properties
-    src/properties/convex_hull_info.cpp
-    src/properties/convex_hull_calc.cpp
+#    src/properties/convex_hull_info.cpp
+#    src/properties/convex_hull_calc.cpp
     src/properties/pose_info.cpp
 )
 target_link_libraries(ed_sensor_integration_properties ${catkin_LIBRARIES})
@@ -103,7 +103,7 @@ add_library(ed_kinect2_plugin
     src/kinect2/association_matrix.cpp
     src/kinect2/association_matrix.h
 )
-target_link_libraries(ed_kinect2_plugin ed_sensor_integration_properties ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect2_plugin ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ add_library(ed_laser_plugin
     src/laser/plugin.cpp
     src/laser/plugin.h
 )
-target_link_libraries(ed_laser_plugin ed_sensor_integration_properties ${catkin_LIBRARIES})
+target_link_libraries(ed_laser_plugin ${catkin_LIBRARIES})
 
 #add_library(ed_sensor_integration_plugin
 #	src/sensor_integration_plugin.cpp
@@ -122,4 +122,4 @@ target_link_libraries(ed_laser_plugin ed_sensor_integration_properties ${catkin_
 # ------------------------------------------------------------------------------------------------
 
 add_executable(test_convex_hull test/test_convex_hull.cpp)
-target_link_libraries(test_convex_hull ed_sensor_integration_properties)
+target_link_libraries(test_convex_hull ${catkin_LIBRARIES})

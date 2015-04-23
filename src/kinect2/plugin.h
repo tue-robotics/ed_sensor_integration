@@ -11,7 +11,7 @@
 
 #include <tf/transform_listener.h>
 
-#include "ed_sensor_integration/properties/convex_hull.h"
+#include "ed/convex_hull.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -29,11 +29,6 @@ public:
     void process(const ed::PluginInput& data, ed::UpdateRequest& req);
 
 private:
-
-    // PROPERTIES
-
-    ed::PropertyKey<ConvexHull> k_convex_hull_;
-    ed::PropertyKey<geo::Pose3D> k_pose_;
 
     // PARAMETERS
 

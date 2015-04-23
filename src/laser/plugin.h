@@ -16,7 +16,7 @@
 #include <sensor_msgs/LaserScan.h>
 
 // Properties
-#include "ed_sensor_integration/properties/convex_hull.h"
+#include "ed/convex_hull.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -34,12 +34,6 @@ public:
     void process(const ed::WorldModel& world, ed::UpdateRequest& req);
 
 private:
-
-    // PROPERTIES
-
-    ed::PropertyKey<ConvexHull> k_convex_hull_;
-    ed::PropertyKey<geo::Pose3D> k_pose_;
-
 
     //
 

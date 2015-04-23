@@ -5,7 +5,7 @@
 #include <ed/update_request.h>
 #include <ed/measurement.h>
 
-#include "ed_sensor_integration/properties/convex_hull.h"
+#include "ed/convex_hull.h"
 
 #include <ed/error_context.h>
 

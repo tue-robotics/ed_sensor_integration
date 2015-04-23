@@ -14,10 +14,7 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include "ed_sensor_integration/properties/convex_hull_info.h"
-#include "ed_sensor_integration/properties/convex_hull_calc.h"
-
-#include "ed_sensor_integration/properties/pose_info.h"
+#include "ed/convex_hull_calc.h"
 
 #include <ed/io/json_writer.h>
 
@@ -70,10 +67,6 @@ void LaserPlugin::initialize(ed::InitData& init)
     // Collision check padding
     xy_padding_ = 0;
     z_padding_ = 0;
-
-    // Register properties
-    init.properties.registerProperty("convex_hull", k_convex_hull_, new ConvexHullInfo);
-    init.properties.registerProperty("pose", k_pose_, new PoseInfo);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -223,7 +216,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         std::vector<int> chull_indices;
         cv::convexHull(points, chull_indices);
 
-        ConvexHull chull;
+        ed::ConvexHull chull;
         chull.z_min = z_min - pose.t.z;
         chull.z_max = z_max - pose.t.z;
 
@@ -251,22 +244,21 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
 
         // Calculate normals and edges
-        convex_hull::calculateEdgesAndNormals(chull);
+        ed::convex_hull::calculateEdgesAndNormals(chull);
 
         // Check for collisions with convex hulls of existing entities
         bool associated = false;
         for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
         {
             const ed::EntityConstPtr& e = *e_it;
-            if (e->shape())
+            if (e->shape() || !e->has_pose())
                 continue;
 
-            const geo::Pose3D* other_pose = e->property(k_pose_);
-            const ConvexHull* other_chull = e->property(k_convex_hull_);
+            const geo::Pose3D& other_pose = e->pose();
+            const ed::ConvexHull& other_chull = e->convexHullNew();
 
             // Check if the convex hulls collide
-            if (other_pose && other_chull
-                    && convex_hull::collide(*other_chull, other_pose->t, chull, pose.t, xy_padding_, z_padding_))
+            if (ed::convex_hull::collide(other_chull, other_pose.t, chull, pose.t, xy_padding_, z_padding_))
             {
                 associated = true;
                 break;
@@ -276,8 +268,8 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         if (!associated)
         {
             ed::UUID id = ed::Entity::generateID();
-            req.setProperty(id, k_pose_, pose);
-            req.setProperty(id, k_convex_hull_, chull);          
+            req.setPose(id, pose);
+            req.setConvexHullNew(id, chull);
         }
     }
 }

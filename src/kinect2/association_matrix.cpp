@@ -1,12 +1,17 @@
 #include "association_matrix.h"
 #include <algorithm>
 
+#include <iostream>
+
+namespace ed_sensor_integration
+{
+
 bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix::Entry& e2)
 {
     return e1.probability > e2.probability;
 }
 
-int AssociationMatrix::NO_ASSIGNMENT = -1;
+//int AssociationMatrix::NO_ASSIGNMENT = -1;
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -42,7 +47,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
         std::sort(msr_row.begin(), msr_row.end(), compareEntries);
 
         // Add dummy entry
-        msr_row.push_back(Entry(i, NO_ASSIGNMENT, 0));
+        msr_row.push_back(Entry(i, -1, 0));
     }
 
     // Initialize
@@ -50,6 +55,12 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
     while(true)
     {
+        std::cout << "-------" << std::endl;
+        for(unsigned int i = 0; i < assig_indexes.size(); ++i)
+        {
+            std::cout << assig_indexes[i] << " / " << matrix_[i].size() << std::endl;
+        }
+
         // Check if the assignment is valid
         bool valid = true;
         std::vector<int> entity_used(i_max_entity_, 0);
@@ -108,5 +119,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
     }
 
     return true;
+}
+
 }
 

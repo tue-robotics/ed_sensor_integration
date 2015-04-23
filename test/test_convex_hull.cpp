@@ -1,9 +1,9 @@
-#include <ed_sensor_integration/properties/convex_hull.h>
-#include <ed_sensor_integration/properties/convex_hull_calc.h>
+#include <ed/convex_hull.h>
+#include <ed/convex_hull_calc.h>
 
 int main(int argc, char **argv)
 {
-    ConvexHull c1;
+    ed::ConvexHull c1;
     c1.z_min = -0.5;
     c1.z_max = 0.5;
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     c1.points.push_back(geo::Vec2f(0.0460369, -0.0129151));
 
 
-    ConvexHull c2;
+    ed::ConvexHull c2;
     c2.z_min = -0.5;
     c2.z_max = 0.5;
 
@@ -36,10 +36,10 @@ int main(int argc, char **argv)
     c2.points.push_back(geo::Vec2f(0.0805406, -0.024275));
 
 
-    convex_hull::calculateEdgesAndNormals(c1);
-    convex_hull::calculateEdgesAndNormals(c2);
+    ed::convex_hull::calculateEdgesAndNormals(c1);
+    ed::convex_hull::calculateEdgesAndNormals(c2);
 
-    std::cout << convex_hull::collide(c1, geo::Vector3(3.14171, 5.07719, 0), c2, geo::Vector3(3.42953, 3.63333, 0), 0.1, 0.1) << std::endl;
+    std::cout << ed::convex_hull::collide(c1, geo::Vector3(3.14171, 5.07719, 0), c2, geo::Vector3(3.42953, 3.63333, 0), 0.1, 0.1) << std::endl;
 
     return 0;
 }
