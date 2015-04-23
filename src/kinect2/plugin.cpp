@@ -186,7 +186,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     xy_padding_ = 0.1;
     z_padding_ = 0.1;
-    border_padding_ = 0.05;
+    border_padding_ = 0.1;
 
     // Initialize image publishers for visualization
     viz_sensor_normals_.initialize("kinect/viz/sensor_normals");
@@ -824,6 +824,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             {
                 // Update the entity
                 const ed::EntityConstPtr& e = entities[i_entity];
+                const ed::ConvexHull& entity_chull = e->convexHullNew();
+                const geo::Pose3D& entity_pose = e->pose();
 
                 // Mark the entity as being associated
                 entities_associated[i_entity] = i_cluster;
@@ -871,9 +873,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 ed::ConvexHull new_chull;
                 geo::Pose3D new_pose;
 
+                double new_z_min = cluster.pose.t.z + cluster.chull.z_min;
+                double new_z_max = cluster.pose.t.z + cluster.chull.z_max;
+
+                if (!cluster.chull.complete)
+                {
+                    new_z_min = std::min(new_z_min, entity_pose.t.z + entity_chull.z_min);
+                    new_z_max = std::max(new_z_max, entity_pose.t.z + entity_chull.z_max);
+                }
+
                 // (TODO: taking the z_min and z_max of chull is quite arbitrary...)
-                ed::convex_hull::create(new_points_MAP, cluster.pose.t.z + cluster.chull.z_min,
-                                        cluster.pose.t.z + cluster.chull.z_max, new_chull, new_pose);
+                ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
 
                 if (cluster.chull.complete)
                     new_chull.complete = true;

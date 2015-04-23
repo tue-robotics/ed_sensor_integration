@@ -105,6 +105,20 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
 
     for(std::map<ed::UUID, std::vector<ed::MeasurementConstPtr> >::const_iterator it = req.measurements.begin(); it != req.measurements.end(); ++it)
     {
+        ed::EntityConstPtr e = world.getEntity(it->first);
+        if (!e)
+            continue;
+
+        bool chull_complete = false;
+        std::map<ed::UUID, ed::ConvexHull>::const_iterator it_chull = req.convex_hulls_new.find(it->first);
+        if (it_chull != req.convex_hulls_new.end())
+        {
+            const ed::ConvexHull& chull = it_chull->second;
+            chull_complete = chull.complete;
+        }
+
+        double alpha = std::max(0.1, 2 * (e->existenceProbability() - 0.5));
+
         cv::Point2i p_top_left(1e6, 1e6);
         cv::Point2i p_bottom_right(-1e6, -1e6);
 
@@ -115,7 +129,7 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
 
             for(ed::ImageMask::const_iterator it_p = m->imageMask().begin(canvas.cols); it_p != m->imageMask().end(); ++it_p)
             {
-                canvas.at<cv::Vec3b>(*it_p) = rgb.at<cv::Vec3b>(*it_p);
+                canvas.at<cv::Vec3b>(*it_p) = alpha * rgb.at<cv::Vec3b>(*it_p);
                 p_top_left.x = std::min(p_top_left.x, it_p->x);
                 p_top_left.y = std::min(p_top_left.y, it_p->y);
 
@@ -128,28 +142,26 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
 
         cv::rectangle(canvas, p_top_left, p_bottom_right, color, 1);
 
-        ed::EntityConstPtr e = world.getEntity(it->first);
+        std::string type = e->type();
+        std::string info = e->id().str();
 
-        if (e)
+        if (info.size() > 4)
+            info = info.substr(0, 4);
+
+        std::stringstream ss;
+        ss.precision(1);
+        ss << type << " (" << info << ") " << std::fixed << e->existenceProbability();
+        if (chull_complete)
         {
-            std::string type = e->type();
-            std::string info = e->id().str();
-
-            if (info.size() > 4)
-                info = info.substr(0, 4);
-
-            std::stringstream ss;
-            ss.precision(1);
-            ss << type << " (" << info << ") " << std::fixed << e->existenceProbability();
-
-            VisualizationLabel label;
-            label.text = ss.str();
-            label.rect = cv::Rect(p_top_left + cv::Point(0, -22), cv::Point(p_top_left.x, p_top_left.y) + cv::Point((label.text.size() * 10)));
-            label.color = color;
-
-            labels.push_back(label);
+            ss << " COMPLETE";
         }
 
+        VisualizationLabel label;
+        label.text = ss.str();
+        label.rect = cv::Rect(p_top_left + cv::Point(0, -22), cv::Point(p_top_left.x, p_top_left.y) + cv::Point((label.text.size() * 10)));
+        label.color = color;
+
+        labels.push_back(label);
     }
 
     for(std::vector<VisualizationLabel>::iterator it = labels.begin(); it != labels.end(); ++it)
