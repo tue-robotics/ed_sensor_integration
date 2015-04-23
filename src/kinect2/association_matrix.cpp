@@ -55,15 +55,9 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
     while(true)
     {
-        std::cout << "-------" << std::endl;
-        for(unsigned int i = 0; i < assig_indexes.size(); ++i)
-        {
-            std::cout << assig_indexes[i] << " / " << matrix_[i].size() << std::endl;
-        }
-
         // Check if the assignment is valid
         bool valid = true;
-        std::vector<int> entity_used(i_max_entity_, 0);
+        std::vector<int> entity_used(i_max_entity_ + 1, 0);
         for(unsigned int i = 0; i < assig_indexes.size(); ++i)
         {
             const Entry& entry = matrix_[i][assig_indexes[i]];

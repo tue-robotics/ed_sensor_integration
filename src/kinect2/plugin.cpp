@@ -802,13 +802,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             // Get the assignment for this cluster
             int i_entity = assig[i_cluster];
 
-            std::cout << "Cluster " << i_cluster << " / " << clusters.size() << " -> Entity " << i_entity << " / " << entities.size() << std::endl;
-
             if (i_entity == -1)
             {
                 // Now assignment, so add as new cluster
-
-                std::cout << "Cluster " << i_cluster << ": New entity at " << cluster.pose << std::endl;
 
                 // Add new entity
                 ed::UUID id = ed::Entity::generateID();
@@ -828,8 +824,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             {
                 // Update the entity
                 const ed::EntityConstPtr& e = entities[i_entity];
-
-                std::cout << "Cluster " << i_cluster << ": Associated with " << e->id() << std::endl;
 
                 // Mark the entity as being associated
                 entities_associated[i_entity] = i_cluster;
