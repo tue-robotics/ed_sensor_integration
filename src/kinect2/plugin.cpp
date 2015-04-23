@@ -718,7 +718,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     t_chull_association.start();
     ed::ErrorContext errc("Convex hull assocation");
 
-    float max_dist = 0.2;
+    float max_dist = 1.0;
 
     // Create selection of world model entities that could associate
 
@@ -757,6 +757,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (entity_chull.points.empty())
                 continue;
 
+            if (e->existenceProbability() < 0.5 && rgbd_image->getTimestamp() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
+            {
+                req.removeEntity(e->id());
+                continue;
+            }
+
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y
                     || entity_pose.t.z < area_min.z || entity_pose.t.z > area_max.z)
@@ -765,6 +771,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             entities.push_back(e);
         }
 
+//        std::cout << "Clusters: " << clusters.size() << ", entities: " <<  entities.size() << std::endl;
 
         // Create association matrix
         ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
@@ -810,7 +817,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 ed::UUID id = ed::Entity::generateID();
                 req.setConvexHullNew(id, cluster.chull);
                 req.setPose(id, cluster.pose);
-                req.setExistenceProbability(id, 0.7); // TODO magic number
+                req.setExistenceProbability(id, 0.2); // TODO magic number
+                req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());
 
                 // Set old chull (is used in other plugins, e.g. navigation)
                 ed::ConvexHull2D chull_old;
@@ -895,6 +903,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 double p_exist = e->existenceProbability();
                 req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
+                req.setLastUpdateTimestamp(e->id(), rgbd_image->getTimestamp());
 
                 // Set old chull (is used in other plugins, e.g. navigation)
                 ed::ConvexHull2D chull_old;
