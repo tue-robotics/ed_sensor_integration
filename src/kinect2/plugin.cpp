@@ -131,6 +131,75 @@ void convertConvexHull(const ConvexHull& c, const geo::Pose3D& pose, ed::ConvexH
 
 // ----------------------------------------------------------------------------------------------------
 
+template<typename T>
+struct vector_sorter
+{
+    bool ascend;
+    vector_sorter(const bool ascending = false)
+    {
+        if (ascending)
+            ascend = true;
+        else
+            ascend = false;
+    }
+
+    bool operator()(const std::vector<T>& a,const std::vector<T>& b)
+    {
+        if (ascend)
+            return a.size() < b.size();
+        else
+            return a.size() > b.size();
+    }
+};
+
+// ----------------------------------------------------------------------------------------------------
+
+template<typename T>
+struct pc_sorter
+{
+    bool ascend;
+    pc_sorter(const bool ascending = false)
+    {
+        if (ascending)
+            ascend = true;
+        else
+            ascend = false;
+    }
+
+    bool operator()(const pcl::PointCloud<T>& a,const pcl::PointCloud<T>& b)
+    {
+        if (ascend)
+            return a.points.size() < b.points.size();
+        else
+            return a.size() > b.size();
+    }
+};
+
+// ----------------------------------------------------------------------------------------------------
+
+template<typename T1, typename T2>
+struct pair_second_sorter
+{
+    bool ascend;
+    pair_second_sorter(const bool ascending = false)
+    {
+        if (ascending)
+            ascend = true;
+        else
+            ascend = false;
+    }
+
+    bool operator()(const std::pair<T1,T2>& a,const std::pair<T1,T2>& b)
+    {
+        if (ascend)
+            return a.second < b.second;
+        else
+            return a.second > b.second;
+    }
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 KinectPlugin::KinectPlugin() : tf_listener_(0), debug_(false)
 {
 }
@@ -181,6 +250,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_update_req_.initialize("kinect/viz/update_request");
     viz_model_render_.initialize("kinect/viz/depth_render");
     viz_normal_stats_.initialize("kinect/viz/normal_stats");
+    viz_normal_maxs_.initialize("kinect/viz/normal_maxs");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -847,8 +917,13 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     // Visualize normals histogram
     int hist_res = 40; // number of bins (horizontally and vertically)
-    double hist_max = 0.0;
-    cv::Mat normal_stats(hist_res,hist_res, CV_32FC1, cv::Scalar(0.0));
+    double hist_max = 1.0;
+    cv::Mat normal_stats(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
+    std::vector<pcl::PointCloud<pcl::PointNormal> > normals_pile(hist_res*hist_res);
+
+    cv::Mat normal_stats_maxs(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
+    std::vector< std::pair<std::pair<int,int>,double> > maxs;
+    int numpeaks = 3;
 
     for(unsigned int i = 0; i < size; ++i)
     {
@@ -861,6 +936,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             int x = hist_res * (n.normal_x + 1) / 2;
             int y = hist_res * (n.normal_y + 1) / 2;
 
+            std::cout << "Something is going wrong here!!! ";
+            normals_pile[y*hist_res+x].push_back(n); // Elements of matrix are stored by placing row after row
+
+            std::cout << "Not here anymore...";
             // Transform sensor point to map frame using this:
 //            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
             // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
@@ -869,17 +948,55 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 //            int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
 //            int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
 
+
             normal_stats.at<double>(y,x)++;
             if ( normal_stats.at<double>(y,x) > hist_max )
+            {
+                // Store max histogram value for normalization
                 hist_max = normal_stats.at<double>(y,x);
+
+                // Store maximum histogram values and their coordinates
+                std::pair<int,int> c = std::make_pair(y,x);
+                std::pair<std::pair<int,int>,double> max = std::make_pair(c,hist_max);
+
+                // Ad new maximum to front of vector
+                maxs.insert(maxs.begin(),max);
+
+                if ( maxs.size() > numpeaks )
+                    maxs.pop_back();
+            }
         }
     }
+
+    // Threshold
+    for (std::vector<std::pair<std::pair<int,int>,double> >::const_iterator it = maxs.begin(); it != maxs.end(); ++it )
+    {
+        int y = it->first.first;
+        int x = it->first.second;
+        double max = it->second;
+        normal_stats_maxs.at<double>(y,x) = max;
+    }
+
+    // Normalize histogram to 1
     normal_stats /= hist_max;
+    normal_stats_maxs /= hist_max;
+
+    std::sort(normals_pile.begin(),normals_pile.end(),pc_sorter<pcl::PointNormal>() );
+//    std::cout << "Normals pile sorted lengths:" << std::endl;
+//    for (std::vector<pcl::PointCloud< pcl::PointNormal > >::const_iterator it = normals_pile.begin(); it != normals_pile.end(); ++it )
+//    {
+//        std::cout << it->size() << " ";
+//    }
+//    std::cout << std::endl;
 
     cv::Mat normal_stats_large(depth.rows, depth.cols, CV_8UC1, cv::Scalar(0));
     cv::Size imsize(depth.rows, depth.cols);
     cv::resize(normal_stats, normal_stats_large, imsize, 0, 0, cv::INTER_NEAREST);
     viz_normal_stats_.publish(normal_stats_large);
+
+    cv::Mat normal_stats_maxs_large(depth.rows, depth.cols, CV_8UC1, cv::Scalar(0));
+    cv::resize(normal_stats_maxs, normal_stats_maxs_large, imsize, 0, 0, cv::INTER_NEAREST);
+    viz_normal_maxs_.publish(normal_stats_maxs_large);
 }
 
 // ----------------------------------------------------------------------------------------------------

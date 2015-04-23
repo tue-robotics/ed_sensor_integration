@@ -52,6 +52,7 @@ private:
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_world_;
     ed::ImagePublisher viz_normal_stats_;
+    ed::ImagePublisher viz_normal_maxs_;
     ed::ImagePublisher viz_update_req_;
     ed::ImagePublisher viz_model_render_;
 
