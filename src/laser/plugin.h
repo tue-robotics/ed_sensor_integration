@@ -55,6 +55,7 @@ private:
     int min_segment_size_;
     float world_association_distance_;
     float segment_depth_threshold_;
+    double max_cluster_size_;
 
     int max_gap_size_;
 

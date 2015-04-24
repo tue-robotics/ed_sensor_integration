@@ -80,6 +80,7 @@ void LaserPlugin::initialize(ed::InitData& init)
     min_segment_size_ = 10;
     world_association_distance_ = 0.2;
     segment_depth_threshold_ = 0.3;
+    max_cluster_size_ = 1.0;
 
     max_gap_size_ = 10;
 }
@@ -211,7 +212,31 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 i = current_segment.back() + 1;
 
                 if (current_segment.size() >= min_segment_size_)
-                    segments.push_back(current_segment);
+                {
+                    // calculate bounding box
+                    geo::Vec2 seg_min, seg_max;
+                    for(unsigned int k = 0; k < current_segment.size(); ++k)
+                    {
+                        geo::Vector3 p = lrf_model_.rayDirections()[current_segment[k]] * sensor_ranges[current_segment[k]];
+
+                        if (k == 0)
+                        {
+                            seg_min = geo::Vec2(p.x, p.y);
+                            seg_max = geo::Vec2(p.x, p.y);
+                        }
+                        else
+                        {
+                            seg_min.x = std::min(p.x, seg_min.x);
+                            seg_min.y = std::min(p.y, seg_min.y);
+                            seg_max.x = std::max(p.x, seg_max.x);
+                            seg_max.y = std::max(p.y, seg_max.y);
+                        }
+                    }
+
+                    geo::Vec2 bb = seg_max - seg_min;
+                    if (bb.x < max_cluster_size_ && bb.y < max_cluster_size_)
+                        segments.push_back(current_segment);
+                }
 
                 current_segment.clear();
 
@@ -356,7 +381,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         return;
     }
 
-    std::vector<int> entities_associated;
+    std::vector<int> entities_associated(entities.size(), -1);
 
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
@@ -383,6 +408,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
         else
         {
+            // Mark the entity as being associated
+            entities_associated[i_entity] = i_cluster;
+
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
             const ed::ConvexHull& entity_chull = e->convexHullNew();
@@ -413,6 +441,40 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // Set timestamp
         req.setLastUpdateTimestamp(id, scan_msg_->header.stamp.toSec());
     }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Clear unassociated entities in view
+
+    for(unsigned int i = 0; i < entities_associated.size(); ++i)
+    {
+        const ed::EntityConstPtr& e = entities[i];
+
+        // If the entity is associated, skip it
+        if (entities_associated[i] >= 0)
+            continue;
+
+        const geo::Pose3D& pose = e->pose();
+
+        // Transform to sensor frame
+        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+
+        int i_beam = lrf_model_.getAngleUpperIndex(p.x, p.y);
+        if (i_beam >= 0 && i < num_beams)
+        {
+            float rs = sensor_ranges[i_beam];
+            if (rs > 0 && p.length() < rs)
+            {
+                double p_exist = e->existenceProbability();
+                if (p_exist < 0.3) // TODO: magic number
+                    req.removeEntity(e->id());
+                else
+                {
+                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.3));  // TODO: very ugly prob update
+                }
+            }
+        }
+    }
+
 }
 
 // ----------------------------------------------------------------------------------------------------
