@@ -18,15 +18,32 @@
 
 #include <ed/io/json_writer.h>
 
+#include "ed_sensor_integration/association_matrix.h"
+
 namespace
 {
 
-struct ScanSegment
+typedef std::vector<unsigned int> ScanSegment;
+
+struct Cluster
 {
-    unsigned int i_start;
-    unsigned int i_end;
+    ed::ConvexHull chull;
+    geo::Pose3D pose;
 };
 
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void convertConvexHull(const ed::ConvexHull& c, const geo::Pose3D& pose, ed::ConvexHull2D& c2)
+{
+    c2.min_z = c.z_min + pose.t.z;
+    c2.max_z = c.z_max + pose.t.z;
+    c2.center_point = pose.t;
+
+    c2.chull.resize(c.points.size());
+    for(unsigned int i = 0; i < c.points.size(); ++i)
+        c2.chull.points[i] = pcl::PointXYZ(c.points[i].x + pose.t.x, c.points[i].y + pose.t.y, 0);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -62,11 +79,9 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     min_segment_size_ = 10;
     world_association_distance_ = 0.2;
-    segment_depth_threshold_ = 0.1;
+    segment_depth_threshold_ = 0.3;
 
-    // Collision check padding
-    xy_padding_ = 0;
-    z_padding_ = 0;
+    max_gap_size_ = 10;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -105,7 +120,15 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
-    const std::vector<float>& sensor_ranges = scan_msg_->ranges;
+    std::vector<float> sensor_ranges(scan_msg_->ranges.size());
+    for(unsigned int i = 0; i < scan_msg_->ranges.size(); ++i)
+    {
+        float r = scan_msg_->ranges[i];
+        if (r == r && r > scan_msg_->range_min && r < scan_msg_->range_max)
+            sensor_ranges[i] = r;
+        else
+            sensor_ranges[i] = 0;
+    }
 
     unsigned int num_beams = sensor_ranges.size();
 
@@ -137,57 +160,91 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     }
 
     // - - - - - - - - - - - - - - - - - -
-    // Try to associate sensor laser points to rendered model points
-    // and segment the remaining points into clusters
-
-    std::vector<ScanSegment> segments;
-
-    ScanSegment current_segment;
-    current_segment.i_start = 0;
-    float last_point_dist = sensor_ranges[0];
+    // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
     for(unsigned int i = 0; i < num_beams; ++i)
     {
         float rs = sensor_ranges[i];
         float rm = model_ranges[i];
 
-        bool skip = (rs <= 0
-                     || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
-                     || (std::abs(rm - rs) < world_association_distance_)); // If the sensor point is within a certain distance of the world model point, skip it (it is associated)
+        if (rs <= 0
+                || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
+                || (std::abs(rm - rs) < world_association_distance_))
+            sensor_ranges[i] = 0;
+    }
 
-        if (skip || (i != current_segment.i_start && std::abs(rs - last_point_dist) > segment_depth_threshold_)) // Check the distance of this points to the last.
+    // - - - - - - - - - - - - - - - - - -
+    // Segment the remaining points into clusters
+
+    std::vector<ScanSegment> segments;
+
+    // Find first valid value
+    ScanSegment current_segment;
+    for(unsigned int i = 0; i < num_beams; ++i)
+    {
+        if (sensor_ranges[i] > 0)
         {
-            // Check if the segment is long enough
-            if (i - current_segment.i_start > min_segment_size_)
-            {
-                current_segment.i_end = i - 1;
-                segments.push_back(current_segment);
-            }
-
-            if (skip)
-                current_segment.i_start = i + 1;
-            else
-                current_segment.i_start = i;
+            current_segment.push_back(i);
+            break;
         }
+    }
 
-        if (!skip)
-            last_point_dist = rs;
+    if (current_segment.empty())
+    {
+        std::cout << "No residual point cloud!" << std::endl;
+        return;
+    }
+
+    int gap_size = 0;
+
+    for(unsigned int i = current_segment.front(); i < num_beams; ++i)
+    {
+        float rs = sensor_ranges[i];
+
+        if (rs == 0 || std::abs(rs - sensor_ranges[current_segment.back()]) > segment_depth_threshold_)
+        {
+            // Found a gap
+            ++gap_size;
+
+            if (gap_size >= max_gap_size_)
+            {
+                i = current_segment.back() + 1;
+
+                if (current_segment.size() >= min_segment_size_)
+                    segments.push_back(current_segment);
+
+                current_segment.clear();
+
+                // Find next good value
+                while(sensor_ranges[i] == 0 && i < num_beams)
+                    ++i;
+
+                current_segment.push_back(i);
+            }
+        }
+        else
+        {
+            gap_size = 0;
+            current_segment.push_back(i);
+        }
     }
 
     // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
 
+    std::vector<Cluster> clusters;
+
     for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
     {
         const ScanSegment& segment = *it;
-        unsigned int segment_size = segment.i_end - segment.i_start + 1;
+        unsigned int segment_size = segment.size();
 
-        cv::Mat_<cv::Vec2f> points(1, segment_size);
+        std::vector<geo::Vec2f> points(segment_size);
 
         float z_min, z_max;
         for(unsigned int i = 0; i < segment_size; ++i)
         {
-            unsigned int j = segment.i_start + i;
+            unsigned int j = segment[i];
 
             // Calculate the cartesian coordinate of the point in the segment (in sensor frame)
             geo::Vector3 p_sensor = lrf_model_.rayDirections()[j] * sensor_ranges[j];
@@ -196,7 +253,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             geo::Vector3 p = sensor_pose * p_sensor;
 
             // Add to cv array
-            points(0, i) = cv::Vec2f(p.x, p.y);
+            points[i] = geo::Vec2f(p.x, p.y);
 
             if (i == 0)
             {
@@ -210,67 +267,151 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             }
         }
 
-        geo::Pose3D pose = geo::Pose3D::identity();
-        pose.t.z = (z_min + z_max) / 2;
+        clusters.push_back(Cluster());
+        Cluster& cluster = clusters.back();
 
-        std::vector<int> chull_indices;
-        cv::convexHull(points, chull_indices);
+        cluster.pose = geo::Pose3D::identity();
+        ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
+    }
 
-        ed::ConvexHull chull;
-        chull.z_min = z_min - pose.t.z;
-        chull.z_max = z_max - pose.t.z;
+    // Create selection of world model entities that could associate
 
-        for(unsigned int i = 0; i < chull_indices.size(); ++i)
+    float max_dist = 0.3;
+
+    std::vector<ed::EntityConstPtr> entities;
+
+    if (!clusters.empty())
+    {
+        geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
+        geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
+        for (std::vector<Cluster>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
         {
-            const cv::Vec2f& p_cv = points.at<cv::Vec2f>(chull_indices[i]);
-            geo::Vec2f p(p_cv[0], p_cv[1]);
+            const Cluster& cluster = *it;
 
-            chull.points.push_back(p);
+            area_min.x = std::min(area_min.x, cluster.pose.t.x);
+            area_min.y = std::min(area_min.y, cluster.pose.t.y);
 
-            pose.t.x += p.x;
-            pose.t.y += p.y;
+            area_max.x = std::max(area_max.x, cluster.pose.t.x);
+            area_max.y = std::max(area_max.y, cluster.pose.t.y);
         }
 
-        // Average segment position
-        pose.t.x /= chull.points.size();
-        pose.t.y /= chull.points.size();
+        area_min -= geo::Vec2(max_dist, max_dist);
+        area_max += geo::Vec2(max_dist, max_dist);
 
-        // Move all points to the pose frame
-        for(unsigned int i = 0; i < chull.points.size(); ++i)
-        {
-            geo::Vec2f& p = chull.points[i];
-            p.x -= pose.t.x;
-            p.y -= pose.t.y;
-        }
-
-        // Calculate normals and edges
-        ed::convex_hull::calculateEdgesAndNormals(chull);
-
-        // Check for collisions with convex hulls of existing entities
-        bool associated = false;
         for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
         {
             const ed::EntityConstPtr& e = *e_it;
             if (e->shape() || !e->has_pose())
                 continue;
 
-            const geo::Pose3D& other_pose = e->pose();
-            const ed::ConvexHull& other_chull = e->convexHullNew();
+            const geo::Pose3D& entity_pose = e->pose();
+            const ed::ConvexHull& entity_chull = e->convexHullNew();
 
-            // Check if the convex hulls collide
-            if (ed::convex_hull::collide(other_chull, other_pose.t, chull, pose.t, xy_padding_, z_padding_))
+            if (entity_chull.points.empty())
+                continue;
+
+            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
             {
-                associated = true;
-                break;
+                req.removeEntity(e->id());
+                continue;
             }
+
+            if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
+                    || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
+                continue;
+
+            entities.push_back(e);
+        }
+    }
+
+    // Create association matrix
+    ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
+    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
+    {
+        const Cluster& cluster = clusters[i_cluster];
+
+        for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
+        {
+            const ed::EntityConstPtr& e = entities[i_entity];
+
+            const geo::Pose3D& entity_pose = e->pose();
+            const ed::ConvexHull& entity_chull = e->convexHullNew();
+
+            double dx = entity_pose.t.x - cluster.pose.t.x;
+            double dy = entity_pose.t.y - cluster.pose.t.y;
+
+            double dist_sq = (dx * dx) + (dy * dy);
+
+            // TODO: better prob calculation
+            double prob = 1.0 / (1.0 + 100 * dist_sq);
+
+            assoc_matrix.setEntry(i_cluster, i_entity, prob);
+        }
+    }
+
+    ed_sensor_integration::Assignment assig;
+    if (!assoc_matrix.calculateBestAssignment(assig))
+    {
+        std::cout << "WARNING: Association failed!" << std::endl;
+        return;
+    }
+
+    std::vector<int> entities_associated;
+
+    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
+    {
+        const Cluster& cluster = clusters[i_cluster];
+
+        // Get the assignment for this cluster
+        int i_entity = assig[i_cluster];
+
+        ed::UUID id;
+        ed::ConvexHull new_chull;
+        geo::Pose3D new_pose;
+
+        if (i_entity == -1)
+        {
+            // No assignment, so add as new cluster
+            new_chull = cluster.chull;
+            new_pose = cluster.pose;
+
+            // Generate unique ID
+            id = ed::Entity::generateID();
+
+            // Update existence probability
+            req.setExistenceProbability(id, 0.2); // TODO magic number
+        }
+        else
+        {
+            // Update the entity
+            const ed::EntityConstPtr& e = entities[i_entity];
+            const ed::ConvexHull& entity_chull = e->convexHullNew();
+
+            new_chull = cluster.chull;
+            new_pose = cluster.pose;
+
+            // Update existence probability
+            double p_exist = e->existenceProbability();
+            req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
+
+            id = e->id();
         }
 
-        if (!associated)
+        // Set convex hull and pose
+        if (!new_chull.points.empty())
         {
-            ed::UUID id = ed::Entity::generateID();
-            req.setPose(id, pose);
-            req.setConvexHullNew(id, chull);
+            req.setConvexHullNew(id, new_chull);
+
+            // Set old chull (is used in other plugins, e.g. navigation)
+            ed::ConvexHull2D chull_old;
+            convertConvexHull(new_chull, new_pose, chull_old);
+            req.setConvexHull(id, chull_old);
         }
+
+        req.setPose(id, new_pose);
+
+        // Set timestamp
+        req.setLastUpdateTimestamp(id, scan_msg_->header.stamp.toSec());
     }
 }
 

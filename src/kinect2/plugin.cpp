@@ -38,7 +38,7 @@
 #include <ed/error_context.h>
 
 // Association
-#include "association_matrix.h"
+#include "ed_sensor_integration/association_matrix.h"
 
 // ----------------------------------------------------------------------------------------------------
 
