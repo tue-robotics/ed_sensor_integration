@@ -20,6 +20,8 @@
 
 #include "ed_sensor_integration/association_matrix.h"
 
+#include <tue/profiling/timer.h>
+
 namespace
 {
 
@@ -117,6 +119,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         ROS_WARN("[ED LASER PLUGIN] Could not get sensor pose: %s", ex.what());
         return;
     }
+
+    tue::Timer t_total;
+    t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
@@ -370,6 +375,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             // TODO: better prob calculation
             double prob = 1.0 / (1.0 + 100 * dist_sq);
 
+//            if (dist_sq > 0.5 * 0.5)
+//                prob = 0;
+
             assoc_matrix.setEntry(i_cluster, i_entity, prob);
         }
     }
@@ -474,6 +482,8 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             }
         }
     }
+
+    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
 
 }
 
