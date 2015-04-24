@@ -916,14 +916,15 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     //    visualizeWorldModel(world, sensor_pose, view, viz_world_);
 
     // Visualize normals histogram
-    int hist_res = 40; // number of bins (horizontally and vertically)
+    int hist_res = 40; // number of bins (horizontally and vertically) TODO: magic number
     double hist_max = 1.0;
     cv::Mat normal_stats(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
     std::vector<pcl::PointCloud<pcl::PointNormal> > normals_pile(hist_res*hist_res);
 
     cv::Mat normal_stats_maxs(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
     std::vector< std::pair<std::pair<int,int>,double> > maxs;
-    int numpeaks = 3;
+    int numpeaks = 3; // TODO: magic number
+    maxs.reserve(numpeaks);
 
     for(unsigned int i = 0; i < size; ++i)
     {
@@ -933,13 +934,13 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             // RGBD image normal distribution
 
             // Not looking at z coordinates right now (not important in camera frame)
-            int x = hist_res * (n.normal_x + 1) / 2;
-            int y = hist_res * (n.normal_y + 1) / 2;
+            int x = (hist_res-1) * (n.normal_x + 1) / 2;
+            int y = (hist_res-1) * (n.normal_y + 1) / 2;
 
-            std::cout << "Something is going wrong here!!! ";
+            std::cout << "x = " << x << ", y = " << y << ", hist_res = " << hist_res << ", normals_pile.size() = " << normals_pile.size() << std::endl;
+
             normals_pile[y*hist_res+x].push_back(n); // Elements of matrix are stored by placing row after row
 
-            std::cout << "Not here anymore...";
             // Transform sensor point to map frame using this:
 //            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
             // Parameterization of unity vector for when z coordinate is important (in map or odom frame)
