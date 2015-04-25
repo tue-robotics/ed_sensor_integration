@@ -1027,6 +1027,8 @@ bool KinectPlugin::srvLockEntities(ed_sensor_integration::LockEntities::Request&
 
     for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
         locked_entities_.erase(*it);
+
+    return true;
 }
 
 // ----------------------------------------------------------------------------------------------------
