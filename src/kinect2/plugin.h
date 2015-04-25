@@ -15,6 +15,7 @@
 
 // Locking
 #include "ed_sensor_integration/LockEntities.h"
+#include "ed_sensor_integration/MeshEntityInView.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -69,6 +70,14 @@ private:
     ros::ServiceServer srv_lock_entities_;
 
     bool srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res);
+
+    // Meshing
+
+    ed_sensor_integration::MeshEntityInView::Request mesh_request_;
+
+    ros::ServiceServer srv_mesh_entity_in_view_;
+
+    bool srvMeshEntityInView(ed_sensor_integration::MeshEntityInView::Request& req, ed_sensor_integration::MeshEntityInView::Response& res);
 
 };
 

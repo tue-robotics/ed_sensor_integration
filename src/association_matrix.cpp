@@ -29,6 +29,9 @@ AssociationMatrix::~AssociationMatrix()
 
 void AssociationMatrix::setEntry(int i_measurement, int i_entity, double prob)
 {
+    if (prob <= 0)
+        return;
+
     std::vector<Entry>& msr_row = matrix_[i_measurement];
     msr_row.push_back(Entry(i_measurement, i_entity, prob));
 
@@ -47,7 +50,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
         std::sort(msr_row.begin(), msr_row.end(), compareEntries);
 
         // Add dummy entry
-        msr_row.push_back(Entry(i, -1, 0));
+        msr_row.push_back(Entry(i, -1, 1e-9));
     }
 
     // Initialize
@@ -87,7 +90,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
             if (j + 1 < msr_row.size())
             {
-                double prob_diff = msr_row[j].probability - msr_row[j + 1].probability;
+                double prob_diff = msr_row[j].probability / msr_row[j + 1].probability;
                 if (prob_diff < smallest_prob_diff)
                 {
                     i_smallest_prob_diff = i;
@@ -98,7 +101,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
         if (i_smallest_prob_diff < 0)
         {
-            // Found not next step to take, so we're done and didn't find a valid assignment
+            // Found no next step to take, so we're done and didn't find a valid assignment
             return false;
         }
 

@@ -40,6 +40,11 @@
 // Association
 #include "ed_sensor_integration/association_matrix.h"
 
+// Meshing
+#include "ed_sensor_integration/meshing.h"
+#include <geolib/serialization.h>
+
+
 // ----------------------------------------------------------------------------------------------------
 
 struct Cluster
@@ -48,6 +53,20 @@ struct Cluster
     ed::ConvexHull chull;
     geo::Pose3D pose;
 };
+
+// ----------------------------------------------------------------------------------------------------
+
+geo::Vector3 min(const geo::Vector3& p1, const geo::Vector3& p2)
+{
+    return geo::Vector3(std::min(p1.x, p2.x), std::min(p1.y, p2.y), std::min(p1.z, p2.z));
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+geo::Vector3 max(const geo::Vector3& p1, const geo::Vector3& p2)
+{
+    return geo::Vector3(std::max(p1.x, p2.x), std::max(p1.y, p2.y), std::max(p1.z, p2.z));
+}
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -200,6 +219,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     nh.setCallbackQueue(&cb_queue_);
 
     srv_lock_entities_ = nh.advertiseService("kinect/lock_entities", &KinectPlugin::srvLockEntities, this);
+    srv_mesh_entity_in_view_ = nh.advertiseService("kinect/mesh_entity_in_view", &KinectPlugin::srvMeshEntityInView, this);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -722,6 +742,63 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     if (debug_)
         std::cout << "Clustering took " << t_clustering.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    if (!mesh_request_.id.empty())
+    {
+        const Cluster* biggest_cluster = 0;
+
+        for (std::vector<Cluster>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
+        {
+            const Cluster& cluster = *it;
+            if (!biggest_cluster || cluster.mask.size() > biggest_cluster->mask.size())
+            {
+                biggest_cluster = &cluster;
+            }
+        }
+
+        if (biggest_cluster && biggest_cluster->mask.size() > 500) // TODO: magic number
+        {
+            cv::Mat masked_depth_img(depth.rows, depth.cols, CV_32FC1, cv::Scalar(0));
+            for(unsigned int i = 0; i < biggest_cluster->mask.size(); ++i)
+                masked_depth_img.at<float>(biggest_cluster->mask[i]) = depth.at<float>(biggest_cluster->mask[i]);
+
+            geo::Mesh mesh;
+            ed_sensor_integration::depthImageToMesh(masked_depth_img, view.getRasterizer(), 0.05, mesh);
+
+            // Transform mesh to map frame
+            mesh = mesh.getTransformed(sensor_pose);
+
+            // Determine bounding box
+            const std::vector<geo::Vector3>& points = mesh.getPoints();
+            geo::Vector3 points_min = points.front();
+            geo::Vector3 points_max = points.front();
+            for(std::vector<geo::Vector3>::const_iterator it = points.begin(); it != points.end(); ++it)
+            {
+                points_min = min(points_min, *it);
+                points_max = max(points_max, *it);
+            }
+
+            // Determine origin
+            geo::Vector3 origin = (points_min + points_max) / 2;
+
+            geo::Transform transform(geo::Matrix3::identity(), -origin);
+            mesh = mesh.getTransformed(transform);
+
+            geo::ShapePtr shape(new geo::Shape);
+            shape->setMesh(mesh);
+
+            ed::UUID id = mesh_request_.id;
+            req.setShape(id, shape);
+            req.setPose(id, geo::Pose3D(geo::Matrix3::identity(), origin));
+
+            if (!mesh_request_.type.empty())
+                req.setType(id, mesh_request_.type);
+        }
+
+        mesh_request_.id.clear();
+    }
+
     // - - - - - - - - - - - - - - - - - -
     // Convex hull association
 
@@ -742,15 +819,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         geo::Vector3 area_max = clusters[0].pose.t;
         for (std::vector<Cluster>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
         {
-            const Cluster& cluster = *it;
-
-            area_min.x = std::min(area_min.x, cluster.pose.t.x);
-            area_min.y = std::min(area_min.y, cluster.pose.t.y);
-            area_min.z = std::min(area_min.z, cluster.pose.t.z);
-
-            area_max.x = std::max(area_max.x, cluster.pose.t.x);
-            area_max.y = std::max(area_max.y, cluster.pose.t.y);
-            area_max.z = std::max(area_max.z, cluster.pose.t.z);
+            const Cluster& cluster = *it;           
+            area_min = min(area_min, cluster.pose.t);
+            area_max = max(area_max, cluster.pose.t);
         }
 
         area_min -= geo::Vector3(max_dist, max_dist, max_dist);
@@ -1032,6 +1103,15 @@ bool KinectPlugin::srvLockEntities(ed_sensor_integration::LockEntities::Request&
     for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
         locked_entities_.erase(*it);
 
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool KinectPlugin::srvMeshEntityInView(ed_sensor_integration::MeshEntityInView::Request& req, ed_sensor_integration::MeshEntityInView::Response& res)
+{
+    mesh_request_ = req;
+    res.succeeded = true;
     return true;
 }
 

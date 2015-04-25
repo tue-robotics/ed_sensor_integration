@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
    FILES
    LockEntities.srv
+   MeshEntityInView.srv
 )
 
 # Generate added messages and services with any dependencies listed here
@@ -99,6 +100,12 @@ add_library(ed_association
     include/ed_sensor_integration/association_matrix.h
 )
 
+add_library(ed_meshing
+    src/meshing.cpp
+    include/ed_sensor_integration/meshing.h
+)
+
+
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_kinect2_plugin
@@ -107,7 +114,7 @@ add_library(ed_kinect2_plugin
     src/kinect2/visualization.cpp
     src/kinect2/visualization.h
 )
-target_link_libraries(ed_kinect2_plugin ed_association ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect2_plugin ed_association ed_meshing ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
