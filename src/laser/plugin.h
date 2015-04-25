@@ -52,9 +52,10 @@ private:
 
     // PARAMETERS
 
-    int min_segment_size_;
+    int min_segment_size_pixels_;
     float world_association_distance_;
     float segment_depth_threshold_;
+    double min_cluster_size_;
     double max_cluster_size_;
 
     int max_gap_size_;

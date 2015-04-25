@@ -33,6 +33,25 @@ struct Cluster
     geo::Pose3D pose;
 };
 
+// ----------------------------------------------------------------------------------------------------
+
+bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
+{
+    int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
+    if (i_beam < 0 || i_beam >= sensor_ranges.size())
+        return true; // or actually, we don't know
+
+    float rs = sensor_ranges[i_beam];
+    return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
+{
+    return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
+}
+
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -79,9 +98,11 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     tf_listener_ = new tf::TransformListener;
 
-    min_segment_size_ = 10;
+    min_segment_size_pixels_ = 10;
     world_association_distance_ = 0.2;
-    segment_depth_threshold_ = 0.3;
+    segment_depth_threshold_ = 0.2;
+
+    min_cluster_size_ = 0.2;
     max_cluster_size_ = 1.0;
 
     max_gap_size_ = 10;
@@ -130,7 +151,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     for(unsigned int i = 0; i < scan_msg_->ranges.size(); ++i)
     {
         float r = scan_msg_->ranges[i];
-        if (r == r && r > scan_msg_->range_min && r < scan_msg_->range_max)
+        if (r > scan_msg_->range_max)
+            sensor_ranges[i] = r;
+        else if (r == r && r > scan_msg_->range_min)
             sensor_ranges[i] = r;
         else
             sensor_ranges[i] = 0;
@@ -143,6 +166,20 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         lrf_model_.setNumBeams(num_beams);
         lrf_model_.setAngleLimits(scan_msg_->angle_min, scan_msg_->angle_max);
     }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Filter laser data (get rid of ghost points)
+
+    for(unsigned int i = 1; i < num_beams - 1; ++i)
+    {
+        float rs = sensor_ranges[i];
+        // Get rid of points that are isolated from their neighbours
+        if (std::abs(rs - sensor_ranges[i - 1]) > 0.1 && std::abs(rs - sensor_ranges[i + 1]) > 0.1)  // TODO: magic number
+        {
+            sensor_ranges[i] = sensor_ranges[i - 1];
+        }
+    }
+
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model as if seen by laser
@@ -216,7 +253,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 i = current_segment.back() + 1;
 
-                if (current_segment.size() >= min_segment_size_)
+                if (current_segment.size() >= min_segment_size_pixels_)
                 {
                     // calculate bounding box
                     geo::Vec2 seg_min, seg_max;
@@ -239,7 +276,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                     }
 
                     geo::Vec2 bb = seg_max - seg_min;
-                    if (bb.x < max_cluster_size_ && bb.y < max_cluster_size_)
+                    if ((bb.x > min_cluster_size_ || bb.y > min_cluster_size_) && bb.x < max_cluster_size_ && bb.y < max_cluster_size_)
                         segments.push_back(current_segment);
                 }
 
@@ -375,10 +412,15 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             // TODO: better prob calculation
             double prob = 1.0 / (1.0 + 100 * dist_sq);
 
-//            if (dist_sq > 0.5 * 0.5)
-//                prob = 0;
+            double dt = scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp();
 
-            assoc_matrix.setEntry(i_cluster, i_entity, prob);
+            double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
+
+            if (dist_sq > e_max_dist * e_max_dist)
+                prob = 0;
+
+            if (prob > 0)
+                assoc_matrix.setEntry(i_cluster, i_entity, prob);
         }
     }
 
@@ -421,7 +463,33 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
-            const ed::ConvexHull& entity_chull = e->convexHullNew();
+//            const ed::ConvexHull& entity_chull = e->convexHullNew();
+//            const geo::Pose3D& entity_pose = e->pose();
+
+//            std::vector<geo::Vec2f> new_points_MAP;
+
+//            // Add the points of the cluster
+//            for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
+//                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
+
+//            // Add the entity points that are still present in the depth map (or out of view)
+//            for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
+//            {
+//                geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
+
+//                geo::Vector3 p = sensor_pose.inverse() * geo::Vector3(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
+
+//                if (pointIsPresent(p, lrf_model_, sensor_ranges))
+//                {
+//                    new_points_MAP.push_back(p_chull_MAP);
+//                }
+//            }
+
+//            double new_z_min = cluster.chull.z_min;
+//            double new_z_max = cluster.chull.z_max;
+
+//            // And calculate the convex hull of these points
+//            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
 
             new_chull = cluster.chull;
             new_pose = cluster.pose;
@@ -466,24 +534,19 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // Transform to sensor frame
         geo::Vector3 p = sensor_pose.inverse() * pose.t;
 
-        int i_beam = lrf_model_.getAngleUpperIndex(p.x, p.y);
-        if (i_beam >= 0 && i < num_beams)
+        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
         {
-            float rs = sensor_ranges[i_beam];
-            if (rs > 0 && p.length() < rs)
+            double p_exist = e->existenceProbability();
+            if (p_exist < 0.3) // TODO: magic number
+                req.removeEntity(e->id());
+            else
             {
-                double p_exist = e->existenceProbability();
-                if (p_exist < 0.3) // TODO: magic number
-                    req.removeEntity(e->id());
-                else
-                {
-                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.3));  // TODO: very ugly prob update
-                }
+                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
             }
         }
     }
 
-    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl << std::endl;
+//    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 }
 
