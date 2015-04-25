@@ -977,6 +977,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         if (entities_associated[i] >= 0)
             continue;
 
+        // If the entity is locked, skip it
+        if (locked_entities_.find(e->id()) != locked_entities_.end())
+            continue;
+
         const geo::Pose3D& pose = e->pose();
 
         geo::Vector3 p = sensor_pose.inverse() * pose.t;
