@@ -194,6 +194,12 @@ void KinectPlugin::initialize(ed::InitData& init)
     viz_clusters_.initialize("kinect/viz/clusters");
     viz_update_req_.initialize("kinect/viz/update_request");
     viz_model_render_.initialize("kinect/viz/depth_render");
+
+    // Initialize lock entity server
+    ros::NodeHandle nh("~");
+    nh.setCallbackQueue(&cb_queue_);
+
+    srv_lock_entities_ = nh.advertiseService("kinect/lock_entities", &KinectPlugin::srvLockEntities, this);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -204,6 +210,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     t_total.start();
 
     const ed::WorldModel& world = data.world;
+
+    // - - - - - - - - - - - - - - - - - -
+    // Check ROS callback queue
+
+    cb_queue_.callAvailable();
 
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and place in image buffer
@@ -850,9 +861,19 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 id = e->id();
 
-                if (entity_chull.complete)
+
+                if (locked_entities_.find(e->id()) != locked_entities_.end())
                 {
-                    // Do nothing
+                    // Do nothing (even the pose stays the same) but DO update the timestamp
+
+                    // Set timestamp
+                    req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());
+
+                    continue;
+                }
+                else if (entity_chull.complete)
+                {
+                    // Only update pose
                     new_pose = cluster.pose;
                 }
                 else if (cluster.chull.complete)
@@ -995,6 +1016,17 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     visualizeNormals(*pc_model, viz_model_normals_);
 //    visualizeClusters(depth, clusters, viz_clusters_);
     visualizeUpdateRequest(world, req, rgbd_image, viz_update_req_);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool KinectPlugin::srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res)
+{
+    for(std::vector<std::string>::const_iterator it = req.lock_ids.begin(); it != req.lock_ids.end(); ++it)
+        locked_entities_.insert(*it);
+
+    for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
+        locked_entities_.erase(*it);
 }
 
 // ----------------------------------------------------------------------------------------------------

@@ -13,6 +13,9 @@
 
 #include "ed/convex_hull.h"
 
+// Locking
+#include "ed_sensor_integration/LockEntities.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 class KinectPlugin : public ed::Plugin
@@ -56,6 +59,17 @@ private:
     tf::TransformListener* tf_listener_;
 
     std::queue<rgbd::ImageConstPtr> image_buffer_;
+
+    // Locking
+
+    ros::CallbackQueue cb_queue_;
+
+    std::set<ed::UUID> locked_entities_;
+
+    ros::ServiceServer srv_lock_entities_;
+
+    bool srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res);
+
 };
 
 #endif
