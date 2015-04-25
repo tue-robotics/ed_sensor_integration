@@ -848,7 +848,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y
                     || entity_pose.t.z < area_min.z || entity_pose.t.z > area_max.z)
+            {
+                if (locked_entities_.find(e->id()) == locked_entities_.end())
+                    req.removeEntity(e->id());
                 continue;
+            }
 
             entities.push_back(e);
         }
@@ -920,6 +924,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 // Update existence probability
                 req.setExistenceProbability(id, 0.2); // TODO magic number
+
+                local_ids_.insert(id);
             }
             else
             {
@@ -941,6 +947,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());
 
                     continue;
+                }
+                else if (local_ids_.find(id) != local_ids_.end())
+                {
+                    new_chull = cluster.chull;
+                    new_pose = cluster.pose;
                 }
                 else if (entity_chull.complete)
                 {
@@ -1051,6 +1062,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         // If the entity is locked, skip it
         if (locked_entities_.find(e->id()) != locked_entities_.end())
             continue;
+
+        if (local_ids_.find(e->id()) != local_ids_.end())
+        {
+            req.removeEntity(e->id());
+            continue;
+        }
 
         const geo::Pose3D& pose = e->pose();
 

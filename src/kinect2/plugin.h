@@ -51,6 +51,12 @@ private:
     ed::ImagePublisher viz_update_req_;
     ed::ImagePublisher viz_model_render_;
 
+
+    // LOCAL WORLD MODEL
+
+    std::set<ed::UUID> local_ids_;
+
+
     // COMMUNICATION
 
     std::string topic_;
