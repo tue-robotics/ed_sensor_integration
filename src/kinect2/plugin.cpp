@@ -840,6 +840,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (e->shape() || !e->has_pose())
                 continue;
 
+            if (!e->type().empty()) // TODO: robocup hack
+            {
+                local_ids_.erase(e->id());
+                locked_entities_.insert(e->id());
+            }
+
             const geo::Pose3D& entity_pose = e->pose();
             const ed::ConvexHull& entity_chull = e->convexHullNew();
 
