@@ -794,6 +794,13 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             if (!mesh_request_.type.empty())
                 req.setType(id, mesh_request_.type);
+
+            // Delete all local entities
+            for(std::set<ed::UUID>::const_iterator it = local_ids_.begin(); it != local_ids_.end(); ++it)
+            {
+                req.removeEntity(*it);
+            }
+            local_ids_.clear();
         }
 
         mesh_request_.id.clear();
