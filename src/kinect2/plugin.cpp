@@ -883,6 +883,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 // TODO: better prob calculation
                 double prob = 1.0 / (1.0 + 100 * dist_sq);
 
+                double e_max_dist = 0.2;
+
+                if (dist_sq > e_max_dist * e_max_dist)
+                    prob = 0;
+
 //                if (entity_chull.complete)
 //                {
 //                    // The idea: if the entity chull is complete, and the cluster chull is significantly taller,
@@ -896,7 +901,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 //                        prob = 0;
 //                }
 
-                assoc_matrix.setEntry(i_cluster, i_entity, prob);
+                if (prob > 0)
+                    assoc_matrix.setEntry(i_cluster, i_entity, prob);
             }
         }
 
@@ -1122,7 +1128,10 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 bool KinectPlugin::srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res)
 {
     for(std::vector<std::string>::const_iterator it = req.lock_ids.begin(); it != req.lock_ids.end(); ++it)
+    {
         locked_entities_.insert(*it);
+        local_ids_.erase(*it);
+    }
 
     for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
         locked_entities_.erase(*it);
