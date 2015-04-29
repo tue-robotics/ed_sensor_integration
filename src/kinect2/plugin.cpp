@@ -131,26 +131,26 @@ void convertConvexHull(const ConvexHull& c, const geo::Pose3D& pose, ed::ConvexH
 
 // ----------------------------------------------------------------------------------------------------
 
-template<typename T>
-struct vector_sorter
-{
-    bool ascend;
-    vector_sorter(const bool ascending = false)
-    {
-        if (ascending)
-            ascend = true;
-        else
-            ascend = false;
-    }
+//template<typename T>
+//struct vector_sorter
+//{
+//    bool ascend;
+//    vector_sorter(const bool ascending = false)
+//    {
+//        if (ascending)
+//            ascend = true;
+//        else
+//            ascend = false;
+//    }
 
-    bool operator()(const std::vector<T>& a,const std::vector<T>& b)
-    {
-        if (ascend)
-            return a.size() < b.size();
-        else
-            return a.size() > b.size();
-    }
-};
+//    bool operator()(const std::vector<T>& a,const std::vector<T>& b)
+//    {
+//        if (ascend)
+//            return a.size() < b.size();
+//        else
+//            return a.size() > b.size();
+//    }
+//};
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -177,26 +177,99 @@ struct pc_sorter
 
 // ----------------------------------------------------------------------------------------------------
 
-template<typename T1, typename T2>
-struct pair_second_sorter
-{
-    bool ascend;
-    pair_second_sorter(const bool ascending = false)
-    {
-        if (ascending)
-            ascend = true;
-        else
-            ascend = false;
-    }
+//template<typename T1, typename T2>
+//struct pair_second_sorter
+//{
+//    bool ascend;
+//    pair_second_sorter(const bool ascending = false)
+//    {
+//        if (ascending)
+//            ascend = true;
+//        else
+//            ascend = false;
+//    }
 
-    bool operator()(const std::pair<T1,T2>& a,const std::pair<T1,T2>& b)
-    {
-        if (ascend)
-            return a.second < b.second;
-        else
-            return a.second > b.second;
-    }
-};
+//    bool operator()(const std::pair<T1,T2>& a,const std::pair<T1,T2>& b)
+//    {
+//        if (ascend)
+//            return a.second < b.second;
+//        else
+//            return a.second > b.second;
+//    }
+//};
+
+// ----------------------------------------------------------------------------------------------------
+
+//std::vector<cv::Point> bhContoursCenter(const std::vector<std::vector<cv::Point> >& contours,bool centerOfMass,int contourIdx=-1)
+//{
+//    std::vector<cv::Point> result;
+//    if (contourIdx > -1)
+//    {
+//        if (centerOfMass)
+//        {
+//            cv::Moments m = cv::moments(contours[contourIdx],true);
+//            result.push_back( cv::Point(m.m10/m.m00, m.m01/m.m00));
+//        }
+//        else
+//        {
+//            cv::Rect rct = cv::boundingRect(contours[contourIdx]);
+//            result.push_back( cv::Point(rct.x + rct.width / 2 ,rct.y + rct.height / 2));
+//        }
+//    }
+//    else
+//    {
+//        if (centerOfMass)
+//        {
+//            for (int i = 0; i < contours.size(); i++)
+//            {
+//                cv::Moments m = cv::moments(contours[i],true);
+//                result.push_back( cv::Point(m.m10/m.m00, m.m01/m.m00));
+
+//            }
+//        }
+//        else
+//        {
+
+//            for (int i = 0; i < contours.size(); i++)
+//            {
+//                cv::Rect rct = cv::boundingRect(contours[i]);
+//                result.push_back(cv::Point(rct.x + rct.width / 2 ,rct.y + rct.height / 2));
+//            }
+//        }
+//    }
+
+//    return result;
+//}
+
+
+//std::vector<cv::Point> bhFindLocalMaximum(cv::Mat src, int neighbor=2)
+//{
+//    std::cout << "I am here1" << std::endl;
+//    cv::Mat peak_img = src.clone();
+//    cv::dilate(peak_img, peak_img, cv::Mat(), cv::Point(-1,-1), neighbor);
+//    peak_img = peak_img - src;
+
+//    std::cout << "I am here2" << std::endl;
+//    cv::Mat flat_img ;
+//    cv::erode(src, flat_img, cv::Mat(), cv::Point(-1,-1), neighbor);
+//    flat_img = src - flat_img;
+
+//    std::cout << "I am here3" << std::endl;
+//    cv::threshold(peak_img, peak_img, 0, 255, CV_THRESH_BINARY);
+//    cv::threshold(flat_img, flat_img, 0, 255, CV_THRESH_BINARY);
+//    cv::bitwise_not(flat_img,flat_img);
+
+//    std::cout << "I am here4" << std::endl;
+//    peak_img.setTo(cv::Scalar::all(255), flat_img);
+//    cv::bitwise_not(peak_img,peak_img);
+
+//    std::cout << "I am here5" << std::endl;
+//    std::vector<std::vector<cv::Point> > contours;
+//    cv::findContours(peak_img, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+//    std::cout << "I am here6" << std::endl;
+//    return bhContoursCenter(contours, true);
+//}
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -916,30 +989,32 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     //    visualizeWorldModel(world, sensor_pose, view, viz_world_);
 
     // Visualize normals histogram
-    int hist_res = 40; // number of bins (horizontally and vertically) TODO: magic number
+    int hist_res = 5; // number of bins (horizontally and vertically) TODO: magic number
     double hist_max = 1.0;
+    double maxm_min = hist_max;
     cv::Mat normal_stats(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
     std::vector<pcl::PointCloud<pcl::PointNormal> > normals_pile(hist_res*hist_res);
 
-    cv::Mat normal_stats_maxs(hist_res,hist_res, CV_64FC1, cv::Scalar(0.0));
+    cv::Mat normal_stats_maxs(hist_res,hist_res, CV_8UC1, cv::Scalar(0));
     std::vector< std::pair<std::pair<int,int>,double> > maxs;
+    std::vector<int> maxx, maxy;
+    std::vector<double> maxm;
+
     int numpeaks = 3; // TODO: magic number
     maxs.reserve(numpeaks);
 
+    // Loop over normals in image
     for(unsigned int i = 0; i < size; ++i)
     {
         const pcl::PointNormal& n = pc->points[i];
         if (n.normal_x == n.normal_x)
         {
-            // RGBD image normal distribution
-
             // Not looking at z coordinates right now (not important in camera frame)
             int x = (hist_res-1) * (n.normal_x + 1) / 2;
             int y = (hist_res-1) * (n.normal_y + 1) / 2;
 
-            std::cout << "x = " << x << ", y = " << y << ", hist_res = " << hist_res << ", normals_pile.size() = " << normals_pile.size() << std::endl;
-
-            normals_pile[y*hist_res+x].push_back(n); // Elements of matrix are stored by placing row after row
+            // Store current normal in a point cloud with normals
+            normals_pile[y*hist_res+x].push_back(n); // Elements of 2D histogram are stored in vector by placing row after row
 
             // Transform sensor point to map frame using this:
 //            geo::Vector3 p_map = sensor_pose * geo::Vector3(p.x, p.y, -p.z);
@@ -949,57 +1024,106 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 //            int x = res1 * (atan2(normal_world.y,normal_world.x)/3.14159265 + 1) / 2;
 //            int y = res2 * (atan2(d,normal_world.z)/3.14159265 + 1) / 2;
 
-
+            // Add count to corresponding normals histogram value
             normal_stats.at<double>(y,x)++;
-            if ( normal_stats.at<double>(y,x) > hist_max )
+
+            if ( normal_stats.at<double>(y,x) >= maxm_min )
             {
-                // Store max histogram value for normalization
+                // Store max histogram value
                 hist_max = normal_stats.at<double>(y,x);
 
-                // Store maximum histogram values and their coordinates
-                std::pair<int,int> c = std::make_pair(y,x);
-                std::pair<std::pair<int,int>,double> max = std::make_pair(c,hist_max);
+                // Store numpeaks unique coordinates of maximum histogram values
+                std::vector<int>::const_iterator itx = std::find(maxx.begin(),maxx.end(),x);
+                std::vector<int>::const_iterator ity = std::find(maxy.begin(),maxy.end(),y);
+                if (itx == maxx.end() || ity == maxy.end())
+                {
+                    maxy.insert(maxy.begin(),y);
+                    maxx.insert(maxx.begin(),x);
+                    maxm.insert(maxm.begin(),hist_max);
+                }
+                else
+                    maxm[itx - maxx.begin()] = hist_max;
 
-                // Ad new maximum to front of vector
-                maxs.insert(maxs.begin(),max);
+                // If vectors are too long, throw away the oldest values
+                if ( maxm.size() > numpeaks )
+                {
+                    int indm = std::min_element(maxm.begin(),maxm.end()) - maxm.begin();
+                    maxm.erase(maxm.begin()+indm);
+                    maxx.erase(maxx.begin()+indm);
+                    maxy.erase(maxy.begin()+indm);
+                }
 
-                if ( maxs.size() > numpeaks )
-                    maxs.pop_back();
+                maxm_min = *std::min_element(maxm.begin(),maxm.end());
             }
         }
     }
 
-    // Threshold
-    for (std::vector<std::pair<std::pair<int,int>,double> >::const_iterator it = maxs.begin(); it != maxs.end(); ++it )
-    {
-        int y = it->first.first;
-        int x = it->first.second;
-        double max = it->second;
-        normal_stats_maxs.at<double>(y,x) = max;
-    }
+    // Draw stored maxima in an image
+    for (int index = 0; index < maxx.size(); ++index)
+        normal_stats_maxs.at<unsigned int>(maxy[index],maxx[index]) = maxm[index];
 
     // Normalize histogram to 1
-    normal_stats /= hist_max;
-    normal_stats_maxs /= hist_max;
+    normal_stats = normal_stats/hist_max*255.0;
+    normal_stats.convertTo(normal_stats,CV_8UC1);
+
+//    cv::Mat local_max(hist_res,hist_res, CV_8UC1, cv::Scalar(0));
+//    std::vector<cv::Point> points = bhFindLocalMaximum(normal_stats);
+//    for ( int i = 0; i < points.size(); ++i )
+//        cv::line( local_max, points[i], points[i], cv::Scalar(255));
 
     std::sort(normals_pile.begin(),normals_pile.end(),pc_sorter<pcl::PointNormal>() );
-//    std::cout << "Normals pile sorted lengths:" << std::endl;
-//    for (std::vector<pcl::PointCloud< pcl::PointNormal > >::const_iterator it = normals_pile.begin(); it != normals_pile.end(); ++it )
-//    {
-//        std::cout << it->size() << " ";
-//    }
-//    std::cout << std::endl;
+
+    if ( numpeaks > normals_pile.size() )
+        numpeaks = normals_pile.size();
+
+    cv::Mat normal_clouds(depth.rows, depth.cols,CV_8UC3, cv::Scalar(0,0,0));
+
+    std::vector<cv::Scalar> colors;
+    int val1,val2,val3;
+    cv::Scalar color1(200,0,0), color2(0,200,0), color3(0,0,200);
+    colors.push_back(color1);
+    colors.push_back(color2);
+    colors.push_back(color3);
+
+    for (int index = 0; index < numpeaks; ++index)
+    {
+        cv::Scalar color(rand()%255+1, rand()%255+1, rand()%255+1);
+        pcl::PointCloud<pcl::PointNormal> pci = normals_pile[index];
+        for (int indey = 0; indey < normals_pile[index].size(); ++indey)
+        {
+            pcl::PointNormal ptn = pci.points[indey];
+            geo::Vector3 vec(-ptn.x,-ptn.y,ptn.z);
+            cv::Point2d pt = cam_model.project3Dto2D(vec);
+            cv::line( normal_clouds, pt, pt, colors[index] );
+        }
+    }
 
     cv::Mat normal_stats_large(depth.rows, depth.cols, CV_8UC1, cv::Scalar(0));
-    cv::Size imsize(depth.rows, depth.cols);
+    cv::Size imsize(depth.cols, depth.cols);
     cv::resize(normal_stats, normal_stats_large, imsize, 0, 0, cv::INTER_NEAREST);
     viz_normal_stats_.publish(normal_stats_large);
 
     cv::Mat normal_stats_maxs_large(depth.rows, depth.cols, CV_8UC1, cv::Scalar(0));
     cv::resize(normal_stats_maxs, normal_stats_maxs_large, imsize, 0, 0, cv::INTER_NEAREST);
-    viz_normal_maxs_.publish(normal_stats_maxs_large);
+    viz_normal_maxs_.publish(normal_clouds);
+
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 ED_REGISTER_PLUGIN(KinectPlugin)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
