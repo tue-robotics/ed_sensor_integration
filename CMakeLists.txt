@@ -4,6 +4,7 @@ project(ed_sensor_integration)
 find_package(catkin REQUIRED COMPONENTS
     ed
     kdl_parser
+    blackboard
 )
 
 # find_package(Boost REQUIRED COMPONENTS system program_options)
@@ -113,10 +114,19 @@ add_library(ed_kinect2_plugin
     src/kinect2/plugin.h
     src/kinect2/visualization.cpp
     src/kinect2/visualization.h
+
+src/kinect2/distributed/data/mask_clusters.h    src/kinect2/distributed/data/mask.h
+src/kinect2/distributed/data/depth_data.h  src/kinect2/distributed/data/rgbd_clusters.h
 )
 target_link_libraries(ed_kinect2_plugin ed_association ed_meshing ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
+
+add_executable(test_cloud_serialization src/kinect2/distributed/test_serialization.cpp)
+target_link_libraries(test_cloud_serialization ${catkin_LIBRARIES})
+
+# ------------------------------------------------------------------------------------------------
+
 
 add_library(ed_laser_plugin
     src/laser/plugin.cpp
