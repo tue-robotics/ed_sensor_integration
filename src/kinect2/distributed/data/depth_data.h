@@ -30,6 +30,8 @@ public:
         a << d.sensor_pose.t.x;
         a << d.sensor_pose.t.y;
         a << d.sensor_pose.t.z;
+
+        rgbd::serialize(d.image, a);
     }
 
     void deserialize(tue::serialization::InputArchive& a, bb::Variant& v)
@@ -39,6 +41,9 @@ public:
         a >> d.sensor_pose.t.x;
         a >> d.sensor_pose.t.y;
         a >> d.sensor_pose.t.z;
+
+        rgbd::deserialize(a, d.image);
+
         v.setValue<DepthData>(d);
     }
 };
