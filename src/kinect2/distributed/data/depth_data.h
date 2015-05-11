@@ -31,6 +31,8 @@ public:
         a << d.sensor_pose.t.y;
         a << d.sensor_pose.t.z;
 
+        // TODO: rotation
+
         rgbd::serialize(d.image, a);
     }
 
@@ -41,6 +43,8 @@ public:
         a >> d.sensor_pose.t.x;
         a >> d.sensor_pose.t.y;
         a >> d.sensor_pose.t.z;
+
+        // TODO: rotation
 
         rgbd::deserialize(a, d.image);
 
