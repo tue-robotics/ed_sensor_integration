@@ -884,12 +884,23 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 const geo::Pose3D& entity_pose = e->pose();
                 const ed::ConvexHull& entity_chull = e->convexHullNew();
-                float dist_sq = (entity_pose.t - cluster.pose.t).length2();
+
+                float dx = entity_pose.t.x - cluster.pose.t.x;
+                float dy = entity_pose.t.y - cluster.pose.t.y;
+                float dz = 0;
+
+                if (entity_chull.z_max + entity_pose.t.z < cluster.chull.z_min + cluster.pose.t.z
+                        || cluster.chull.z_max + cluster.pose.t.z < entity_chull.z_min + entity_pose.t.z)
+                    // The convex hulls are non-overlapping in z
+                    dz = entity_pose.t.z - cluster.pose.t.z;
+
+                float dist_sq = (dx * dx + dy * dy + dz * dz);
+
 
                 // TODO: better prob calculation
                 double prob = 1.0 / (1.0 + 100 * dist_sq);
 
-                double e_max_dist = 0.2;
+                double e_max_dist = 0.5;
 
                 if (dist_sq > e_max_dist * e_max_dist)
                     prob = 0;
@@ -1042,7 +1053,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             // Set convex hull and pose
             if (!new_chull.points.empty())
             {
-                req.setConvexHullNew(id, new_chull);
+                req.setConvexHullNew(id, new_chull, new_pose, rgbd_image->getTimestamp(), rgbd_image->getFrameId());
 
                 // Set old chull (is used in other plugins, e.g. navigation)
                 ed::ConvexHull2D chull_old;
@@ -1050,7 +1061,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 req.setConvexHull(id, chull_old);
             }
 
-            req.setPose(id, new_pose);
+//            req.setPose(id, new_pose);
 
             // Set timestamp
             req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());

@@ -404,10 +404,16 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             const geo::Pose3D& entity_pose = e->pose();
             const ed::ConvexHull& entity_chull = e->convexHullNew();
 
-            double dx = entity_pose.t.x - cluster.pose.t.x;
-            double dy = entity_pose.t.y - cluster.pose.t.y;
+            float dx = entity_pose.t.x - cluster.pose.t.x;
+            float dy = entity_pose.t.y - cluster.pose.t.y;
+            float dz = 0;
 
-            double dist_sq = (dx * dx) + (dy * dy);
+            if (entity_chull.z_max + entity_pose.t.z < cluster.chull.z_min + cluster.pose.t.z
+                    || cluster.chull.z_max + cluster.pose.t.z < entity_chull.z_min + entity_pose.t.z)
+                // The convex hulls are non-overlapping in z
+                dz = entity_pose.t.z - cluster.pose.t.z;
+
+            float dist_sq = (dx * dx + dy * dy + dz * dz);
 
             // TODO: better prob calculation
             double prob = 1.0 / (1.0 + 100 * dist_sq);
@@ -451,7 +457,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             new_pose = cluster.pose;
 
             // Generate unique ID
-            id = ed::Entity::generateID();
+            id = ed::Entity::generateID().str() + "-laser";
 
             // Update existence probability
             req.setExistenceProbability(id, 0.2); // TODO magic number
@@ -504,7 +510,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // Set convex hull and pose
         if (!new_chull.points.empty())
         {
-            req.setConvexHullNew(id, new_chull);
+            req.setConvexHullNew(id, new_chull, new_pose, scan_msg_->header.stamp.toSec(), scan_msg_->header.frame_id);
 
             // Set old chull (is used in other plugins, e.g. navigation)
             ed::ConvexHull2D chull_old;
@@ -512,7 +518,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             req.setConvexHull(id, chull_old);
         }
 
-        req.setPose(id, new_pose);
+//        req.setPose(id, new_pose);
 
         // Set timestamp
         req.setLastUpdateTimestamp(id, scan_msg_->header.stamp.toSec());
