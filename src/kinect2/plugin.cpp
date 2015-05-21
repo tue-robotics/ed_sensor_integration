@@ -879,7 +879,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 // TODO: better prob calculation
                 double prob = 1.0 / (1.0 + 100 * dist_sq);
 
-                double e_max_dist = 0.5;
+                double e_max_dist = 0.2;
 
                 if (dist_sq > e_max_dist * e_max_dist)
                     prob = 0;
@@ -945,15 +945,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 id = e->id();
 
-                if (entity_chull.complete)
-                {
-                    // Only update pose
-                    new_pose = cluster.pose;
-                }
-                else if (cluster.chull.complete)
+                if (cluster.chull.complete)
                 {
                     // Update the entity with the cluster convex hull (completely overriding the previous entity convex hull)
                     new_chull = cluster.chull;
+                    new_pose = cluster.pose;
+                }
+                else if (entity_chull.complete)
+                {
+                    // Only update pose
+                    new_chull = entity_chull;
                     new_pose = cluster.pose;
                 }
                 else
