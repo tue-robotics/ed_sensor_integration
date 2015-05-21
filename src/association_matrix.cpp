@@ -2,6 +2,7 @@
 #include <algorithm>
 
 #include <iostream>
+#include <queue>
 
 namespace ed_sensor_integration
 {
@@ -10,6 +11,20 @@ bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix:
 {
     return e1.probability > e2.probability;
 }
+
+struct AssignmentSearchNode
+{
+    std::vector<int> assignment_indices;
+    double probability;
+};
+
+struct compareSearchNodes
+{
+    bool operator()(const AssignmentSearchNode& a1, const AssignmentSearchNode& a2) const
+    {
+        return a1.probability > a2.probability;
+   }
+};
 
 //int AssociationMatrix::NO_ASSIGNMENT = -1;
 
@@ -54,10 +69,21 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
     }
 
     // Initialize
-    std::vector<int> assig_indexes(matrix_.size(), 0);
+    AssignmentSearchNode n;
+    n.assignment_indices.resize(matrix_.size(), 0);
+    n.probability = 1;
+    for(unsigned int i = 0; i < matrix_.size(); ++i)
+        n.probability *= matrix_[i][0].probability;
 
-    while(true)
+    std::priority_queue<AssignmentSearchNode, std::vector<AssignmentSearchNode>, compareSearchNodes> Q;
+    Q.push(n);
+
+    while(!Q.empty())
     {
+        AssignmentSearchNode n = Q.top();
+        Q.pop();
+        const std::vector<int>& assig_indexes = n.assignment_indices;
+
         // Check if the assignment is valid
         bool valid = true;
         std::vector<int> entity_used(i_max_entity_ + 1, 0);
@@ -79,10 +105,15 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
         // If we found a valid assignment, we can stop
         if (valid)
-            break;
+        {
+            // construct the assignment
+            assig.resize(matrix_.size());
+            for(unsigned int i = 0; i < assig_indexes.size(); ++i)
+                assig[i] = matrix_[i][assig_indexes[i]].i_entity;
 
-        double smallest_prob_diff = 1e9;
-        int i_smallest_prob_diff = -1;
+            return true;
+        }
+
         for(unsigned int i = 0; i < assig_indexes.size(); ++i)
         {
             std::vector<Entry>& msr_row = matrix_[i];
@@ -90,32 +121,18 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 
             if (j + 1 < msr_row.size())
             {
-                double prob_diff = msr_row[j].probability / msr_row[j + 1].probability;
-                if (prob_diff < smallest_prob_diff)
-                {
-                    i_smallest_prob_diff = i;
-                    smallest_prob_diff = prob_diff;
-                }
+                AssignmentSearchNode n_child = n;
+                n_child.probability = n.probability / msr_row[j].probability * msr_row[j + 1].probability;
+
+                // Step the assignment
+                ++n_child.assignment_indices[i];
+                Q.push(n_child);
             }
         }
 
-        if (i_smallest_prob_diff < 0)
-        {
-            // Found no next step to take, so we're done and didn't find a valid assignment
-            return false;
-        }
-
-        // Otherwise, step the assignment with the smallest probability diff
-        ++assig_indexes[i_smallest_prob_diff];
     }
 
-    assig.resize(matrix_.size());
-    for(unsigned int i = 0; i < assig_indexes.size(); ++i)
-    {
-        assig[i] = matrix_[i][assig_indexes[i]].i_entity;
-    }
-
-    return true;
+    return false;
 }
 
 }
