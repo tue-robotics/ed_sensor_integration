@@ -794,13 +794,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             if (!mesh_request_.type.empty())
                 req.setType(id, mesh_request_.type);
-
-            // Delete all local entities
-            for(std::set<ed::UUID>::const_iterator it = local_ids_.begin(); it != local_ids_.end(); ++it)
-            {
-                req.removeEntity(*it);
-            }
-            local_ids_.clear();
         }
 
         mesh_request_.id.clear();
@@ -840,30 +833,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (e->shape() || !e->has_pose())
                 continue;
 
-            if (!e->type().empty()) // TODO: robocup hack
-            {
-                local_ids_.erase(e->id());
-                locked_entities_.insert(e->id());
-            }
-
             const geo::Pose3D& entity_pose = e->pose();
             const ed::ConvexHull& entity_chull = e->convexHullNew();
 
             if (entity_chull.points.empty())
                 continue;
 
-            if (e->existenceProbability() < 0.5 && rgbd_image->getTimestamp() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
-            {
-                req.removeEntity(e->id());
-                continue;
-            }
-
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y
                     || entity_pose.t.z < area_min.z || entity_pose.t.z > area_max.z)
             {
-                if (locked_entities_.find(e->id()) == locked_entities_.end())
-                    req.removeEntity(e->id());
                 continue;
             }
 
@@ -954,8 +933,6 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 // Update existence probability
                 req.setExistenceProbability(id, 0.2); // TODO magic number
-
-                local_ids_.insert(id);
             }
             else
             {
@@ -968,22 +945,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 id = e->id();
 
-
-                if (locked_entities_.find(e->id()) != locked_entities_.end())
-                {
-                    // Do nothing (even the pose stays the same) but DO update the timestamp
-
-                    // Set timestamp
-                    req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());
-
-                    continue;
-                }
-                else if (local_ids_.find(id) != local_ids_.end())
-                {
-                    new_chull = cluster.chull;
-                    new_pose = cluster.pose;
-                }
-                else if (entity_chull.complete)
+                if (entity_chull.complete)
                 {
                     // Only update pose
                     new_pose = cluster.pose;
@@ -1054,14 +1016,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             if (!new_chull.points.empty())
             {
                 req.setConvexHullNew(id, new_chull, new_pose, rgbd_image->getTimestamp(), rgbd_image->getFrameId());
-
-                // Set old chull (is used in other plugins, e.g. navigation)
-                ed::ConvexHull2D chull_old;
-                convertConvexHull(new_chull, new_pose, chull_old);
-                req.setConvexHull(id, chull_old);
             }
-
-//            req.setPose(id, new_pose);
 
             // Set timestamp
             req.setLastUpdateTimestamp(id, rgbd_image->getTimestamp());
@@ -1081,49 +1036,39 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     t_clear.start();
     errc.change("Clear entities");
 
-    for(unsigned int i = 0; i < entities_associated.size(); ++i)
-    {
-        const ed::EntityConstPtr& e = entities[i];
+//    for(unsigned int i = 0; i < entities_associated.size(); ++i)
+//    {
+//        const ed::EntityConstPtr& e = entities[i];
 
-        // If the entity is associated, skip it
-        if (entities_associated[i] >= 0)
-            continue;
+//        // If the entity is associated, skip it
+//        if (entities_associated[i] >= 0)
+//            continue;
 
-        // If the entity is locked, skip it
-        if (locked_entities_.find(e->id()) != locked_entities_.end())
-            continue;
+//        const geo::Pose3D& pose = e->pose();
 
-        if (local_ids_.find(e->id()) != local_ids_.end())
-        {
-            req.removeEntity(e->id());
-            continue;
-        }
+//        geo::Vector3 p = sensor_pose.inverse() * pose.t;
 
-        const geo::Pose3D& pose = e->pose();
+//        cv::Point2d p_2d = cam_model.project3Dto2D(p);
 
-        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+//        if ( p_2d.x >    border_padding_  * view.getWidth() && p_2d.y >    border_padding_  * view.getHeight() &&
+//             p_2d.x < (1-border_padding_) * view.getWidth() && p_2d.y < (1-border_padding_) * view.getHeight() )
+//        {
+//            float d = depth.at<float>(p_2d);
+//            if (d > 0 && -p.z < d)
+//            {
+////                std::cout << view.getWidth() << " x " << view.getHeight() << std::endl;
+////                std::cout << "Should see " << e->id() << ", but I do not (" << p_2d << ")" << std::endl;
 
-        cv::Point2d p_2d = cam_model.project3Dto2D(p);
-
-        if ( p_2d.x >    border_padding_  * view.getWidth() && p_2d.y >    border_padding_  * view.getHeight() &&
-             p_2d.x < (1-border_padding_) * view.getWidth() && p_2d.y < (1-border_padding_) * view.getHeight() )
-        {
-            float d = depth.at<float>(p_2d);
-            if (d > 0 && -p.z < d)
-            {
-//                std::cout << view.getWidth() << " x " << view.getHeight() << std::endl;
-//                std::cout << "Should see " << e->id() << ", but I do not (" << p_2d << ")" << std::endl;
-
-                double p_exist = e->existenceProbability();
-                if (p_exist < 0.3) // TODO: magic number
-                    req.removeEntity(e->id());
-                else
-                {
-                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.3));  // TODO: very ugly prob update
-                }
-            }
-        }
-    }
+//                double p_exist = e->existenceProbability();
+//                if (p_exist < 0.3) // TODO: magic number
+//                    req.removeEntity(e->id());
+//                else
+//                {
+//                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.3));  // TODO: very ugly prob update
+//                }
+//            }
+//        }
+//    }
 
     if (debug_)
         std::cout << "Clearing took " << t_clear.getElapsedTimeInMilliSec() << " ms." << std::endl;
@@ -1144,14 +1089,16 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 bool KinectPlugin::srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res)
 {
-    for(std::vector<std::string>::const_iterator it = req.lock_ids.begin(); it != req.lock_ids.end(); ++it)
-    {
-        locked_entities_.insert(*it);
-        local_ids_.erase(*it);
-    }
+//    for(std::vector<std::string>::const_iterator it = req.lock_ids.begin(); it != req.lock_ids.end(); ++it)
+//    {
+//        locked_entities_.insert(*it);
+//        local_ids_.erase(*it);
+//    }
 
-    for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
-        locked_entities_.erase(*it);
+//    for(std::vector<std::string>::const_iterator it = req.unlock_ids.begin(); it != req.unlock_ids.end(); ++it)
+//        locked_entities_.erase(*it);
+
+    // TODO
 
     return true;
 }

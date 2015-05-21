@@ -377,11 +377,11 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             if (entity_chull.points.empty())
                 continue;
 
-            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
-            {
-                req.removeEntity(e->id());
-                continue;
-            }
+//            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
+//            {
+//                req.removeEntity(e->id());
+//                continue;
+//            }
 
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
@@ -527,30 +527,30 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Clear unassociated entities in view
 
-    for(unsigned int i = 0; i < entities_associated.size(); ++i)
-    {
-        const ed::EntityConstPtr& e = entities[i];
+//    for(unsigned int i = 0; i < entities_associated.size(); ++i)
+//    {
+//        const ed::EntityConstPtr& e = entities[i];
 
-        // If the entity is associated, skip it
-        if (entities_associated[i] >= 0)
-            continue;
+//        // If the entity is associated, skip it
+//        if (entities_associated[i] >= 0)
+//            continue;
 
-        const geo::Pose3D& pose = e->pose();
+//        const geo::Pose3D& pose = e->pose();
 
-        // Transform to sensor frame
-        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+//        // Transform to sensor frame
+//        geo::Vector3 p = sensor_pose.inverse() * pose.t;
 
-        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
-        {
-            double p_exist = e->existenceProbability();
-            if (p_exist < 0.3) // TODO: magic number
-                req.removeEntity(e->id());
-            else
-            {
-                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
-            }
-        }
-    }
+//        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
+//        {
+//            double p_exist = e->existenceProbability();
+//            if (p_exist < 0.3) // TODO: magic number
+//                req.removeEntity(e->id());
+//            else
+//            {
+//                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
+//            }
+//        }
+//    }
 
 //    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 

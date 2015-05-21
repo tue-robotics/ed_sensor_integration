@@ -120,6 +120,12 @@ src/kinect2/distributed/data/depth_data.h  src/kinect2/distributed/data/rgbd_clu
 )
 target_link_libraries(ed_kinect2_plugin ed_association ed_meshing ${catkin_LIBRARIES})
 
+add_library(ed_clearer_plugin
+    src/clearer/clearer_plugin.cpp
+    src/clearer/clearer_plugin.h
+)
+target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
+
 # ------------------------------------------------------------------------------------------------
 
 add_executable(test_cloud_serialization src/kinect2/distributed/test_serialization.cpp)

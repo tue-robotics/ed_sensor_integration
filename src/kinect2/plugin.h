@@ -52,11 +52,6 @@ private:
     ed::ImagePublisher viz_model_render_;
 
 
-    // LOCAL WORLD MODEL
-
-    std::set<ed::UUID> local_ids_;
-
-
     // COMMUNICATION
 
     std::string topic_;
@@ -67,15 +62,15 @@ private:
 
     std::queue<rgbd::ImageConstPtr> image_buffer_;
 
+
     // Locking
 
     ros::CallbackQueue cb_queue_;
 
-    std::set<ed::UUID> locked_entities_;
-
     ros::ServiceServer srv_lock_entities_;
 
     bool srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res);
+
 
     // Meshing
 
