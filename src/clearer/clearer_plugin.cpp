@@ -35,6 +35,11 @@ void ClearerPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
+
+        // If the entity is locked, always keep it (don't delete it)
+        if (e->hasFlag("locked"))
+            continue;
+
         const std::map<std::string, ed::MeasurementConvexHull>& chull_map = e->convexHullMap();
 
         if (chull_map.empty())
