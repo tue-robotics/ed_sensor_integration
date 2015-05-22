@@ -56,19 +56,6 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
 
 // ----------------------------------------------------------------------------------------------------
 
-void convertConvexHull(const ed::ConvexHull& c, const geo::Pose3D& pose, ed::ConvexHull2D& c2)
-{
-    c2.min_z = c.z_min + pose.t.z;
-    c2.max_z = c.z_max + pose.t.z;
-    c2.center_point = pose.t;
-
-    c2.chull.resize(c.points.size());
-    for(unsigned int i = 0; i < c.points.size(); ++i)
-        c2.chull.points[i] = pcl::PointXYZ(c.points[i].x + pose.t.x, c.points[i].y + pose.t.y, 0);
-}
-
-// ----------------------------------------------------------------------------------------------------
-
 LaserPlugin::LaserPlugin() : tf_listener_(0)
 {
 }
@@ -372,7 +359,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 continue;
 
             const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHullNew();
+            const ed::ConvexHull& entity_chull = e->convexHull();
 
             if (entity_chull.points.empty())
                 continue;
@@ -402,7 +389,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             const ed::EntityConstPtr& e = entities[i_entity];
 
             const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHullNew();
+            const ed::ConvexHull& entity_chull = e->convexHull();
 
             float dx = entity_pose.t.x - cluster.pose.t.x;
             float dy = entity_pose.t.y - cluster.pose.t.y;
@@ -511,14 +498,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         if (!new_chull.points.empty())
         {
             req.setConvexHullNew(id, new_chull, new_pose, scan_msg_->header.stamp.toSec(), scan_msg_->header.frame_id);
-
-            // Set old chull (is used in other plugins, e.g. navigation)
-            ed::ConvexHull2D chull_old;
-            convertConvexHull(new_chull, new_pose, chull_old);
-            req.setConvexHull(id, chull_old);
         }
-
-//        req.setPose(id, new_pose);
 
         // Set timestamp
         req.setLastUpdateTimestamp(id, scan_msg_->header.stamp.toSec());

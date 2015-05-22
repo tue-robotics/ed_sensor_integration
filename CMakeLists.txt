@@ -69,30 +69,30 @@ target_link_libraries(ed_sensor_integration_properties ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
-add_library(kinect_association
-    src/kinect/almodules/point_normal_alm.cpp
-    src/kinect/almodules/polygon_height_alm.cpp
-    src/kinect/almodules/world_model_renderer.cpp
-    ${HEADER_FILES}
-)
-add_dependencies(kinect_association ${PROJECT_NAME}_gencpp)
+#add_library(kinect_association
+#    src/kinect/almodules/point_normal_alm.cpp
+#    src/kinect/almodules/polygon_height_alm.cpp
+#    src/kinect/almodules/world_model_renderer.cpp
+#    ${HEADER_FILES}
+#)
+#add_dependencies(kinect_association ${PROJECT_NAME}_gencpp)
 
-add_library(kinect_segmentation
-    src/kinect/segmodules/euclidean_clustering_sm.cpp
-    src/kinect/segmodules/floodfill_sm.cpp
-)
-add_dependencies(kinect_segmentation ${PROJECT_NAME}_gencpp)
+#add_library(kinect_segmentation
+#    src/kinect/segmodules/euclidean_clustering_sm.cpp
+#    src/kinect/segmodules/floodfill_sm.cpp
+#)
+#add_dependencies(kinect_segmentation ${PROJECT_NAME}_gencpp)
 
-target_link_libraries(kinect_segmentation kinect_association)
+#target_link_libraries(kinect_segmentation kinect_association)
 
-add_library(ed_kinect_plugin
-    src/kinect/plugin.cpp
-    src/kinect/plugin.h
-    src/kinect/sampling_projector_localizer.cpp
-    src/kinect/sampling_render_localizer.cpp
-    src/kinect/visualization.cpp
-)
-target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
+#add_library(ed_kinect_plugin
+#    src/kinect/plugin.cpp
+#    src/kinect/plugin.h
+#    src/kinect/sampling_projector_localizer.cpp
+#    src/kinect/sampling_render_localizer.cpp
+#    src/kinect/visualization.cpp
+#)
+#target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 

@@ -834,7 +834,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 continue;
 
             const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHullNew();
+            const ed::ConvexHull& entity_chull = e->convexHull();
 
             if (entity_chull.points.empty())
                 continue;
@@ -862,7 +862,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 const ed::EntityConstPtr& e = entities[i_entity];
 
                 const geo::Pose3D& entity_pose = e->pose();
-                const ed::ConvexHull& entity_chull = e->convexHullNew();
+                const ed::ConvexHull& entity_chull = e->convexHull();
 
                 float dx = entity_pose.t.x - cluster.pose.t.x;
                 float dy = entity_pose.t.y - cluster.pose.t.y;
@@ -941,7 +941,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
                 // Update the entity
                 const ed::EntityConstPtr& e = entities[i_entity];
-                const ed::ConvexHull& entity_chull = e->convexHullNew();
+                const ed::ConvexHull& entity_chull = e->convexHull();
 
                 id = e->id();
 

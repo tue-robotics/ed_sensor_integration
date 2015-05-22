@@ -110,8 +110,8 @@ void visualizeUpdateRequest(const ed::WorldModel& world, const ed::UpdateRequest
             continue;
 
         bool chull_complete = false;
-        if (!e->convexHullNew().points.empty())
-            chull_complete = e->convexHullNew().complete;
+        if (!e->convexHull().points.empty())
+            chull_complete = e->convexHull().complete;
 
         double alpha = std::max(0.1, 2 * (e->existenceProbability() - 0.5));
 
