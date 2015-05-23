@@ -221,7 +221,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     if (current_segment.empty())
     {
-        std::cout << "No residual point cloud!" << std::endl;
+        //std::cout << "No residual point cloud!" << std::endl;
         return;
     }
 
