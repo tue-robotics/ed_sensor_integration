@@ -31,6 +31,7 @@ struct Cluster
 {
     ed::ConvexHull chull;
     geo::Pose3D pose;
+    std::string flag; // Temp for RoboCup 2015; todo: remove after
 };
 
 // ----------------------------------------------------------------------------------------------------
@@ -326,6 +327,17 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         cluster.pose = geo::Pose3D::identity();
         ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
+
+        // --------------------------
+        // Temp for RoboCup 2015; todo: remove after
+
+        // Determine the cluster size
+        geo::Vec2f diff = points.back() - points.front();
+        float size_sq = diff.length2();
+        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
+            cluster.flag = "possible_human";
+
+        // --------------------------
     }
 
     // Create selection of world model entities that could associate
@@ -498,6 +510,14 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         if (!new_chull.points.empty())
         {
             req.setConvexHullNew(id, new_chull, new_pose, scan_msg_->header.stamp.toSec(), scan_msg_->header.frame_id);
+
+            // --------------------------
+            // Temp for RoboCup 2015; todo: remove after
+
+            if (!cluster.flag.empty())
+                req.setFlag(id, cluster.flag);
+
+            // --------------------------
         }
 
         // Set timestamp
