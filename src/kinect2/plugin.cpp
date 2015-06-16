@@ -951,12 +951,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                     new_chull = cluster.chull;
                     new_pose = cluster.pose;
                 }
-                else if (entity_chull.complete)
-                {
-                    // Only update pose
-                    new_chull = entity_chull;
-                    new_pose = cluster.pose;
-                }
+//                else if (entity_chull.complete)
+//                {
+//                    // Only update pose
+//                    new_chull = entity_chull;
+//                    new_pose = cluster.pose;
+//                }
                 else
                 {
                     const geo::Pose3D& entity_pose = e->pose();
