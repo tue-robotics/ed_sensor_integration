@@ -22,7 +22,7 @@ struct compareSearchNodes
 {
     bool operator()(const AssignmentSearchNode& a1, const AssignmentSearchNode& a2) const
     {
-        return a1.probability > a2.probability;
+        return a1.probability < a2.probability;
    }
 };
 
