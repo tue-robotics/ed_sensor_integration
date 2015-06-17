@@ -7,6 +7,9 @@
 namespace ed_sensor_integration
 {
 
+// This is the < operator, so should be true if e1 is 'smaller' than e2. However, we want to sort
+// in descending order (highest probability first), so we must turn it around: e1 is 'smaller' than
+// e2 (read: e1 comes before e2) if e1's probability is bigger than e2's.
 bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix::Entry& e2)
 {
     return e1.probability > e2.probability;
@@ -18,6 +21,12 @@ struct AssignmentSearchNode
     double probability;
 };
 
+
+// This comparator is used in the priority queue, which is defined to keep the biggest element in
+// the front of the queue. This () operator is actually the < operator, so it should return true
+// if a1 is smaller than a2. In this case, it means that the bigger element will be popped first
+// from the queue, which should be the element with the biggest probability. Therefore, the comparison
+// is reversed from the one above.
 struct compareSearchNodes
 {
     bool operator()(const AssignmentSearchNode& a1, const AssignmentSearchNode& a2) const
