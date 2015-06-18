@@ -13,6 +13,8 @@
 
 #include "ed/convex_hull.h"
 
+#include "segmentation.h"
+
 // Locking
 #include "ed_sensor_integration/LockEntities.h"
 #include "ed_sensor_integration/MeshEntityInView.h"
@@ -50,6 +52,9 @@ private:
     ed::ImagePublisher viz_clusters_;
     ed::ImagePublisher viz_update_req_;
     ed::ImagePublisher viz_model_render_;
+
+
+    Segmenter segmenter_;
 
 
     // COMMUNICATION

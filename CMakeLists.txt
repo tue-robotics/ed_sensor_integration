@@ -114,6 +114,8 @@ add_library(ed_kinect2_plugin
     src/kinect2/plugin.h
     src/kinect2/visualization.cpp
     src/kinect2/visualization.h
+    src/kinect2/segmentation.cpp
+    src/kinect2/segmentation.h
 
 src/kinect2/distributed/data/mask_clusters.h    src/kinect2/distributed/data/mask.h
 src/kinect2/distributed/data/depth_data.h  src/kinect2/distributed/data/rgbd_clusters.h
