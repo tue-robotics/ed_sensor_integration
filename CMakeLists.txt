@@ -24,9 +24,10 @@ find_package(catkin REQUIRED COMPONENTS
 
 # Generate services
 add_service_files(
-   FILES
-   LockEntities.srv
-   MeshEntityInView.srv
+  FILES
+  LockEntities.srv
+  MeshEntityInView.srv
+  Segment.srv
 )
 
 # Generate added messages and services with any dependencies listed here
@@ -121,6 +122,7 @@ src/kinect2/distributed/data/mask_clusters.h    src/kinect2/distributed/data/mas
 src/kinect2/distributed/data/depth_data.h  src/kinect2/distributed/data/rgbd_clusters.h
 )
 target_link_libraries(ed_kinect2_plugin ed_association ed_meshing ${catkin_LIBRARIES})
+add_dependencies(ed_kinect2_plugin ${PROJECT_NAME}_gencpp)
 
 add_library(ed_clearer_plugin
     src/clearer/clearer_plugin.cpp

@@ -15,7 +15,8 @@
 
 #include "segmentation.h"
 
-// Locking
+// services
+#include "ed_sensor_integration/Segment.h"
 #include "ed_sensor_integration/LockEntities.h"
 #include "ed_sensor_integration/MeshEntityInView.h"
 
@@ -44,6 +45,7 @@ private:
     float z_padding_;
     float border_padding_;
     bool debug_;
+    bool continuous_;
 
     // VISUALIZATION
 
@@ -67,17 +69,25 @@ private:
 
     std::queue<rgbd::ImageConstPtr> image_buffer_;
 
-
-    // Locking
-
     ros::CallbackQueue cb_queue_;
+
+
+    // SERVICES
+
+    const ed::WorldModel* world_;
+
+    ed::UpdateRequest* update_req_;
+
+
+    ros::ServiceServer srv_segment_;
+
+    bool srvSegment(ed_sensor_integration::Segment::Request& req, ed_sensor_integration::Segment::Response& res);
+
 
     ros::ServiceServer srv_lock_entities_;
 
     bool srvLockEntities(ed_sensor_integration::LockEntities::Request& req, ed_sensor_integration::LockEntities::Response& res);
 
-
-    // Meshing
 
     ed_sensor_integration::MeshEntityInView::Request mesh_request_;
 

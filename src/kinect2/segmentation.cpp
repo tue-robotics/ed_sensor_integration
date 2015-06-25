@@ -435,7 +435,7 @@ void Segmenter::segment(const ed::WorldModel& world, const rgbd::Image& image, c
         segments.push_back(Cluster());
         Cluster& cluster = segments.back();
 
-        cluster.mask.setSize(depth.cols, depth.rows);
+        cluster.image_mask.setSize(depth.cols, depth.rows);
 
         std::queue<unsigned int> Q;
         Q.push(p);
@@ -452,7 +452,7 @@ void Segmenter::segment(const ed::WorldModel& world, const rgbd::Image& image, c
 
             // Add to cluster
             cluster.pixels.push_back(p1);
-            cluster.mask.addPoint(p1);
+            cluster.image_mask.addPoint(p1);
 
             for(int d = 0;  d < 4; ++d)
             {
