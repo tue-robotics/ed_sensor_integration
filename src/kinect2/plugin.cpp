@@ -573,6 +573,11 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_sensor_integration::Segment::Response& res)
 {
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Setting parameters
+
+    max_range_ = req.max_sensor_range;
+
     if (req.enable_continuous_mode)
     {
         continuous_ = true;
