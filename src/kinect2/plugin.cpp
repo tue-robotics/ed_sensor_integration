@@ -576,7 +576,8 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Setting parameters
 
-    max_range_ = req.max_sensor_range;
+    if (req.max_sensor_range > 0)
+        max_range_ = req.max_sensor_range;
 
     if (req.enable_continuous_mode)
     {
