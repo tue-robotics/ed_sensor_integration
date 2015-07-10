@@ -24,6 +24,19 @@ public:
         return rays_[i] * depth;
     }
 
+    inline void CalculatePoints(const std::vector<double>& ranges, std::vector<geo::Vec2>& points)
+    {
+        static double nan = 0.0 / 0.0;
+        points.resize(ranges.size());
+        for(unsigned int i = 0; i < points.size(); ++i)
+        {
+            if (ranges[i] <= 0)
+                points[i] = geo::Vec2(nan, nan);
+            else
+                points[i] = CalculatePoint(i, ranges[i]);
+        }
+    }
+
     void RenderModel(const std::vector<std::vector<geo::Vec2> >& contours, const geo::Transform2& pose, std::vector<double>& ranges) const;
 
     inline unsigned int num_beams() const { return rays_.size(); }

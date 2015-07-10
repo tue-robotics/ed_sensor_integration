@@ -130,7 +130,6 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
 
-
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
@@ -166,6 +165,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         beam_model_.RenderModel(*shape_2d, pose_2d_SENSOR, model_ranges);
 
+        // visualize model
         for(Shape2D::const_iterator it_contour = shape_2d->begin(); it_contour != shape_2d->end(); ++it_contour)
         {
             const std::vector<geo::Vec2>& model = *it_contour;
@@ -181,7 +181,53 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(255, 0, 0), 2);
             }
         }
+    }
 
+    // -------------------------------------
+    // Filter background
+
+    std::vector<geo::Vec2> sensor_points;
+    beam_model_.CalculatePoints(ranges, sensor_points);
+
+    std::vector<geo::Vec2> model_points;
+    beam_model_.CalculatePoints(model_ranges, model_points);
+
+    std::vector<double> filtered_ranges(ranges.size(), 0);
+
+    double max_corr_dist = 0.1;
+    double max_corr_dist_sq = max_corr_dist * max_corr_dist;
+    for(unsigned int i = 0; i < ranges.size(); ++i)
+    {
+        double ds = ranges[i];
+        double dm = model_ranges[i];
+
+        if (ds <= 0)
+            continue;
+
+        if (ds > dm - max_corr_dist)
+            continue;
+
+        const geo::Vec2& ps = sensor_points[i];
+
+        // Find the beam window in which possible corresponding points may be situated
+        // NOTE: this is an approximation: it underestimates the window size. TODO: fix
+        int i_min = std::max(0, beam_model_.CalculateBeam(ps.x - max_corr_dist, ps.y));
+        int i_max = std::min(beam_model_.CalculateBeam(ps.x + max_corr_dist, ps.y), (int)ranges.size() - 1);
+
+        // check neighboring points and see if they are within max_corr_dist distance from 'ps'
+        bool corresponds = false;
+        for(unsigned int j = i_min; j < i_max; ++j)
+        {
+            const geo::Vec2& pm = model_points[j];
+            if (pm.x == pm.x && (ps - pm).length2() < max_corr_dist_sq)
+            {
+                corresponds = true;
+                break;
+            }
+        }
+
+        if (!corresponds)
+            filtered_ranges[i] = ds;
     }
 
     // -------------------------------------
@@ -190,16 +236,36 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     for(unsigned int i = 0; i < ranges.size(); ++i)
     {
-        geo::Vec2 p = beam_model_.CalculatePoint(i, ranges[i]);
-        cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-        cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 255, 0));
+        double d = ranges[i];
+        if (d > 0)
+        {
+            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
+            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 80, 0));
+        }
     }
+
 
     for(unsigned int i = 0; i < model_ranges.size(); ++i)
     {
-        geo::Vec2 p = beam_model_.CalculatePoint(i, model_ranges[i]);
-        cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-        cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 0, 255));
+        double d = model_ranges[i];
+        if (d > 0)
+        {
+            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
+            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 0, 255));
+        }
+    }
+
+    for(unsigned int i = 0; i < filtered_ranges.size(); ++i)
+    {
+        double d = filtered_ranges[i];
+        if (d > 0)
+        {
+            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
+            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 255, 0));
+        }
     }
 
     cv::imshow("rgbd beams", canvas);
