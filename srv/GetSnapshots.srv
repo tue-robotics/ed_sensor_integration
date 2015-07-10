@@ -1,0 +1,6 @@
+uint32 revision
+---
+ed_sensor_integration/ImageBinary[] images      # images
+string[]                            image_ids   # image ids
+
+uint32 new_revision

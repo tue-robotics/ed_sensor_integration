@@ -18,6 +18,9 @@
 // 2D model creation
 #include "mesh_tools.h"
 
+// Communication
+#include "ed_sensor_integration/ImageBinary.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 // Decomposes 'pose' into a (X, Y, YAW) and (Z, ROLL, PITCH) component
@@ -45,6 +48,46 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
+bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_integration::ImageBinary& msg)
+{
+    msg.encoding = encoding;
+
+    if (encoding == "jpg")
+    {
+        // OpenCV compression settings
+        std::vector<int> rgb_params;
+        rgb_params.resize(3, 0);
+
+        rgb_params[0] = CV_IMWRITE_JPEG_QUALITY;
+        rgb_params[1] = 95; // default is 95
+
+        // Compress image
+        if (!cv::imencode(".jpg", image, msg.data, rgb_params)) {
+            std::cout << "RGB image compression failed" << std::endl;
+            return false;
+        }
+    }
+    else if (encoding == "png")
+    {
+        std::vector<int> params;
+        params.resize(3, 0);
+
+        params[0] = CV_IMWRITE_PNG_COMPRESSION;
+        params[1] = 1;
+
+        if (!cv::imencode(".png", image, msg.data, params)) {
+            std::cout << "PNG image compression failed" << std::endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// ====================================================================================================
+
+// ----------------------------------------------------------------------------------------------------
+
 FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0)
 {
 }
@@ -66,6 +109,16 @@ void FitterPlugin::initialize(ed::InitData& init)
     beam_model_.initialize(2, 200);
 
     tf_listener_ = new tf::TransformListener;
+
+    // Initialize lock entity server
+    ros::NodeHandle nh("~");
+    nh.setCallbackQueue(&cb_queue_);
+
+    srv_fit_model_ = nh.advertiseService("gui/fit_model", &FitterPlugin::srvFitModel, this);
+    srv_get_models_ = nh.advertiseService("gui/get_models", &FitterPlugin::srvGetModels, this);
+    srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
+
+
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -73,6 +126,11 @@ void FitterPlugin::initialize(ed::InitData& init)
 void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
     const ed::WorldModel& world = data.world;
+
+    // -------------------------------------
+    // Handle service requests
+
+    cb_queue_.callAvailable();
 
     // -------------------------------------
     // Grab image and sensor pose
@@ -272,6 +330,8 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
             ++revision_;
             snapshot.revision = revision_;
+
+            std::cout << "INTERESTING! " << revision_ << std::endl;
         }
     }
 
@@ -378,6 +438,50 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
     sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
     image = rgbd_image;
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res)
+{
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvGetModels(ed_sensor_integration::GetModels::Request& req, ed_sensor_integration::GetModels::Response& res)
+{
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res)
+{
+    if (req.revision >= revision_)
+    {
+        res.new_revision = revision_;
+        return true;
+    }
+
+    for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
+    {
+        const Snapshot& snapshot = it->second;
+        if (snapshot.revision <= req.revision)
+            continue;
+
+        // Add snapshot image
+        res.images.push_back(ed_sensor_integration::ImageBinary());
+        ed_sensor_integration::ImageBinary& img_msg = res.images.back();
+        ImageToMsg(snapshot.image->getDepthImage(), "jpg", img_msg);
+
+        // Add snapshot id
+        res.image_ids.push_back(it->first.str());
+    }
+
+    res.new_revision = revision_;
 
     return true;
 }

@@ -1,0 +1,9 @@
+# Name of the model to be fitted
+string model_name
+
+# Position on image where user clicked
+uint32 click_x
+uint32 click_y
+---
+# Empty if no error
+string error_msg

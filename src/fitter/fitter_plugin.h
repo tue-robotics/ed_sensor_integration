@@ -14,6 +14,11 @@
 // Fitting
 #include "beam_model.h"
 
+// Communication
+#include "ed_sensor_integration/FitModel.h"
+#include "ed_sensor_integration/GetModels.h"
+#include "ed_sensor_integration/GetSnapshots.h"
+
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 // ----------------------------------------------------------------------------------------------------
@@ -79,6 +84,23 @@ private:
     std::map<ed::UUID, Snapshot> snapshots_;
 
     unsigned int revision_;
+
+
+    // Communication
+
+    ros::CallbackQueue cb_queue_;
+
+    ros::ServiceServer srv_fit_model_;
+
+    bool srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res);
+
+    ros::ServiceServer srv_get_models_;
+
+    bool srvGetModels(ed_sensor_integration::GetModels::Request& req, ed_sensor_integration::GetModels::Response& res);
+
+    ros::ServiceServer srv_get_snapshots_;
+
+    bool srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res);
 
 };
 

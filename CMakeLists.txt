@@ -16,11 +16,10 @@ find_package(catkin REQUIRED COMPONENTS
 # ------------------------------------------------------------------------------------------------
 
 # Generate messages
-# add_message_files(
-#    FILES
-#    message1.msg
-#    ...
-# )
+add_message_files(
+   FILES
+   ImageBinary.msg
+)
 
 # Generate services
 add_service_files(
@@ -28,6 +27,9 @@ add_service_files(
   LockEntities.srv
   MeshEntityInView.srv
   Segment.srv
+  FitModel.srv
+  GetModels.srv
+  GetSnapshots.srv
 )
 
 # Generate added messages and services with any dependencies listed here
