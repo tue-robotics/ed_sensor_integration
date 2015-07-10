@@ -251,9 +251,9 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             const Snapshot& snapshot = it->second;
 
             double diff_t_sq = (snapshot.sensor_pose_xya.t - sensor_pose_xya.t).length2();
-            double diff_r_sq = (snapshot.sensor_pose_xya.R * geo::Vec3(1, 0, 0) - sensor_pose_xya.R * geo::Vec3(1, 0, 0)).length2();
+            double diff_roi_sq = (snapshot.sensor_pose_xya * geo::Vec3(2, 0, 0) - sensor_pose_xya * geo::Vec3(2, 0, 0)).length2();
 
-            if (diff_t_sq < 0.5 * 0.5 && diff_r_sq < 0.8 * 0.8)
+            if (diff_t_sq < 2 * 2 && diff_roi_sq < 1 * 1)
             {
                 similar = true;
                 break;
