@@ -137,7 +137,6 @@ target_link_libraries(test_cloud_serialization ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
-
 add_library(ed_laser_plugin
     src/laser/plugin.cpp
     src/laser/plugin.h
@@ -149,6 +148,17 @@ target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 #	src/color_table.cpp
 #)
 #target_link_libraries(ed_sensor_integration_plugin ${catkin_LIBRARIES})
+
+# ------------------------------------------------------------------------------------------------
+
+add_library(ed_fitter_plugin
+    src/fitter/fitter_plugin.cpp
+    src/fitter/fitter_plugin.h
+    src/fitter/mesh_tools.cpp
+    src/fitter/mesh_tools.h
+    src/fitter/beam_model.cpp
+    src/fitter/beam_model.h
+)
 
 # ------------------------------------------------------------------------------------------------
 
