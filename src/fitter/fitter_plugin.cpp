@@ -45,7 +45,7 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
-FitterPlugin::FitterPlugin() : tf_listener_(0)
+FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0)
 {
 }
 
@@ -147,14 +147,9 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         std::map<ed::UUID, Entity2DModel>::const_iterator it_model = models_.find(e->id());
         if (it_model == models_.end())
         {
-            std::cout << "Going to project down " << e->id() << std::endl;
-
             Entity2DModel& entity_model = models_[e->id()];
             dml::project2D(e->shape()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
-
             shape_2d = &entity_model.shape_2d;
-
-            std::cout << "Done" << std::endl;
         }
         else
         {
@@ -231,8 +226,57 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     // -------------------------------------
-    // Visualize
+    // Determine snapshot: decide whether this is an interesting image
 
+    unsigned int num_beams = ranges.size();
+
+    unsigned int i_interesting_min = 0.3 * num_beams;
+    unsigned int i_interesting_max = 0.7 * num_beams;
+
+    int n_interesting_points = 0;
+    for(unsigned int i = i_interesting_min; i < i_interesting_max; ++i)
+    {
+        double d = filtered_ranges[i];
+        if (d > 0 && d < 4)
+            ++n_interesting_points;
+    }
+
+    if ((double)n_interesting_points / (i_interesting_max - i_interesting_min) > 0.8)
+    {
+        // Interesting picture. Let's see if we already created a similar shot (check sensor origin and orientation)
+
+        bool similar = false;
+        for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
+        {
+            const Snapshot& snapshot = it->second;
+
+            double diff_t_sq = (snapshot.sensor_pose_xya.t - sensor_pose_xya.t).length2();
+            double diff_r_sq = (snapshot.sensor_pose_xya.R * geo::Vec3(1, 0, 0) - sensor_pose_xya.R * geo::Vec3(1, 0, 0)).length2();
+
+            if (diff_t_sq < 0.5 * 0.5 && diff_r_sq < 0.8 * 0.8)
+            {
+                similar = true;
+                break;
+            }
+        }
+
+        if (!similar)
+        {
+            cv::imshow("Interesting", depth / 10);
+
+            ed::UUID snapshot_id = ed::Entity::generateID();
+            Snapshot& snapshot = snapshots_[snapshot_id];
+            snapshot.image = image;
+            snapshot.sensor_pose_xya = sensor_pose_xya;
+            snapshot.sensor_pose_zrp = sensor_pose_zrp;
+
+            ++revision_;
+            snapshot.revision = revision_;
+        }
+    }
+
+    // -------------------------------------
+    // Visualize
 
     for(unsigned int i = 0; i < ranges.size(); ++i)
     {

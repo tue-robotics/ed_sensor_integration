@@ -26,6 +26,18 @@ struct Entity2DModel
 
 // ----------------------------------------------------------------------------------------------------
 
+struct Snapshot
+{
+    Snapshot() : revision(0) {}
+
+    rgbd::ImageConstPtr image;
+    geo::Pose3D sensor_pose_xya;
+    geo::Pose3D sensor_pose_zrp;
+    unsigned int revision;
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 class FitterPlugin : public ed::Plugin
 {
 
@@ -60,6 +72,13 @@ private:
     // 2D Models
 
     std::map<ed::UUID, Entity2DModel> models_;
+
+
+    // Snapshots
+
+    std::map<ed::UUID, Snapshot> snapshots_;
+
+    unsigned int revision_;
 
 };
 
