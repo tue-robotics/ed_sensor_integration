@@ -453,6 +453,21 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
 
 bool FitterPlugin::srvGetModels(ed_sensor_integration::GetModels::Request& req, ed_sensor_integration::GetModels::Response& res)
 {
+    // Fake response for now .... (TODO)
+
+    res.model_names.push_back("dinner_table");
+    res.model_names.push_back("kitchen_block");
+    res.model_names.push_back("couch");
+
+    res.model_images.resize(res.model_names.size());
+    for(unsigned int i = 0; i < res.model_names.size(); ++i)
+    {
+        cv::Mat img(200, 200, CV_8UC3, cv::Scalar(100, 100, 100));
+        cv::putText(img, res.model_names[i], cv::Point(10, 30), cv::FONT_HERSHEY_PLAIN, 1.4, cv::Scalar(0, 0, 255), 2);
+
+        ImageToMsg(img, "jpg", res.model_images[i]);
+    }
+
     return true;
 }
 
