@@ -446,6 +446,23 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
 
 bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res)
 {
+    std::map<ed::UUID, Snapshot>::const_iterator it_image = snapshots_.find(req.image_id);
+    if (it_image == snapshots_.end())
+    {
+        res.error_msg = "Snapshot with ID '" + req.image_id + "' could not be found.";
+        return true;
+    }
+
+    const Snapshot& snapshot = it_image->second;
+
+    // Calculate beam number corresponding to click location in image
+    rgbd::View view(*snapshot.image, snapshot.image->getRGBImage().cols);
+    geo::Vec3 click_ray = view.getRasterizer().project2Dto3D(req.click_x, req.click_y);
+    geo::Vec3 p_aligned = snapshot.sensor_pose_zrp * click_ray;
+    int i_click_beam = beam_model_.CalculateBeam(p_aligned.x, p_aligned.y);
+
+    std::cout << "BEAM: " << i_click_beam << std::endl;
+
     return true;
 }
 
