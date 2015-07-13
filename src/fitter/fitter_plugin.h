@@ -109,6 +109,10 @@ private:
 
     ros::CallbackQueue cb_queue_;
 
+    const ed::WorldModel* world_model_;
+
+    ed::UpdateRequest* update_request_;
+
     ros::ServiceServer srv_fit_model_;
 
     bool srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res);
