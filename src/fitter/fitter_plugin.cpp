@@ -3,6 +3,7 @@
 #include <ed/entity.h>
 #include <ed/world_model.h>
 #include <ed/update_request.h>
+#include <ed/logging.h>
 #include <geolib/Shape.h>
 
 // Image capture
@@ -104,21 +105,59 @@ FitterPlugin::~FitterPlugin()
 void FitterPlugin::initialize(ed::InitData& init)
 {
     tue::Configuration& config = init.config;
-    rgbd_client_.intialize("/amigo/top_kinect/rgbd");
+
+    // Initialize RGBD client
+    std::string rgbd_topic;
+    if (config.value("topic", rgbd_topic))
+        rgbd_client_.intialize(rgbd_topic);
+
+    // Load models (used for fitting)
+    if (config.readArray("models"))
+    {
+        while(config.nextArrayItem())
+        {
+            std::string name;
+            if (!config.value("name", name))
+                continue;
+
+            // Load model data
+            ed::UpdateRequest req;
+            std::stringstream error;
+            ed::UUID tmp_id = "id";
+
+            if (!model_loader_.create(tmp_id, name, req, error))
+            {
+                ed::log::error() << "While loading model '" << name << "': " << error.str() << std::endl;
+                continue;
+            }
+
+            std::map<ed::UUID, geo::ShapeConstPtr>::const_iterator it_shape = req.shapes.find(tmp_id);
+            if (it_shape == req.shapes.end())
+            {
+                ed::log::error() << "While loading model '" << name << "': model does not have a shape" << std::endl;
+                continue;
+            }
+
+            geo::ShapeConstPtr shape = it_shape->second;
+
+            EntityRepresentation2D& model = models_[name];
+            dml::project2D(shape->getMesh(), model.shape_2d);
+        }
+
+        config.endArray();
+    }
 
     beam_model_.initialize(2, 200);
 
     tf_listener_ = new tf::TransformListener;
 
-    // Initialize lock entity server
+    // Initialize services
     ros::NodeHandle nh("~");
     nh.setCallbackQueue(&cb_queue_);
 
     srv_fit_model_ = nh.advertiseService("gui/fit_model", &FitterPlugin::srvFitModel, this);
     srv_get_models_ = nh.advertiseService("gui/get_models", &FitterPlugin::srvGetModels, this);
     srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
-
-
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -150,91 +189,14 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Calculate virtual rgbd beam ranges
 
-    const cv::Mat& depth = image->getDepthImage();
-    rgbd::View view(*image, depth.cols);
-
-    std::vector<double> ranges(beam_model_.num_beams(), 0);
-
-    for(int x = 0; x < depth.cols; ++x)
-    {
-        for(int y = 0; y < depth.rows; ++y)
-        {
-            float d = depth.at<float>(y, x);
-            if (d == 0 || d != d)
-                continue;
-
-            geo::Vector3 p_sensor = view.getRasterizer().project2Dto3D(x, y) * d;
-            geo::Vector3 p_floor = sensor_pose_zrp * p_sensor;
-
-            if (p_floor.z < 0.2) // simple floor filter
-                continue;
-
-            int i = beam_model_.CalculateBeam(p_floor.x, p_floor.y);
-            if (i >= 0 && i < ranges.size())
-            {
-                double& r = ranges[i];
-                if (r == 0 || p_floor.y < r)
-                    r = p_floor.y;
-            }
-        }
-    }
+    std::vector<double> ranges;
+    CalculateRanges(*image, sensor_pose_zrp, ranges);
 
     // -------------------------------------
     // Render world model objects
 
-    geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
-
-    std::vector<double> model_ranges(ranges.size(), 0);
-
-    cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
-
-        if (!e->shape() || !e->has_pose())
-            continue;
-
-        // Decompose entity pose into X Y YAW and Z ROLL PITCH
-        geo::Pose3D pose_xya;
-        geo::Pose3D pose_zrp;
-        decomposePose(e->pose(), pose_xya, pose_zrp);
-
-        const Shape2D* shape_2d;
-
-        std::map<ed::UUID, Entity2DModel>::const_iterator it_model = models_.find(e->id());
-        if (it_model == models_.end())
-        {
-            Entity2DModel& entity_model = models_[e->id()];
-            dml::project2D(e->shape()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
-            shape_2d = &entity_model.shape_2d;
-        }
-        else
-        {
-            shape_2d = &(it_model->second.shape_2d);
-        }
-
-        geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
-
-        beam_model_.RenderModel(*shape_2d, pose_2d_SENSOR, model_ranges);
-
-        // visualize model
-        for(Shape2D::const_iterator it_contour = shape_2d->begin(); it_contour != shape_2d->end(); ++it_contour)
-        {
-            const std::vector<geo::Vec2>& model = *it_contour;
-            for(unsigned int i = 0; i < model.size(); ++i)
-            {
-                unsigned int j = (i + 1) % model.size();
-                const geo::Vec2& p1 = pose_2d_SENSOR * model[i];
-                const geo::Vec2& p2 = pose_2d_SENSOR * model[j];
-
-                cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
-                cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
-
-                cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(255, 0, 0), 2);
-            }
-        }
-    }
+    std::vector<double> model_ranges;
+    RenderWorldModel(world, sensor_pose_xya, model_ranges);
 
     // -------------------------------------
     // Filter background
@@ -320,7 +282,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         if (!similar)
         {
-            cv::imshow("Interesting", depth / 10);
+            cv::imshow("Interesting", image->getDepthImage() / 10);
 
             ed::UUID snapshot_id = ed::Entity::generateID();
             Snapshot& snapshot = snapshots_[snapshot_id];
@@ -338,42 +300,15 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Visualize
 
-    for(unsigned int i = 0; i < ranges.size(); ++i)
-    {
-        double d = ranges[i];
-        if (d > 0)
-        {
-            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
-            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 80, 0));
-        }
-    }
+    cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
 
-
-    for(unsigned int i = 0; i < model_ranges.size(); ++i)
-    {
-        double d = model_ranges[i];
-        if (d > 0)
-        {
-            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
-            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 0, 255));
-        }
-    }
-
-    for(unsigned int i = 0; i < filtered_ranges.size(); ++i)
-    {
-        double d = filtered_ranges[i];
-        if (d > 0)
-        {
-            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
-            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-            cv::circle(canvas, p_canvas, 1, cv::Scalar(0, 255, 0));
-        }
-    }
+    DrawWorldVisualization(world, sensor_pose_xya, canvas);
+    DrawRanges(ranges,          cv::Scalar(0, 80, 0),  canvas);
+    DrawRanges(model_ranges,    cv::Scalar(0, 0, 255), canvas);
+    DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
 
     cv::imshow("rgbd beams", canvas);
-    cv::imshow("depth", depth / 10);
+    cv::imshow("depth", image->getDepthImage() / 10);
     cv::waitKey(3);
 }
 
@@ -444,6 +379,146 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
 
 // ----------------------------------------------------------------------------------------------------
 
+void FitterPlugin::CalculateRanges(const rgbd::Image& image, const geo::Pose3D& sensor_pose_zrp, std::vector<double>& ranges) const
+{
+    const cv::Mat& depth = image.getDepthImage();
+    rgbd::View view(image, depth.cols);
+
+    if (ranges.size() != beam_model_.num_beams())
+        ranges.resize(beam_model_.num_beams(), 0);
+
+    for(int x = 0; x < depth.cols; ++x)
+    {
+        for(int y = 0; y < depth.rows; ++y)
+        {
+            float d = depth.at<float>(y, x);
+            if (d == 0 || d != d)
+                continue;
+
+            geo::Vector3 p_sensor = view.getRasterizer().project2Dto3D(x, y) * d;
+            geo::Vector3 p_floor = sensor_pose_zrp * p_sensor;
+
+            if (p_floor.z < 0.2) // simple floor filter
+                continue;
+
+            int i = beam_model_.CalculateBeam(p_floor.x, p_floor.y);
+            if (i >= 0 && i < ranges.size())
+            {
+                double& r = ranges[i];
+                if (r == 0 || p_floor.y < r)
+                    r = p_floor.y;
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+const EntityRepresentation2D* FitterPlugin::GetOrCreateEntity2D(const ed::EntityConstPtr& e)
+{
+    std::map<ed::UUID, EntityRepresentation2D>::const_iterator it_model = entity_shapes_.find(e->id());
+    if (it_model != entity_shapes_.end())
+        return &it_model->second;
+
+    // Decompose entity pose into X Y YAW and Z ROLL PITCH
+    geo::Pose3D pose_xya;
+    geo::Pose3D pose_zrp;
+    decomposePose(e->pose(), pose_xya, pose_zrp);
+
+    EntityRepresentation2D& entity_model = entity_shapes_[e->id()];
+    dml::project2D(e->shape()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
+
+    return &entity_model;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void FitterPlugin::RenderWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, std::vector<double>& model_ranges)
+{
+    geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
+
+    if (model_ranges.size() != beam_model_.num_beams())
+        model_ranges.resize(beam_model_.num_beams(), 0);
+
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (!e->shape() || !e->has_pose())
+            continue;
+
+        // Decompose entity pose into X Y YAW and Z ROLL PITCH
+        geo::Pose3D pose_xya;
+        geo::Pose3D pose_zrp;
+        decomposePose(e->pose(), pose_xya, pose_zrp);
+
+        const EntityRepresentation2D* e2d = GetOrCreateEntity2D(e);
+
+        geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
+
+        beam_model_.RenderModel(e2d->shape_2d, pose_2d_SENSOR, model_ranges);
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void FitterPlugin::DrawWorldVisualization(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, cv::Mat& canvas)
+{
+    geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
+
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (!e->shape() || !e->has_pose())
+            continue;
+
+        // Decompose entity pose into X Y YAW and Z ROLL PITCH
+        geo::Pose3D pose_xya;
+        geo::Pose3D pose_zrp;
+        decomposePose(e->pose(), pose_xya, pose_zrp);
+
+        const EntityRepresentation2D* e2d = GetOrCreateEntity2D(e);
+
+        geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
+
+        // visualize model
+        for(Shape2D::const_iterator it_contour = e2d->shape_2d.begin(); it_contour != e2d->shape_2d.end(); ++it_contour)
+        {
+            const std::vector<geo::Vec2>& model = *it_contour;
+            for(unsigned int i = 0; i < model.size(); ++i)
+            {
+                unsigned int j = (i + 1) % model.size();
+                const geo::Vec2& p1 = pose_2d_SENSOR * model[i];
+                const geo::Vec2& p2 = pose_2d_SENSOR * model[j];
+
+                cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
+                cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
+
+                cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(255, 0, 0), 2);
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void FitterPlugin::DrawRanges(const std::vector<double>& ranges, const cv::Scalar& color, cv::Mat& canvas)
+{
+    for(unsigned int i = 0; i < ranges.size(); ++i)
+    {
+        double d = ranges[i];
+        if (d > 0)
+        {
+            geo::Vec2 p = beam_model_.CalculatePoint(i, d);
+            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+            cv::circle(canvas, p_canvas, 1, color);
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res)
 {
     std::map<ed::UUID, Snapshot>::const_iterator it_image = snapshots_.find(req.image_id);
@@ -453,7 +528,23 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
         return true;
     }
 
+    std::map<std::string, EntityRepresentation2D>::const_iterator it_model = models_.find(req.model_name);
+    if (it_model == models_.end())
+    {
+        res.error_msg = "Model '" + req.model_name + "' could not be found.";
+        return true;
+    }
+
     const Snapshot& snapshot = it_image->second;
+    const EntityRepresentation2D& model = it_model->second;
+
+    // - Calculate 2d ranges from snapshot depth image
+    //      void CalculateRanges(const rgbd::Image& image, const geo::Pose3D sensor_pose, std::vector<double>& ranges)
+    // - Subtract background   (NOT NEEDED?!)
+    //     - Render background
+    //     - Filter
+    // - Sample and test fit
+    //      void testPose
 
     // Calculate beam number corresponding to click location in image
     rgbd::View view(*snapshot.image, snapshot.image->getRGBImage().cols);
@@ -470,19 +561,21 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
 
 bool FitterPlugin::srvGetModels(ed_sensor_integration::GetModels::Request& req, ed_sensor_integration::GetModels::Response& res)
 {
-    // Fake response for now .... (TODO)
+    res.model_names.resize(models_.size());
+    res.model_images.resize(models_.size());
 
-    res.model_names.push_back("dinner_table");
-    res.model_names.push_back("kitchen_block");
-    res.model_names.push_back("couch");
-
-    res.model_images.resize(res.model_names.size());
-    for(unsigned int i = 0; i < res.model_names.size(); ++i)
+    unsigned int i = 0;
+    for(std::map<std::string, EntityRepresentation2D>::const_iterator it = models_.begin(); it != models_.end(); ++it)
     {
+        const std::string& model_name = it->first;
+        res.model_names[i] = model_name;
+
         cv::Mat img(200, 200, CV_8UC3, cv::Scalar(100, 100, 100));
-        cv::putText(img, res.model_names[i], cv::Point(10, 30), cv::FONT_HERSHEY_PLAIN, 1.4, cv::Scalar(0, 0, 255), 2);
+        cv::putText(img, model_name, cv::Point(10, 30), cv::FONT_HERSHEY_PLAIN, 1.4, cv::Scalar(0, 0, 255), 2);
 
         ImageToMsg(img, "jpg", res.model_images[i]);
+
+        ++i;
     }
 
     return true;

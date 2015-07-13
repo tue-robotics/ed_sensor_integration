@@ -14,16 +14,22 @@
 // Fitting
 #include "beam_model.h"
 
+// Model loading
+#include <ed/models/model_loader.h>
+
 // Communication
 #include "ed_sensor_integration/FitModel.h"
 #include "ed_sensor_integration/GetModels.h"
 #include "ed_sensor_integration/GetSnapshots.h"
 
+// Visualization
+#include <opencv2/core/core.hpp>
+
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 // ----------------------------------------------------------------------------------------------------
 
-struct Entity2DModel
+struct EntityRepresentation2D
 {
     unsigned int shape_revision;
     Shape2D shape_2d;
@@ -73,10 +79,23 @@ private:
 
     BeamModel beam_model_;
 
+    void CalculateRanges(const rgbd::Image& image, const geo::Pose3D& sensor_pose_zrp, std::vector<double>& ranges) const;
 
-    // 2D Models
+    void RenderWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, std::vector<double>& ranges);
 
-    std::map<ed::UUID, Entity2DModel> models_;
+
+    // 2D Entity shapes
+
+    std::map<ed::UUID, EntityRepresentation2D> entity_shapes_;
+
+    const EntityRepresentation2D* GetOrCreateEntity2D(const ed::EntityConstPtr& e);
+
+
+    // Models
+
+    std::map<std::string, EntityRepresentation2D> models_;
+
+    ed::models::ModelLoader model_loader_;
 
 
     // Snapshots
@@ -101,6 +120,13 @@ private:
     ros::ServiceServer srv_get_snapshots_;
 
     bool srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res);
+
+
+    // Visualization
+
+    void DrawWorldVisualization(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, cv::Mat& canvas);
+
+    void DrawRanges(const std::vector<double>& ranges, const cv::Scalar& color, cv::Mat& canvas);
 
 };
 

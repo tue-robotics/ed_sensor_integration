@@ -6,6 +6,9 @@ plugins:
     lib: libed_fitter_plugin.so
     parameters:
         topic: /amigo/top_kinect/rgbd
+        models:
+          - name: robotics_testlab_B.hallway_cabinet
+          - name: table_120x80x76
   - name: gui_server
     lib: libed_gui_server_plugin.so
     parameters:
