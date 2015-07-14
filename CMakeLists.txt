@@ -162,6 +162,9 @@ add_library(ed_fitter_plugin
     src/fitter/beam_model.h
 )
 
+add_executable(ed_fitter_gui tools/fitter_gui.cpp)
+target_link_libraries(ed_fitter_gui ${catkin_LIBRARIES})
+
 # ------------------------------------------------------------------------------------------------
 
 add_executable(test_convex_hull test/test_convex_hull.cpp)

@@ -9,6 +9,9 @@ plugins:
         models:
           - name: robotics_testlab_B.hallway_cabinet
           - name: table_120x80x76
+          - name: robotics_testlab_B.bed
+          - name: robotics_testlab_B.black_cabinet
+          - name: robotics_testlab_B.pico_case
   - name: gui_server
     lib: libed_gui_server_plugin.so
     parameters:

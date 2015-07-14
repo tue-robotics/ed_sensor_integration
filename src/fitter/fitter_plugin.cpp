@@ -53,6 +53,19 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
 {
     msg.encoding = encoding;
 
+    cv::Mat rgb_image;
+    if (image.channels() == 1)
+    {
+        // depth image
+        rgb_image = cv::Mat(image.rows, image.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+        for(unsigned int i = 0; i < rgb_image.rows * rgb_image.cols; ++i)
+            rgb_image.at<cv::Vec3b>(i) = (image.at<float>(i) / 10) * cv::Vec3b(255, 255, 255);
+    }
+    else
+    {
+        rgb_image = image;
+    }
+
     if (encoding == "jpg")
     {
         // OpenCV compression settings
@@ -63,7 +76,7 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
         rgb_params[1] = 95; // default is 95
 
         // Compress image
-        if (!cv::imencode(".jpg", image, msg.data, rgb_params)) {
+        if (!cv::imencode(".jpg", rgb_image, msg.data, rgb_params)) {
             std::cout << "RGB image compression failed" << std::endl;
             return false;
         }
@@ -76,7 +89,7 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
         params[0] = CV_IMWRITE_PNG_COMPRESSION;
         params[1] = 1;
 
-        if (!cv::imencode(".png", image, msg.data, params)) {
+        if (!cv::imencode(".png", rgb_image, msg.data, params)) {
             std::cout << "PNG image compression failed" << std::endl;
             return false;
         }
