@@ -171,6 +171,8 @@ void FitterPlugin::initialize(ed::InitData& init)
     srv_fit_model_ = nh.advertiseService("gui/fit_model", &FitterPlugin::srvFitModel, this);
     srv_get_models_ = nh.advertiseService("gui/get_models", &FitterPlugin::srvGetModels, this);
     srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
+    srv_make_snapshot_ = nh.advertiseService("make_snapshot", &FitterPlugin::srvMakeSnapshot, this);
+    srv_get_pois_ = nh.advertiseService("get_pois", &FitterPlugin::srvGetPOIs, this);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -742,6 +744,45 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
     }
 
     res.new_revision = revision_;
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res)
+{
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_sensor_integration::GetPOIs::Response& res)
+{
+    // Returns dummy info (TODO: return real info)
+
+    std::vector<geo::Vec2> pois;
+    pois.push_back(geo::Vec2( 3.283,  4.326));
+    pois.push_back(geo::Vec2( 3.175,  2.704));
+    pois.push_back(geo::Vec2( 3.200,  1.483));
+    pois.push_back(geo::Vec2( 0.399,  1.876));
+    pois.push_back(geo::Vec2( 2.665,  0.296));
+    pois.push_back(geo::Vec2( 0.650, -1.443));
+    pois.push_back(geo::Vec2(-0.905, -1.426));
+    pois.push_back(geo::Vec2(-1.933, -1.443));
+    pois.push_back(geo::Vec2(-2.719, -0.548));
+    pois.push_back(geo::Vec2(-2.326,  3.055));
+    pois.push_back(geo::Vec2( 0.750,  3.414));
+
+    res.pois.resize(pois.size());
+    for(unsigned int i = 0; i < pois.size(); ++i)
+    {
+        geometry_msgs::PointStamped& p = res.pois[i];
+        p.header.frame_id = "/map";
+        p.point.x = pois[i].x;
+        p.point.y = pois[i].y;
+        p.point.z = 0;
+    }
 
     return true;
 }

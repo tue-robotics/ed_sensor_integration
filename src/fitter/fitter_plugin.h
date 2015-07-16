@@ -21,6 +21,8 @@
 #include "ed_sensor_integration/FitModel.h"
 #include "ed_sensor_integration/GetModels.h"
 #include "ed_sensor_integration/GetSnapshots.h"
+#include "ed_sensor_integration/GetPOIs.h"
+#include "ed_sensor_integration/MakeSnapshot.h"
 
 // Visualization
 #include <opencv2/core/core.hpp>
@@ -125,6 +127,13 @@ private:
 
     bool srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res);
 
+    ros::ServiceServer srv_make_snapshot_;
+
+    bool srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res);
+
+    ros::ServiceServer srv_get_pois_;
+
+    bool srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_sensor_integration::GetPOIs::Response& res);
 
     // Visualization
 

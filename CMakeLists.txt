@@ -30,12 +30,14 @@ add_service_files(
   FitModel.srv
   GetModels.srv
   GetSnapshots.srv
+  GetPOIs.srv
+  MakeSnapshot.srv
 )
 
 # Generate added messages and services with any dependencies listed here
 generate_messages(
-#    DEPENDENCIES
-#    geometry_msgs
+    DEPENDENCIES
+    geometry_msgs
 #    ...
 )
 
