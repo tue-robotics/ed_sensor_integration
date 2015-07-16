@@ -77,6 +77,13 @@ private:
     bool NextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
 
 
+    // Point of interests
+
+    double min_poi_distance_;
+
+    std::vector<geo::Vec2> pois_;
+
+
     // Fitting
 
     BeamModel beam_model_;

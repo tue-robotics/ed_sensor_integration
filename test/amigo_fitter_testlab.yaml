@@ -6,6 +6,7 @@ plugins:
     lib: libed_fitter_plugin.so
     parameters:
         topic: /amigo/top_kinect/rgbd
+        min_poi_distance: 1.0
         models:
           - name: robotics_testlab_B.hallway_cabinet
           - name: table_120x80x76

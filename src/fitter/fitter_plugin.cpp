@@ -98,6 +98,68 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
     return true;
 }
 
+// ----------------------------------------------------------------------------------------------------
+
+typedef std::vector<unsigned int> Segment;
+
+void segment(const std::vector<double>& ranges, const BeamModel& beam_model, double segment_depth_threshold,
+             double max_gap_size, double min_segment_size, std::vector<Segment>& segments)
+{
+    // Find first valid value
+    Segment current_segment;
+    for(unsigned int i = 0; i < ranges.size(); ++i)
+    {
+        if (ranges[i] > 0)
+        {
+            current_segment.push_back(i);
+            break;
+        }
+    }
+
+    if (current_segment.empty())
+        return;
+
+    int gap_size = 0;
+    for(unsigned int i = current_segment.front(); i < ranges.size(); ++i)
+    {
+        float rs = ranges[i];
+
+        if (rs == 0 || std::abs(rs - ranges[current_segment.back()]) > segment_depth_threshold)
+        {
+            // Found a gap
+            ++gap_size;
+
+            if (gap_size >= max_gap_size)
+            {
+                i = current_segment.back() + 1;
+
+                geo::Vec2 p1 = beam_model.CalculatePoint(current_segment.front(), ranges[current_segment.front()]);
+                geo::Vec2 p2 = beam_model.CalculatePoint(current_segment.back(), ranges[current_segment.back()]);
+                if ((p2 - p1).length2() > min_segment_size * min_segment_size)
+                    segments.push_back(current_segment);
+
+                current_segment.clear();
+
+                // Find next good value
+                while(ranges[i] == 0 && i < ranges.size())
+                    ++i;
+
+                current_segment.push_back(i);
+            }
+        }
+        else
+        {
+            gap_size = 0;
+            current_segment.push_back(i);
+        }
+    }
+
+    geo::Vec2 p1 = beam_model.CalculatePoint(current_segment.front(), ranges[current_segment.front()]);
+    geo::Vec2 p2 = beam_model.CalculatePoint(current_segment.back(), ranges[current_segment.back()]);
+    if ((p2 - p1).length2() > min_segment_size * min_segment_size)
+        segments.push_back(current_segment);
+}
+
 // ====================================================================================================
 
 // ----------------------------------------------------------------------------------------------------
@@ -123,6 +185,8 @@ void FitterPlugin::initialize(ed::InitData& init)
     std::string rgbd_topic;
     if (config.value("topic", rgbd_topic))
         rgbd_client_.intialize(rgbd_topic);
+
+    config.value("min_poi_distance", min_poi_distance_);
 
     // Load models (used for fitting)
     if (config.readArray("models"))
@@ -202,6 +266,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
     decomposePose(sensor_pose, sensor_pose_xya, sensor_pose_zrp);
+    geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
 
     // -------------------------------------
     // Calculate virtual rgbd beam ranges
@@ -260,6 +325,32 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         if (!corresponds)
             filtered_ranges[i] = ds;
+    }
+
+    // -------------------------------------
+    // Determine points of interest
+
+    std::vector<Segment> segments;
+    segment(filtered_ranges, beam_model_, 0.2, 3, 0.3, segments);
+
+    for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+    {
+        const Segment& seg = *it;
+        int i_center = seg[seg.size() / 2];
+        geo::Vec2 poi_MAP = sensor_pose_xya_2d * beam_model_.CalculatePoint(i_center, ranges[i_center]);
+
+        bool poi_exists = false;
+        for(std::vector<geo::Vec2>::const_iterator it_poi = pois_.begin(); it_poi != pois_.end(); ++it_poi)
+        {
+            if ((poi_MAP - *it_poi).length2() < min_poi_distance_ * min_poi_distance_)
+            {
+                poi_exists = true;
+                break;
+            }
+        }
+
+        if (!poi_exists)
+            pois_.push_back(poi_MAP);
     }
 
     // -------------------------------------
@@ -323,6 +414,27 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     DrawRanges(ranges,          cv::Scalar(0, 80, 0),  canvas);
     DrawRanges(model_ranges,    cv::Scalar(0, 0, 255), canvas);
     DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
+
+    // Draw segments
+    for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+    {
+        const Segment& seg = *it;
+        geo::Vec2 p1 = beam_model_.CalculatePoint(seg.front(), ranges[seg.front()]);
+        geo::Vec2 p2 = beam_model_.CalculatePoint(seg.back(), ranges[seg.back()]);
+
+        cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
+        cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
+
+        cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(0, 255, 255), 2);
+    }
+
+    // Draw points of interest
+    for(std::vector<geo::Vec2>::const_iterator it = pois_.begin(); it != pois_.end(); ++it)
+    {
+        geo::Vec2 p = sensor_pose_xya_2d.inverse() * (*it);
+        cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+        cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
+    }
 
     cv::imshow("rgbd beams", canvas);
     cv::imshow("depth", image->getDepthImage() / 10);
@@ -759,28 +871,13 @@ bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request&
 
 bool FitterPlugin::srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_sensor_integration::GetPOIs::Response& res)
 {
-    // Returns dummy info (TODO: return real info)
-
-    std::vector<geo::Vec2> pois;
-    pois.push_back(geo::Vec2( 3.283,  4.326));
-    pois.push_back(geo::Vec2( 3.175,  2.704));
-    pois.push_back(geo::Vec2( 3.200,  1.483));
-    pois.push_back(geo::Vec2( 0.399,  1.876));
-    pois.push_back(geo::Vec2( 2.665,  0.296));
-    pois.push_back(geo::Vec2( 0.650, -1.443));
-    pois.push_back(geo::Vec2(-0.905, -1.426));
-    pois.push_back(geo::Vec2(-1.933, -1.443));
-    pois.push_back(geo::Vec2(-2.719, -0.548));
-    pois.push_back(geo::Vec2(-2.326,  3.055));
-    pois.push_back(geo::Vec2( 0.750,  3.414));
-
-    res.pois.resize(pois.size());
-    for(unsigned int i = 0; i < pois.size(); ++i)
+    res.pois.resize(pois_.size());
+    for(unsigned int i = 0; i < pois_.size(); ++i)
     {
         geometry_msgs::PointStamped& p = res.pois[i];
         p.header.frame_id = "/map";
-        p.point.x = pois[i].x;
-        p.point.y = pois[i].y;
+        p.point.x = pois_[i].x;
+        p.point.y = pois_[i].y;
         p.point.z = 0;
     }
 
