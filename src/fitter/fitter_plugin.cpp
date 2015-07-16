@@ -369,6 +369,13 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         ++revision_;
         snapshot.revision = revision_;
+
+        // For easy debugging (auto fitting):
+//        ed_sensor_integration::FitModel::Request fit_req;
+//        ed_sensor_integration::FitModel::Response fit_res;
+//        fit_req.image_id = snapshot_id.str();
+//        fit_req.model_name = models_.begin()->first;
+//        srvFitModel(fit_req, fit_res);
     }
 
     // -------------------------------------
@@ -768,6 +775,8 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     pose_3d.R.yy = best_pose.R.yy;
 
     update_request_->setPose(new_id, snapshot.sensor_pose_xya * pose_3d);
+    update_request_->setType(new_id, req.model_name);
+    update_request_->setFlag(new_id, "furniture");
 
     return true;
 }
