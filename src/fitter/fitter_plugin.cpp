@@ -250,6 +250,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     world_model_ = &world;
     update_request_ = &req;
+    make_snapshot_ = false;
     cb_queue_.callAvailable();
 
     // -------------------------------------
@@ -354,55 +355,20 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     }
 
     // -------------------------------------
-    // Determine snapshot: decide whether this is an interesting image
+    // Make snapshot (if requested)
 
-    unsigned int num_beams = ranges.size();
-
-    unsigned int i_interesting_min = 0.3 * num_beams;
-    unsigned int i_interesting_max = 0.7 * num_beams;
-
-    int n_interesting_points = 0;
-    for(unsigned int i = i_interesting_min; i < i_interesting_max; ++i)
+    if (make_snapshot_)
     {
-        double d = filtered_ranges[i];
-        if (d > 0 && d < 4)
-            ++n_interesting_points;
-    }
+        cv::imshow("Interesting", image->getDepthImage() / 10);
 
-    if ((double)n_interesting_points / (i_interesting_max - i_interesting_min) > 0.8)
-    {
-        // Interesting picture. Let's see if we already created a similar shot (check sensor origin and orientation)
+        ed::UUID snapshot_id = ed::Entity::generateID();
+        Snapshot& snapshot = snapshots_[snapshot_id];
+        snapshot.image = image;
+        snapshot.sensor_pose_xya = sensor_pose_xya;
+        snapshot.sensor_pose_zrp = sensor_pose_zrp;
 
-        bool similar = false;
-        for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
-        {
-            const Snapshot& snapshot = it->second;
-
-            double diff_t_sq = (snapshot.sensor_pose_xya.t - sensor_pose_xya.t).length2();
-            double diff_roi_sq = (snapshot.sensor_pose_xya * geo::Vec3(2, 0, 0) - sensor_pose_xya * geo::Vec3(2, 0, 0)).length2();
-
-            if (diff_t_sq < 2 * 2 && diff_roi_sq < 1 * 1)
-            {
-                similar = true;
-                break;
-            }
-        }
-
-        if (!similar)
-        {
-            cv::imshow("Interesting", image->getDepthImage() / 10);
-
-            ed::UUID snapshot_id = ed::Entity::generateID();
-            Snapshot& snapshot = snapshots_[snapshot_id];
-            snapshot.image = image;
-            snapshot.sensor_pose_xya = sensor_pose_xya;
-            snapshot.sensor_pose_zrp = sensor_pose_zrp;
-
-            ++revision_;
-            snapshot.revision = revision_;
-
-            std::cout << "INTERESTING! " << revision_ << std::endl;
-        }
+        ++revision_;
+        snapshot.revision = revision_;
     }
 
     // -------------------------------------
@@ -864,6 +830,7 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
 
 bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res)
 {
+    make_snapshot_ = true;
     return true;
 }
 

@@ -134,6 +134,8 @@ private:
 
     bool srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res);
 
+    bool make_snapshot_;
+
     ros::ServiceServer srv_make_snapshot_;
 
     bool srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res);
