@@ -163,6 +163,7 @@ add_library(ed_fitter_plugin
     src/fitter/beam_model.cpp
     src/fitter/beam_model.h
 )
+add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
 
 add_executable(ed_fitter_gui tools/fitter_gui.cpp)
 target_link_libraries(ed_fitter_gui ${catkin_LIBRARIES})
