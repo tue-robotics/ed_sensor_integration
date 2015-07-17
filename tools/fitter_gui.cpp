@@ -131,7 +131,7 @@ void DrawModels(cv::Mat& img, unsigned int i_start)
         cv::Rect rect(cv::Point(BORDER_SIZE, y), cv::Size(ratio * model_img.cols, ratio * model_img.rows));
         cv::Mat roi = img(rect);
 
-        cv::resize(model_img, roi, cv::Size(roi.cols, roi.rows));
+        cv::resize(model_img, roi, rect.size());
 
         if (i == i_model_selected)
         {
@@ -144,6 +144,29 @@ void DrawModels(cv::Mat& img, unsigned int i_start)
     cv::rectangle(img, cv::Point(5, 0), cv::Point(width - 5, BUTTON_SIZE), cv::Scalar(20, 20, 100), 2, 1);
     cv::rectangle(img, cv::Point(5, img.rows - BUTTON_SIZE), cv::Point(width - 5, img.rows), cv::Scalar(20, 20, 100), 2, 1);
 
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void DrawSnapshot(cv::Mat& img)
+{
+    cv::rectangle(img, cv::Point(0, 0), cv::Point(BUTTON_SIZE, img.rows), cv::Scalar(20, 20, 100), 2, 1);
+    cv::rectangle(img, cv::Point(img.cols - BUTTON_SIZE, 0), cv::Point(img.cols, img.rows), cv::Scalar(20, 20, 100), 2, 1);
+
+    std::map<std::string, cv::Mat>::const_iterator it = snapshots_.find(current_image_id_);
+    if (it == snapshots_.end())
+        return;
+
+    const cv::Mat& snapshot = it->second;
+
+    double ratio = std::min((double)(img.cols - 2 * (BUTTON_SIZE + BORDER_SIZE)) / snapshot.cols,
+                            (double)(img.rows - 2 * BORDER_SIZE) / snapshot.rows);
+
+    cv::Rect rect(cv::Point(BUTTON_SIZE + BORDER_SIZE, BORDER_SIZE),
+                  cv::Size(ratio * snapshot.cols, ratio * snapshot.rows));
+
+    cv::Mat roi = img(rect);
+    cv::resize(snapshot, roi, rect.size());
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -211,10 +234,11 @@ int main(int argc, char **argv)
                 {
                     cv::Mat image = cv::imdecode(srv.response.images[i].data, CV_LOAD_IMAGE_UNCHANGED);
                     snapshots_[srv.response.image_ids[i]] = image;
-                    image.copyTo(snapshot_view.roi);
                     current_image_id_ = srv.response.image_ids[i];
                 }
                 revision_ = srv.response.new_revision;
+
+                DrawSnapshot(snapshot_view.roi);
             }
             else
             {
