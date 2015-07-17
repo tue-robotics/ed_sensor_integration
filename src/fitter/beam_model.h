@@ -37,7 +37,8 @@ public:
         }
     }
 
-    void RenderModel(const std::vector<std::vector<geo::Vec2> >& contours, const geo::Transform2& pose, std::vector<double>& ranges) const;
+    void RenderModel(const std::vector<std::vector<geo::Vec2> >& contours, const geo::Transform2& pose, int identifier,
+                     std::vector<double>& ranges, std::vector<int>& identifiers) const;
 
     inline unsigned int num_beams() const { return rays_.size(); }
 

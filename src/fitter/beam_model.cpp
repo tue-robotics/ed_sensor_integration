@@ -25,7 +25,8 @@ void BeamModel::initialize(double w, unsigned int num_beams)
 
 // ----------------------------------------------------------------------------------------------------
 
-void BeamModel::RenderModel(const std::vector<std::vector<geo::Vec2> >& contours, const geo::Transform2& pose, std::vector<double>& ranges) const
+void BeamModel::RenderModel(const std::vector<std::vector<geo::Vec2> >& contours, const geo::Transform2& pose, int identifier,
+                            std::vector<double>& ranges, std::vector<int>& identifiers) const
 {
     double near_plane = 0.01;
 
@@ -94,7 +95,10 @@ void BeamModel::RenderModel(const std::vector<std::vector<geo::Vec2> >& contours
 
                 double& depth_old = ranges[i_beam];
                 if (d > 0 && (d < depth_old || depth_old == 0))
+                {
                     depth_old = d;
+                    identifiers[i_beam] = identifier;
+                }
             }
         }
     }

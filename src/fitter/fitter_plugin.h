@@ -91,7 +91,8 @@ private:
 
     void CalculateRanges(const rgbd::Image& image, const geo::Pose3D& sensor_pose_zrp, std::vector<double>& ranges) const;
 
-    void RenderWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, std::vector<double>& ranges);
+    void RenderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
+                      std::vector<double>& model_ranges, std::vector<int>& identifiers);
 
 
     // 2D Entity shapes

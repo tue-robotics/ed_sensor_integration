@@ -286,10 +286,84 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     CalculateRanges(*image, sensor_pose_zrp, ranges);
 
     // -------------------------------------
-    // Render world model objects
+    // Render world model objects (without fitted objects)
 
-    std::vector<double> model_ranges;
-    RenderWorldModel(world, sensor_pose_xya, model_ranges);
+    std::vector<double> model_ranges_background(beam_model_.num_beams(), 0);
+    std::vector<int> rendered_indices(beam_model_.num_beams(), -1);
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (fitted_entity_ids_.find(e->id()) == fitted_entity_ids_.end())
+            RenderEntity(e, sensor_pose_xya, -1, model_ranges_background, rendered_indices);
+    }
+
+    // -------------------------------------
+    // Render fitted objects
+
+    std::vector<ed::EntityConstPtr> fitted_entities;
+
+    std::vector<double> model_ranges = model_ranges_background;
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (fitted_entity_ids_.find(e->id()) != fitted_entity_ids_.end())
+        {
+            int identifier = fitted_entities.size();
+            RenderEntity(e, sensor_pose_xya, identifier, model_ranges, rendered_indices);
+            fitted_entities.push_back(e);
+        }
+    }
+
+    // -------------------------------------
+    // Determine position errors of fitted objects
+
+    std::vector<int> fitted_entities_num_beams(fitted_entities.size(), 0); // number of beams corresponding to this entity
+    std::vector<double> fitted_entities_errors(fitted_entities.size(), 0);    // error corresponding to this entity
+
+    for(unsigned int i = 0; i < ranges.size(); ++i)
+    {
+        double rs = ranges[i];
+        if (rs == 0)
+            continue;
+
+        int i_entity = rendered_indices[i];
+        if (i_entity < 0) // Does not belong to fitted entity
+            continue;
+
+        ++fitted_entities_num_beams[i_entity];
+
+        double rm = model_ranges[i];
+        double diff = rm - rs;
+
+        if (std::abs(diff) < 0.1)
+            continue;
+
+        double err = 0;
+        if (diff > 0)
+        {
+            // occlusion
+            err = 0.1;
+        }
+        else
+        {
+            // rendered point not there...
+            err = 1;
+        }
+
+        fitted_entities_errors[i_entity] += err;
+    }
+
+    for(unsigned int i = 0; i < fitted_entities.size(); ++i)
+    {
+        const ed::EntityConstPtr& e = fitted_entities[i];
+        std::cout << "ERROR for " << e->id() << ": ";
+
+        int n = fitted_entities_num_beams[i];
+        if (n < 30)
+            std::cout << "not in view" << std::endl;
+        else
+            std::cout << fitted_entities_errors[i] / n << std::endl;
+    }
 
     // -------------------------------------
     // Filter background
@@ -546,31 +620,27 @@ const EntityRepresentation2D* FitterPlugin::GetOrCreateEntity2D(const ed::Entity
 
 // ----------------------------------------------------------------------------------------------------
 
-void FitterPlugin::RenderWorldModel(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, std::vector<double>& model_ranges)
+void FitterPlugin::RenderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
+                  std::vector<double>& model_ranges, std::vector<int>& identifiers)
 {
     geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
 
     if (model_ranges.size() != beam_model_.num_beams())
         model_ranges.resize(beam_model_.num_beams(), 0);
 
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
+    if (!e->shape() || !e->has_pose())
+        return;
 
-        if (!e->shape() || !e->has_pose())
-            continue;
+    // Decompose entity pose into X Y YAW and Z ROLL PITCH
+    geo::Pose3D pose_xya;
+    geo::Pose3D pose_zrp;
+    decomposePose(e->pose(), pose_xya, pose_zrp);
 
-        // Decompose entity pose into X Y YAW and Z ROLL PITCH
-        geo::Pose3D pose_xya;
-        geo::Pose3D pose_zrp;
-        decomposePose(e->pose(), pose_xya, pose_zrp);
+    const EntityRepresentation2D* e2d = GetOrCreateEntity2D(e);
 
-        const EntityRepresentation2D* e2d = GetOrCreateEntity2D(e);
+    geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
 
-        geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
-
-        beam_model_.RenderModel(e2d->shape_2d, pose_2d_SENSOR, model_ranges);
-    }
+    beam_model_.RenderModel(e2d->shape_2d, pose_2d_SENSOR, identifier, model_ranges, identifiers);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -682,8 +752,13 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     // -------------------------------------
     // Render world model objects
 
-    std::vector<double> model_ranges;
-    RenderWorldModel(*world_model_, snapshot.sensor_pose_xya, model_ranges);
+    std::vector<double> model_ranges(ranges.size(), 0);
+    std::vector<int> dummy_identifiers(ranges.size(), -1);
+    for(ed::WorldModel::const_iterator it = world_model_->begin(); it != world_model_->end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        RenderEntity(e, snapshot.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
+    }
 
     // -------------------------------------
     // Fit
@@ -719,7 +794,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
             // Determine initial pose based on measured range
 
             std::vector<double> test_ranges(ranges.size(), 0);
-            beam_model_.RenderModel(model.shape_2d, pose, test_ranges);
+            beam_model_.RenderModel(model.shape_2d, pose, 0, test_ranges, dummy_identifiers);
 
             double ds = ranges[i_beam];
             double dm = test_ranges[i_beam];
@@ -733,7 +808,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
             // Render model
 
             test_ranges = model_ranges;
-            beam_model_.RenderModel(model.shape_2d, pose, test_ranges);
+            beam_model_.RenderModel(model.shape_2d, pose, 0, test_ranges, dummy_identifiers);
 
             // ----------------
             // Calculate error
