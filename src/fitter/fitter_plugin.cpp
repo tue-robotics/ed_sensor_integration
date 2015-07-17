@@ -22,6 +22,9 @@
 // Communication
 #include "ed_sensor_integration/ImageBinary.h"
 
+// Snapshot visualization
+#include "gui.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 // Decomposes 'pose' into a (X, Y, YAW) and (Z, ROLL, PITCH) component
@@ -164,7 +167,7 @@ void segment(const std::vector<double>& ranges, const BeamModel& beam_model, dou
 
 // ----------------------------------------------------------------------------------------------------
 
-FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0)
+FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0), need_snapshot_update_(false)
 {
 }
 
@@ -245,11 +248,18 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
     const ed::WorldModel& world = data.world;
 
+    world_model_ = &world;
+    update_request_ = &req;
+
+    // -------------------------------------
+    // Update snapshots if needed
+
+    if (need_snapshot_update_)
+        updateSnapshots();
+
     // -------------------------------------
     // Handle service requests
 
-    world_model_ = &world;
-    update_request_ = &req;
     make_snapshot_ = false;
     cb_queue_.callAvailable();
 
@@ -366,6 +376,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         snapshot.image = image;
         snapshot.sensor_pose_xya = sensor_pose_xya;
         snapshot.sensor_pose_zrp = sensor_pose_zrp;
+        snapshot.canvas = image->getDepthImage();
 
         ++revision_;
         snapshot.revision = revision_;
@@ -560,6 +571,28 @@ void FitterPlugin::RenderWorldModel(const ed::WorldModel& world, const geo::Pose
 
         beam_model_.RenderModel(e2d->shape_2d, pose_2d_SENSOR, model_ranges);
     }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void FitterPlugin::updateSnapshots()
+{
+    for(std::map<ed::UUID, Snapshot>::iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
+    {
+        Snapshot& snapshot = it->second;
+
+        bool changed;
+        DrawWorldModelOverlay(*snapshot.image, snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp,
+                              *world_model_, fitted_entity_ids_, snapshot.canvas, changed);
+
+        if (changed)
+        {
+            ++revision_;
+            snapshot.revision = revision_;
+        }
+    }
+
+    need_snapshot_update_ = false;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -778,6 +811,9 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     update_request_->setType(new_id, req.model_name);
     update_request_->setFlag(new_id, "furniture");
 
+    need_snapshot_update_ = true;  // Indicates that on next plugin cycle the snapshots need to be updated
+    fitted_entity_ids_.insert(new_id);
+
     return true;
 }
 
@@ -824,7 +860,7 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
         // Add snapshot image
         res.images.push_back(ed_sensor_integration::ImageBinary());
         ed_sensor_integration::ImageBinary& img_msg = res.images.back();
-        ImageToMsg(snapshot.image->getDepthImage(), "jpg", img_msg);
+        ImageToMsg(snapshot.canvas, "jpg", img_msg);
 
         // Add snapshot id
         res.image_ids.push_back(it->first.str());

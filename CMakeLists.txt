@@ -162,6 +162,8 @@ add_library(ed_fitter_plugin
     src/fitter/mesh_tools.h
     src/fitter/beam_model.cpp
     src/fitter/beam_model.h
+    src/fitter/gui.cpp
+    src/fitter/gui.h
 )
 add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
 

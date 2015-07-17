@@ -43,9 +43,10 @@ struct Snapshot
 {
     Snapshot() : revision(0) {}
 
-    rgbd::ImageConstPtr image;
+    rgbd::ImageConstPtr image;      // original camera image
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
+    cv::Mat canvas;                 // camera image including visualizations
     unsigned int revision;
 };
 
@@ -77,7 +78,7 @@ private:
     bool NextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
 
 
-    // Point of interests
+    // Points of interest
 
     double min_poi_distance_;
 
@@ -112,6 +113,15 @@ private:
     std::map<ed::UUID, Snapshot> snapshots_;
 
     unsigned int revision_;
+
+
+    // Snapshot visualization
+
+    bool need_snapshot_update_;
+
+    void updateSnapshots();
+
+    std::set<ed::UUID> fitted_entity_ids_;
 
 
     // Communication
