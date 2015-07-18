@@ -4,6 +4,7 @@
 
 #include <ed/uuid.h>
 #include <ed_gui_server/GetEntityInfo.h>
+#include <ed_perception/Classify.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -89,6 +90,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::ServiceClient cl_segment = nh.serviceClient<ed_sensor_integration::Segment>("/amigo/ed/kinect/segment");
     ros::ServiceClient cl_info = nh.serviceClient<ed_gui_server::GetEntityInfo>("/amigo/ed/gui/get_entity_info");
+    ros::ServiceClient cl_perception = nh.serviceClient<ed_perception::Classify>("/amigo/ed/classify");
 
     ed_sensor_integration::Segment srv;
     srv.request.max_sensor_range = 2.0;
@@ -110,6 +112,9 @@ int main(int argc, char **argv)
 
     int i_color = 0;
     cv::Mat img_combined;
+    std::vector<cv::Rect> rois;
+
+    ed_perception::Classify srv_classify;
     for(std::vector<std::string>::const_iterator it = srv.response.entity_ids.begin(); it != srv.response.entity_ids.end(); ++it)
     {
         ed::UUID id = *it;
@@ -140,19 +145,38 @@ int main(int argc, char **argv)
             }
         }
 
-        cv::rectangle(img_combined, getBoundingRect(img), colors[i_color], 2);
+        cv::Rect roi = getBoundingRect(img);
+        rois.push_back(roi);
 
+        cv::rectangle(img_combined, roi, colors[i_color], 2);
         i_color = (i_color + 1) % colors.size();
 
+        srv_classify.request.ids.push_back(id.str());
+    }  
 
-//        // Crop
+    cv::imshow("Segmentation", img_combined);
+    cv::waitKey();
 
+    // Try to classify
+    if (!cl_perception.call(srv_classify))
+    {
+        std::cout << "Could not classify" << std::endl;
+    }
+    else
+    {
+        for(unsigned int i = 0; i < srv_classify.response.types.size(); ++i)
+        {
+            std::string type = srv_classify.response.types[i];
+            if (type.empty())
+                type = "unknown";
 
+            std::cout << rois[i].tl() << ": " << type << std::endl;
+
+            cv::putText(img_combined, type, rois[i].tl(), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
+        }
     }
 
     cv::imshow("Segmentation", img_combined);
-
-
     cv::waitKey();
 
     return 0;
