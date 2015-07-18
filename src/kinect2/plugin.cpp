@@ -640,7 +640,10 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
     {
         const ed::UUID& id = *it;
         if (update_req_->removed_entities.find(id) == update_req_->removed_entities.end())
+        {
             res.entity_ids.push_back(id.str());
+            update_req_->setFlag(id, "locked");   // Automatically lock entities that are snapshot segmented
+        }
     }
 
     return true;
