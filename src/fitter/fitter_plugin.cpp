@@ -235,6 +235,8 @@ void FitterPlugin::initialize(ed::InitData& init)
     ros::NodeHandle nh("~");
     nh.setCallbackQueue(&cb_queue_);
 
+    debug_viz_ = false;
+
     srv_fit_model_ = nh.advertiseService("gui/fit_model", &FitterPlugin::srvFitModel, this);
     srv_get_models_ = nh.advertiseService("gui/get_models", &FitterPlugin::srvGetModels, this);
     srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
@@ -443,8 +445,6 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     if (make_snapshot_)
     {
-        cv::imshow("Interesting", image->getDepthImage() / 10);
-
         ed::UUID snapshot_id = ed::Entity::generateID();
         Snapshot& snapshot = snapshots_[snapshot_id];
         snapshot.image = image;
@@ -466,37 +466,40 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Visualize
 
-    cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    DrawWorldVisualization(world, sensor_pose_xya, canvas);
-    DrawRanges(ranges,          cv::Scalar(0, 80, 0),  canvas);
-    DrawRanges(model_ranges,    cv::Scalar(0, 0, 255), canvas);
-    DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
-
-    // Draw segments
-    for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+    if (debug_viz_)
     {
-        const Segment& seg = *it;
-        geo::Vec2 p1 = beam_model_.CalculatePoint(seg.front(), ranges[seg.front()]);
-        geo::Vec2 p2 = beam_model_.CalculatePoint(seg.back(), ranges[seg.back()]);
+        cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
 
-        cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
-        cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
+        DrawWorldVisualization(world, sensor_pose_xya, canvas);
+        DrawRanges(ranges,          cv::Scalar(0, 80, 0),  canvas);
+        DrawRanges(model_ranges,    cv::Scalar(0, 0, 255), canvas);
+        DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
 
-        cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(0, 255, 255), 2);
+        // Draw segments
+        for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+        {
+            const Segment& seg = *it;
+            geo::Vec2 p1 = beam_model_.CalculatePoint(seg.front(), ranges[seg.front()]);
+            geo::Vec2 p2 = beam_model_.CalculatePoint(seg.back(), ranges[seg.back()]);
+
+            cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
+            cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
+
+            cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(0, 255, 255), 2);
+        }
+
+        // Draw points of interest
+        for(std::vector<geo::Vec2>::const_iterator it = pois_.begin(); it != pois_.end(); ++it)
+        {
+            geo::Vec2 p = sensor_pose_xya_2d.inverse() * (*it);
+            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+            cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
+        }
+
+        cv::imshow("rgbd beams", canvas);
+        cv::imshow("depth", image->getDepthImage() / 10);
+        cv::waitKey(3);
     }
-
-    // Draw points of interest
-    for(std::vector<geo::Vec2>::const_iterator it = pois_.begin(); it != pois_.end(); ++it)
-    {
-        geo::Vec2 p = sensor_pose_xya_2d.inverse() * (*it);
-        cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-        cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
-    }
-
-    cv::imshow("rgbd beams", canvas);
-    cv::imshow("depth", image->getDepthImage() / 10);
-    cv::waitKey(3);
 }
 
 // ----------------------------------------------------------------------------------------------------
