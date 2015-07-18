@@ -218,9 +218,25 @@ void FitterPlugin::initialize(ed::InitData& init)
                 continue;
             }
 
+            cv::Mat model_image;
+            std::string image_path;
+            if (config.value("image", image_path, tue::OPTIONAL))
+            {
+                model_image = cv::imread(image_path);
+
+                if (!model_image.data)
+                    ed::log::error() << "Could not load model image: '" << image_path << "'." << std::endl;
+            }
+
+            if (!model_image.data)
+            {
+                model_image = cv::Mat(200, 200, CV_8UC3, cv::Scalar(0, 0, 0));
+            }
+
             geo::ShapeConstPtr shape = it_shape->second;
 
             EntityRepresentation2D& model = models_[name];
+            model.model_image = model_image;
             dml::project2D(shape->getMesh(), model.shape_2d);
         }
 
@@ -906,12 +922,11 @@ bool FitterPlugin::srvGetModels(ed_sensor_integration::GetModels::Request& req, 
     for(std::map<std::string, EntityRepresentation2D>::const_iterator it = models_.begin(); it != models_.end(); ++it)
     {
         const std::string& model_name = it->first;
+        const EntityRepresentation2D& model = it->second;
+
         res.model_names[i] = model_name;
 
-        cv::Mat img(200, 200, CV_8UC3, cv::Scalar(100, 100, 100));
-        cv::putText(img, model_name, cv::Point(10, 30), cv::FONT_HERSHEY_PLAIN, 1.4, cv::Scalar(0, 0, 255), 2);
-
-        ImageToMsg(img, "jpg", res.model_images[i]);
+        ImageToMsg(model.model_image, "jpg", res.model_images[i]);
 
         ++i;
     }

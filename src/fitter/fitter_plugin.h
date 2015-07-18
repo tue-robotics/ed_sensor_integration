@@ -35,6 +35,7 @@ struct EntityRepresentation2D
 {
     unsigned int shape_revision;
     Shape2D shape_2d;
+    cv::Mat model_image;
 };
 
 // ----------------------------------------------------------------------------------------------------

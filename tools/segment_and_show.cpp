@@ -84,6 +84,28 @@ cv::Rect getBoundingRect(const cv::Mat& img)
 
 // ----------------------------------------------------------------------------------------------------
 
+void mouseCallback(int event, int x, int y, int flags, void* userdata)
+{
+    if  ( event == cv::EVENT_LBUTTONDOWN )
+    {
+        std::cout << x << std::endl;
+    }
+    else if  ( event == cv::EVENT_RBUTTONDOWN )
+    {
+        //          std::cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+    }
+    else if  ( event == cv::EVENT_MBUTTONDOWN )
+    {
+        //          std::cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+    }
+    else if ( event == cv::EVENT_MOUSEMOVE )
+    {
+//        mouse_pos = cv::Vec2i(x, y);
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "segment_and_show");
@@ -112,15 +134,17 @@ int main(int argc, char **argv)
 
     int i_color = 0;
     cv::Mat img_combined;
+
+    std::vector<std::string> ids;
     std::vector<cv::Rect> rois;
 
-    ed_perception::Classify srv_classify;
     for(std::vector<std::string>::const_iterator it = srv.response.entity_ids.begin(); it != srv.response.entity_ids.end(); ++it)
     {
         ed::UUID id = *it;
 
         ed_gui_server::GetEntityInfo srv;
         srv.request.id = id.str();
+        srv.request.measurement_image_border = 20;
 
         if (!cl_info.call(srv))
         {
@@ -151,13 +175,22 @@ int main(int argc, char **argv)
         cv::rectangle(img_combined, roi, colors[i_color], 2);
         i_color = (i_color + 1) % colors.size();
 
-        srv_classify.request.ids.push_back(id.str());
+        ids.push_back(id.str());
+
+        cv::Mat img_cropped = cv::imdecode(srv.response.measurement_image_unmasked, CV_LOAD_IMAGE_UNCHANGED);
+        cv::imshow(id.str(), img_cropped);
     }  
+
+    //Create a window
+    cv::namedWindow("Segmentation", 1);
 
     cv::imshow("Segmentation", img_combined);
     cv::waitKey();
 
     // Try to classify
+    ed_perception::Classify srv_classify;
+    srv_classify.request.ids = ids;
+
     if (!cl_perception.call(srv_classify))
     {
         std::cout << "Could not classify" << std::endl;
@@ -175,6 +208,9 @@ int main(int argc, char **argv)
             cv::putText(img_combined, type, rois[i].tl(), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
         }
     }
+
+    //set the callback function for any mouse event
+    cv::setMouseCallback("Segmentation", mouseCallback, NULL);
 
     cv::imshow("Segmentation", img_combined);
     cv::waitKey();
