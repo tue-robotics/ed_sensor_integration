@@ -221,7 +221,11 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
 
             id = e->id();
 
-            if (cluster.chull.complete)
+            if (e->hasFlag("locked"))
+            {
+                // Entity is locked, so don't update
+            }
+            else if (cluster.chull.complete)
             {
                 // Update the entity with the cluster convex hull (completely overriding the previous entity convex hull)
                 new_chull = cluster.chull;
@@ -597,7 +601,7 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
     rgbd::ImageConstPtr rgbd_image = kinect_client_.nextImage();
     if (!rgbd_image)
     {
-        ROS_WARN("[ED ROBOCUP] No RGBD image available");
+        ROS_WARN("[ED KINECT PLUGIN] No RGBD image available");
         return true;
     }
 
@@ -643,6 +647,7 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
         {
             res.entity_ids.push_back(id.str());
             update_req_->setFlag(id, "locked");   // Automatically lock entities that are snapshot segmented
+            update_req_->setExistenceProbability(id, 1.0);  // Set their existence prob to 1.0
         }
     }
 
