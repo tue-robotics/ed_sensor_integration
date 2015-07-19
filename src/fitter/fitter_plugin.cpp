@@ -251,13 +251,14 @@ void FitterPlugin::initialize(ed::InitData& init)
     ros::NodeHandle nh("~");
     nh.setCallbackQueue(&cb_queue_);
 
-    debug_viz_ = false;
-
     srv_fit_model_ = nh.advertiseService("gui/fit_model", &FitterPlugin::srvFitModel, this);
     srv_get_models_ = nh.advertiseService("gui/get_models", &FitterPlugin::srvGetModels, this);
     srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
     srv_make_snapshot_ = nh.advertiseService("make_snapshot", &FitterPlugin::srvMakeSnapshot, this);
     srv_get_pois_ = nh.advertiseService("get_pois", &FitterPlugin::srvGetPOIs, this);
+
+    // Visualization
+    debug_viz_.initialize("viz/fitter");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -517,7 +518,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Visualize
 
-    if (debug_viz_)
+    if (debug_viz_.enabled())
     {
         cv::Mat canvas(600, 600, CV_8UC3, cv::Scalar(0, 0, 0));
 
@@ -547,9 +548,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
         }
 
-        cv::imshow("rgbd beams", canvas);
-        cv::imshow("depth", image->getDepthImage() / 10);
-        cv::waitKey(3);
+        debug_viz_.publish(canvas);
     }
 }
 

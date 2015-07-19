@@ -26,7 +26,7 @@
 #include "ed_sensor_integration/MakeSnapshot.h"
 
 // Visualization
-#include <opencv2/core/core.hpp>
+#include <ed/helpers/image_publisher.h>
 
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
@@ -122,8 +122,7 @@ private:
 
     // Debug visualization
 
-    bool debug_viz_;
-
+    ed::ImagePublisher debug_viz_;
 
     // Communication
 
