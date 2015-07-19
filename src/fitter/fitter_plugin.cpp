@@ -495,7 +495,10 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         snapshot.image = image;
         snapshot.sensor_pose_xya = sensor_pose_xya;
         snapshot.sensor_pose_zrp = sensor_pose_zrp;
-        snapshot.canvas = image->getDepthImage();
+
+//        cv::resize(image->getRGBImage(), snapshot.original_image, cv::Size(1280, 960));
+
+        snapshot.canvas = image->getRGBImage();
 
         bool changed;
         DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, changed);

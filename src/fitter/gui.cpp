@@ -43,17 +43,14 @@ public:
 void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>& ids,
                            const std::set<ed::UUID>& updated_ids, Snapshot& snapshot, bool& changed)
 {
-    std::cout << "Snapshot update:" << std::endl;
-    std::cout << "    current items in view: " << snapshot.visualized_ids.size() << std::endl;
-
     geo::Pose3D sensor_pose = snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp;
 
-    const cv::Mat& depth = snapshot.image->getDepthImage();
+    const cv::Mat& original = snapshot.image->getRGBImage();
 
-    rgbd::View view(*snapshot.image, depth.cols);
+    rgbd::View view(*snapshot.image, original.cols);
 
-    cv::Mat depth_render(depth.rows, depth.cols, CV_32FC1, 0.0);
-    cv::Mat entity_index_map(depth.rows, depth.cols, CV_32SC1, cv::Scalar(-1));
+    cv::Mat depth_render(original.rows, original.cols, CV_32FC1, 0.0);
+    cv::Mat entity_index_map(original.rows, original.cols, CV_32SC1, cv::Scalar(-1));
 
     SimpleRenderResult res(depth_render, entity_index_map);
 
@@ -111,9 +108,7 @@ void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>
         return;
 
     // Convert depth image to rgb
-    snapshot.canvas = cv::Mat(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
-    for(unsigned int i = 0; i < depth.rows * depth.cols; ++i)
-        snapshot.canvas.at<cv::Vec3b>(i) = (depth.at<float>(i) / 10) * cv::Vec3b(255, 255, 255);
+    snapshot.canvas = original.clone();
 
     for(int y = 0; y < snapshot.canvas.rows - 1; ++y)
     {
