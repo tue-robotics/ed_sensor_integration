@@ -1,4 +1,5 @@
-uint32 revision
+uint32   revision
+string[] delete_ids
 ---
 ed_sensor_integration/ImageBinary[] images      # images
 string[]                            image_ids   # image ids
