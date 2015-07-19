@@ -459,7 +459,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             id = ed::Entity::generateID().str() + "-laser";
 
             // Update existence probability
-            req.setExistenceProbability(id, 0.2); // TODO magic number
+            req.setExistenceProbability(id, 1.0); // TODO magic number
         }
         else
         {

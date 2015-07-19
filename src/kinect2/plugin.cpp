@@ -208,7 +208,7 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
             id = ed::Entity::generateID();
 
             // Update existence probability
-            req.setExistenceProbability(id, 0.2); // TODO magic number
+            req.setExistenceProbability(id, 1.0); // TODO magic number
         }
         else
         {
