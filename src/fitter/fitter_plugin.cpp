@@ -908,7 +908,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     if (req.undo_latest_fit)
     {
         if (fitted_entity_ids_stack_.empty())
-            return true;
+            return true;        
 
         ed::UUID undo_id = fitted_entity_ids_stack_.back();
 
@@ -985,6 +985,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
 
     need_snapshot_update_ = true;  // Indicates that on next plugin cycle the snapshots need to be updated
     fitted_entity_ids_.insert(new_id);
+    fitted_entity_ids_stack_.push_back(new_id);
 
     return true;
 }
@@ -1025,6 +1026,7 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
     // Remove snapshots that are no longer needed
     for(std::vector<std::string>::const_iterator it = req.delete_ids.begin(); it != req.delete_ids.end(); ++it)
     {
+        std::cout << "ERASE : " << *it << std::endl;
         snapshots_.erase(*it);
     }
 

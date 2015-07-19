@@ -77,6 +77,10 @@ void DrawWorldModelOverlay(const rgbd::Image& image, const geo::Pose3D& sensor_p
             changed = true;
     }
 
+    if (ids.empty())     // Simple hack to ensure that if there are no fitted entities left,
+                         // images are still updated. (TODO: nicer fix)
+        changed = true;
+
     if (!changed)
         return;
 
