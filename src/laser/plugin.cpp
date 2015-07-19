@@ -496,8 +496,11 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 //            // And calculate the convex hull of these points
 //            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
 
-            new_chull = cluster.chull;
-            new_pose = cluster.pose;
+            if (!e->hasFlag("locked"))
+            {
+                new_chull = cluster.chull;
+                new_pose = cluster.pose;
+            }
 
             // Update existence probability
             double p_exist = e->existenceProbability();
