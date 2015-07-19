@@ -745,6 +745,25 @@ void FitterPlugin::DrawRanges(const std::vector<double>& ranges, const cv::Scala
 
 bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res)
 {
+    // Only called if 'undo latest fit' is requested
+    if (req.undo_latest_fit)
+    {
+        if (fitted_entity_ids_stack_.empty())
+            return true;
+
+        ed::UUID undo_id = fitted_entity_ids_stack_.back();
+
+        fitted_entity_ids_.erase(undo_id);
+        update_request_->removeEntity(undo_id);
+
+        // Snapshots need to be redrawn
+        need_snapshot_update_ = true;
+
+        fitted_entity_ids_stack_.pop_back();
+
+        return true;
+    }
+
     std::map<ed::UUID, Snapshot>::const_iterator it_image = snapshots_.find(req.image_id);
     if (it_image == snapshots_.end())
     {

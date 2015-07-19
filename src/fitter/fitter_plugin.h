@@ -129,6 +129,8 @@ private:
 
     std::set<ed::UUID> fitted_entity_ids_;
 
+    std::vector<ed::UUID> fitted_entity_ids_stack_;   // Can be used to undo fitting
+
 
     // Debug visualization
 

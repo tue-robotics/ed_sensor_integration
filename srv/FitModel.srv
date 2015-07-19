@@ -1,3 +1,7 @@
+# Set to true if you simple want to undo the latest fit
+# (other fields do not need to be set)
+bool undo_latest_fit
+
 # Name of the model to be fitted
 string model_name
 
