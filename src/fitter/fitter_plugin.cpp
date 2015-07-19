@@ -371,17 +371,46 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         fitted_entities_errors[i_entity] += err;
     }
 
+    // -------------------------------------
+    // Re-fit incorrect positioned objects
+
     for(unsigned int i = 0; i < fitted_entities.size(); ++i)
     {
         const ed::EntityConstPtr& e = fitted_entities[i];
-        std::cout << "ERROR for " << e->id() << ": ";
+
+        // Calculate 2d entity pose in sensor frame
+        geo::Pose3D e_pose_xya;
+        geo::Pose3D e_pose_zrp;
+        decomposePose(e->pose(), e_pose_xya, e_pose_zrp);
+        geo::Transform2 e_pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(e_pose_xya);
+
+        double dist_to_entity = e_pose_2d_SENSOR.t.length();
+        if (dist_to_entity > 4 || dist_to_entity < 1.5) // TODO: hard-coded value
+            continue;
 
         int n = fitted_entities_num_beams[i];
-        if (n < 30)
-            std::cout << "not in view" << std::endl;
-        else
-            std::cout << fitted_entities_errors[i] / n << std::endl;
+        double err = fitted_entities_errors[i] / n;
+
+        if (n < 30 || err < 0.1)   // TODO: hard-coded
+            continue;  // Error not big or entity not fully in view, so don't update it
+
+        const EntityRepresentation2D* model = GetOrCreateEntity2D(e);
+
+        int i_beam = beam_model_.CalculateBeam(e_pose_2d_SENSOR.t.x, e_pose_2d_SENSOR.t.y);
+        if (i_beam < 0 || i_beam >= ranges.size())
+            continue;
+
+        int beam_search_window = 100; // TODO: hard-coded
+
+        geo::Pose3D new_pose;
+        FitEntity(e->id(), i_beam, beam_search_window, model->shape_2d, ranges, sensor_pose_xya, new_pose);
+
+        update_request_->setPose(e->id(), new_pose);
+
+        need_snapshot_update_ = true;
     }
+
+    // TODO: re-render world model with re-fitted objects (for better background filter)
 
     // -------------------------------------
     // Filter background
@@ -581,6 +610,136 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
     image = rgbd_image;
 
     return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int beam_window, const Shape2D& shape2d,
+               const std::vector<double>& sensor_ranges, const geo::Pose3D& sensor_pose_xya,
+               geo::Pose3D& expected_pose)
+{
+    // -------------------------------------
+    // Render world model objects
+
+    std::vector<double> model_ranges(sensor_ranges.size(), 0);
+    std::vector<int> dummy_identifiers(sensor_ranges.size(), -1);
+    for(ed::WorldModel::const_iterator it = world_model_->begin(); it != world_model_->end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (e->id() == id) // Skip entity id that needs to be fitted
+            continue;
+
+        RenderEntity(e, sensor_pose_xya, -1, model_ranges, dummy_identifiers);
+    }
+
+    // -------------------------------------
+    // Fit
+
+    double min_error = 1e9;
+    std::vector<double> best_model_ranges;
+    geo::Transform2 best_pose;
+
+    for(int i = 0; i < 2 * beam_window; ++i)
+    {
+        // Calculate beam: start at 'expected_center_beam' and go left and right increasingly
+        int i_beam = expected_center_beam + (i % 2 == 0 ? -1 : 1) * (i / 2);
+        if (i_beam < 0 || i_beam >= sensor_ranges.size())
+            continue;
+
+        double l = beam_model_.rays()[i_beam].length();
+        geo::Vec2 r = beam_model_.rays()[i_beam] / l;
+
+        for(double alpha = 0; alpha < 3.1415 * 2; alpha += 0.1)
+        {
+            // ----------------
+            // Calculate rotation
+
+            double cos_alpha = cos(alpha);
+            double sin_alpha = sin(alpha);
+            geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
+            geo::Transform2 pose(rot, r * 10);
+
+            // ----------------
+            // Determine initial pose based on measured range
+
+            std::vector<double> test_ranges(sensor_ranges.size(), 0);
+            beam_model_.RenderModel(shape2d, pose, 0, test_ranges, dummy_identifiers);
+
+            double ds = sensor_ranges[i_beam];
+            double dm = test_ranges[i_beam];
+
+            if (ds <= 0 || dm <= 0)
+                continue;
+
+            pose.t += r * ((ds - dm) * l);
+
+            // ----------------
+            // Render model
+
+            test_ranges = model_ranges;
+            beam_model_.RenderModel(shape2d, pose, 0, test_ranges, dummy_identifiers);
+
+            // ----------------
+            // Calculate error
+
+            int n = 0;
+            double total_error = 0;
+            for(unsigned int i = 0; i < test_ranges.size(); ++i)
+            {
+                double ds = sensor_ranges[i];
+                double dm = test_ranges[i];
+
+                if (ds <= 0)
+                    continue;
+
+                ++n;
+
+                if (dm <= 0)
+                {
+                    total_error += 0.1;
+                    continue;
+                }
+
+                double diff = std::abs(ds - dm);
+                if (diff < 0.1)
+                    total_error += diff;
+                else
+                {
+                    if (ds > dm)
+                        total_error += 1;
+                    else
+                        total_error += 0.1;
+                }
+            }
+
+            double error = total_error / n;
+
+            if (error < min_error)
+            {
+                best_model_ranges = test_ranges;
+                best_pose = pose;
+                min_error = error;
+            }
+        }
+    }
+
+    std::cout << "Found a pose: " << best_pose << std::endl;
+
+    // Convert to 3D Pose
+
+    geo::Pose3D pose_3d;
+    pose_3d.t = geo::Vec3(best_pose.t.x, best_pose.t.y, 0);
+    pose_3d.R = geo::Mat3::identity();
+    pose_3d.R.xx = best_pose.R.xx;
+    pose_3d.R.xy = best_pose.R.xy;
+    pose_3d.R.yx = best_pose.R.yx;
+    pose_3d.R.yy = best_pose.R.yy;
+
+    std::cout << "   3D: " << pose_3d << std::endl;
+
+    expected_pose = sensor_pose_xya * pose_3d;
+
+    std::cout << "    Map: " << expected_pose << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -788,116 +947,12 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     CalculateRanges(*snapshot.image, snapshot.sensor_pose_zrp, ranges);
 
     // -------------------------------------
-    // Render world model objects
-
-    std::vector<double> model_ranges(ranges.size(), 0);
-    std::vector<int> dummy_identifiers(ranges.size(), -1);
-    for(ed::WorldModel::const_iterator it = world_model_->begin(); it != world_model_->end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
-        RenderEntity(e, snapshot.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
-    }
+    // Determine beam number corresponding to click location in image
+    int i_click_beam = ranges.size() / 2; // TODO
 
     // -------------------------------------
-    // Fit
+    // Determine new, unique ID
 
-//    // Calculate beam number corresponding to click location in image
-//    rgbd::View view(*snapshot.image, snapshot.image->getRGBImage().cols);
-//    geo::Vec3 click_ray = view.getRasterizer().project2Dto3D(req.click_x, req.click_y);
-//    geo::Vec3 p_aligned = snapshot.sensor_pose_zrp * click_ray;
-//    int i_click_beam = beam_model_.CalculateBeam(p_aligned.x, p_aligned.y);
-
-//    std::cout << "BEAM: " << i_click_beam << std::endl;
-
-    double min_error = 1e9;
-    std::vector<double> best_model_ranges;
-    geo::Transform2 best_pose;
-
-    for(int i_beam = 0; i_beam < ranges.size(); ++i_beam)
-    {
-        double l = beam_model_.rays()[i_beam].length();
-        geo::Vec2 r = beam_model_.rays()[i_beam] / l;
-
-        for(double alpha = 0; alpha < 3.1415 * 2; alpha += 0.1)
-        {
-            // ----------------
-            // Calculate rotation
-
-            double cos_alpha = cos(alpha);
-            double sin_alpha = sin(alpha);
-            geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
-            geo::Transform2 pose(rot, r * 10);
-
-            // ----------------
-            // Determine initial pose based on measured range
-
-            std::vector<double> test_ranges(ranges.size(), 0);
-            beam_model_.RenderModel(model.shape_2d, pose, 0, test_ranges, dummy_identifiers);
-
-            double ds = ranges[i_beam];
-            double dm = test_ranges[i_beam];
-
-            if (ds <= 0 || dm <= 0)
-                continue;
-
-            pose.t += r * ((ds - dm) * l);
-
-            // ----------------
-            // Render model
-
-            test_ranges = model_ranges;
-            beam_model_.RenderModel(model.shape_2d, pose, 0, test_ranges, dummy_identifiers);
-
-            // ----------------
-            // Calculate error
-
-            int n = 0;
-            double total_error = 0;
-            for(unsigned int i = 0; i < test_ranges.size(); ++i)
-            {
-                double ds = ranges[i];
-                double dm = test_ranges[i];
-
-                if (ds <= 0)
-                    continue;
-
-                ++n;
-
-                if (dm <= 0)
-                {
-                    total_error += 0.1;
-                    continue;
-                }
-
-                double diff = std::abs(ds - dm);
-                if (diff < 0.1)
-                    total_error += diff;
-                else
-                {
-                    if (ds > dm)
-                        total_error += 1;
-                    else
-                        total_error += 0.1;
-                }
-            }
-
-            double error = total_error / n;
-
-            if (error < min_error)
-            {
-                best_model_ranges = test_ranges;
-                best_pose = pose;
-                min_error = error;
-            }
-        }
-    }
-
-    std::cout << "Found a pose: " << best_pose << std::endl;
-
-    // -------------------------------------
-    // Add entity
-
-    // Determine ID
     ed::UUID new_id;
     for(unsigned int i = 0; true; ++i)
     {
@@ -909,18 +964,22 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
             break;
     }
 
+    // -------------------------------------
+    // Fit
+
+    geo::Pose3D expected_pose;
+    FitEntity(new_id, i_click_beam, ranges.size() / 2, model.shape_2d, ranges, snapshot.sensor_pose_xya, expected_pose);
+
+    // -------------------------------------
+    // Add entity
+
+    // Create entity from model name
     std::stringstream error;
     model_loader_.create(new_id, req.model_name, *update_request_, error);
 
-    geo::Pose3D pose_3d;
-    pose_3d.t = geo::Vec3(best_pose.t.x, best_pose.t.y, 0);
-    pose_3d.R = geo::Mat3::identity();
-    pose_3d.R.xx = best_pose.R.xx;
-    pose_3d.R.xy = best_pose.R.xy;
-    pose_3d.R.yx = best_pose.R.yx;
-    pose_3d.R.yy = best_pose.R.yy;
+    std::cout << "Setting " << new_id << "(type: " << req.model_name << ") to " << expected_pose << std::endl;
 
-    update_request_->setPose(new_id, snapshot.sensor_pose_xya * pose_3d);
+    update_request_->setPose(new_id, expected_pose);
     update_request_->setType(new_id, req.model_name);
     update_request_->setFlag(new_id, "furniture");
 
