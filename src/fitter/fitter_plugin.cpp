@@ -1066,6 +1066,16 @@ bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request&
 
 bool FitterPlugin::srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_sensor_integration::GetPOIs::Response& res)
 {
+    if (req.reset_pois)
+    {
+        pois_.clear();
+        snapshots_.clear();
+        changed_entity_ids_.clear();
+        fitted_entity_ids_.clear();
+        fitted_entity_ids_stack_.clear();
+        return true;
+    }
+
     res.pois.resize(pois_.size());
     for(unsigned int i = 0; i < pois_.size(); ++i)
     {

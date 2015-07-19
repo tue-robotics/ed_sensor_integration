@@ -124,6 +124,7 @@ private:
 
     ed::ImagePublisher debug_viz_;
 
+
     // Communication
 
     ros::CallbackQueue cb_queue_;
