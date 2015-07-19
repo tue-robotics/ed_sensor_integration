@@ -1019,17 +1019,17 @@ bool FitterPlugin::srvGetModels(ed_sensor_integration::GetModels::Request& req, 
 
 bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res)
 {
-    if (req.revision >= revision_)
-    {
-        res.new_revision = revision_;
-        return true;
-    }
-
     // Remove snapshots that are no longer needed
     for(std::vector<std::string>::const_iterator it = req.delete_ids.begin(); it != req.delete_ids.end(); ++it)
     {
         std::cout << "ERASE : " << *it << std::endl;
         snapshots_.erase(*it);
+    }
+
+    if (req.revision >= revision_)
+    {
+        res.new_revision = revision_;
+        return true;
     }
 
     for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
