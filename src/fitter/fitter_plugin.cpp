@@ -167,7 +167,7 @@ void segment(const std::vector<double>& ranges, const BeamModel& beam_model, dou
 
 // ----------------------------------------------------------------------------------------------------
 
-FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0), need_snapshot_update_(false)
+FitterPlugin::FitterPlugin() : tf_listener_(0), revision_(0)
 {
 }
 
@@ -272,7 +272,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Update snapshots if needed
 
-    if (need_snapshot_update_)
+    if (!changed_entity_ids_.empty())
         updateSnapshots();
 
     // -------------------------------------
@@ -407,7 +407,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
         update_request_->setPose(e->id(), new_pose);
 
-        need_snapshot_update_ = true;
+        changed_entity_ids_.insert(e->id());
     }
 
     // TODO: re-render world model with re-fitted objects (for better background filter)
@@ -496,6 +496,9 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         snapshot.sensor_pose_xya = sensor_pose_xya;
         snapshot.sensor_pose_zrp = sensor_pose_zrp;
         snapshot.canvas = image->getDepthImage();
+
+        bool changed;
+        DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, changed);
 
         ++revision_;
         snapshot.revision = revision_;
@@ -830,8 +833,7 @@ void FitterPlugin::updateSnapshots()
         Snapshot& snapshot = it->second;
 
         bool changed;
-        DrawWorldModelOverlay(*snapshot.image, snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp,
-                              *world_model_, fitted_entity_ids_, snapshot.canvas, changed);
+        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, changed);
 
         if (changed)
         {
@@ -840,7 +842,7 @@ void FitterPlugin::updateSnapshots()
         }
     }
 
-    need_snapshot_update_ = false;
+    changed_entity_ids_.clear();
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -908,7 +910,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     if (req.undo_latest_fit)
     {
         if (fitted_entity_ids_stack_.empty())
-            return true;        
+            return true;
 
         ed::UUID undo_id = fitted_entity_ids_stack_.back();
 
@@ -916,7 +918,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
         update_request_->removeEntity(undo_id);
 
         // Snapshots need to be redrawn
-        need_snapshot_update_ = true;
+        changed_entity_ids_.insert(undo_id);
 
         fitted_entity_ids_stack_.pop_back();
 
@@ -983,7 +985,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     update_request_->setType(new_id, req.model_name);
     update_request_->setFlag(new_id, "furniture");
 
-    need_snapshot_update_ = true;  // Indicates that on next plugin cycle the snapshots need to be updated
+    changed_entity_ids_.insert(new_id);  // Indicates that on next plugin cycle the snapshots need to be updated
     fitted_entity_ids_.insert(new_id);
     fitted_entity_ids_stack_.push_back(new_id);
 

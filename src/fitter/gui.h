@@ -6,7 +6,9 @@
 #include <geolib/datatypes.h>
 #include <opencv2/core/core.hpp>
 
-void DrawWorldModelOverlay(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const ed::WorldModel& world,
-                           const std::set<ed::UUID>& ids, cv::Mat& canvas, bool& changed);
+#include "snapshot.h"
+
+void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>& ids,
+                           const std::set<ed::UUID>& updated_ids, Snapshot& snapshot, bool& changed);
 
 #endif

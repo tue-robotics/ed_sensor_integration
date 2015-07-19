@@ -40,12 +40,17 @@ public:
 
 // ----------------------------------------------------------------------------------------------------
 
-void DrawWorldModelOverlay(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const ed::WorldModel& world,
-                           const std::set<ed::UUID>& ids, cv::Mat& canvas, bool& changed)
+void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>& ids,
+                           const std::set<ed::UUID>& updated_ids, Snapshot& snapshot, bool& changed)
 {
-    const cv::Mat& depth = image.getDepthImage();
+    std::cout << "Snapshot update:" << std::endl;
+    std::cout << "    current items in view: " << snapshot.visualized_ids.size() << std::endl;
 
-    rgbd::View view(image, depth.cols);
+    geo::Pose3D sensor_pose = snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp;
+
+    const cv::Mat& depth = snapshot.image->getDepthImage();
+
+    rgbd::View view(*snapshot.image, depth.cols);
 
     cv::Mat depth_render(depth.rows, depth.cols, CV_32FC1, 0.0);
     cv::Mat entity_index_map(depth.rows, depth.cols, CV_32SC1, cv::Scalar(-1));
@@ -73,25 +78,46 @@ void DrawWorldModelOverlay(const rgbd::Image& image, const geo::Pose3D& sensor_p
         res.in_view = false;
         view.getRasterizer().render(opt, res);
 
-        if (res.i_entity >= 0 && res.in_view)
-            changed = true;
+        if (res.i_entity >= 0)
+        {
+            // If the entity is in view, and the position was updated, the image changed
+            if (res.in_view && updated_ids.find(e->id()) != updated_ids.end())
+            {
+                snapshot.visualized_ids.insert(e->id());
+                changed = true;
+            }
+
+            // If the entity is not in view, but is was, the image also changed
+            if (!res.in_view && snapshot.visualized_ids.find(e->id()) != snapshot.visualized_ids.end())
+            {
+                snapshot.visualized_ids.erase(e->id());
+                changed = true;
+            }
+        }
     }
 
-    if (ids.empty())     // Simple hack to ensure that if there are no fitted entities left,
-                         // images are still updated. (TODO: nicer fix)
-        changed = true;
+    // Check if there were entities in the snapshot that are now removed
+    for(std::set<ed::UUID>::const_iterator it = updated_ids.begin(); it != updated_ids.end(); ++it)
+    {
+        const ed::UUID& id = *it;
+        if (snapshot.visualized_ids.find(id) != snapshot.visualized_ids.end() && !world.getEntity(id))
+        {
+            // Entity was removed from view, so it changed
+            changed = true;
+        }
+    }
 
     if (!changed)
         return;
 
     // Convert depth image to rgb
-    canvas = cv::Mat(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+    snapshot.canvas = cv::Mat(depth.rows, depth.cols, CV_8UC3, cv::Scalar(0, 0, 0));
     for(unsigned int i = 0; i < depth.rows * depth.cols; ++i)
-        canvas.at<cv::Vec3b>(i) = (depth.at<float>(i) / 10) * cv::Vec3b(255, 255, 255);
+        snapshot.canvas.at<cv::Vec3b>(i) = (depth.at<float>(i) / 10) * cv::Vec3b(255, 255, 255);
 
-    for(int y = 0; y < canvas.rows - 1; ++y)
+    for(int y = 0; y < snapshot.canvas.rows - 1; ++y)
     {
-        for(int x = 0; x < canvas.cols - 1; ++x)
+        for(int x = 0; x < snapshot.canvas.cols - 1; ++x)
         {
             int i1 = entity_index_map.at<int>(y, x);
             int i2 = entity_index_map.at<int>(y, x + 1);
@@ -100,12 +126,12 @@ void DrawWorldModelOverlay(const rgbd::Image& image, const geo::Pose3D& sensor_p
             if (i1 != i2 || i1 != i3)
             {
                 // Entity edge
-                canvas.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 255);
+                snapshot.canvas.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 255);
             }
             else if (i1 >= 0)
             {
                 // Entity surface
-                cv::Vec3b& c = canvas.at<cv::Vec3b>(y, x);
+                cv::Vec3b& c = snapshot.canvas.at<cv::Vec3b>(y, x);
                 c[0] = std::min(255, 2 * c[0]);
                 c[1] = 100;
                 c[2] = 100;

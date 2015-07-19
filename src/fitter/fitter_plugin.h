@@ -13,6 +13,7 @@
 
 // Fitting
 #include "beam_model.h"
+#include "snapshot.h"
 
 // Model loading
 #include <ed/models/model_loader.h>
@@ -36,19 +37,6 @@ struct EntityRepresentation2D
     unsigned int shape_revision;
     Shape2D shape_2d;
     cv::Mat model_image;
-};
-
-// ----------------------------------------------------------------------------------------------------
-
-struct Snapshot
-{
-    Snapshot() : revision(0) {}
-
-    rgbd::ImageConstPtr image;      // original camera image
-    geo::Pose3D sensor_pose_xya;
-    geo::Pose3D sensor_pose_zrp;
-    cv::Mat canvas;                 // camera image including visualizations
-    unsigned int revision;
 };
 
 // ----------------------------------------------------------------------------------------------------
@@ -123,7 +111,7 @@ private:
 
     // Snapshot visualization
 
-    bool need_snapshot_update_;
+    std::set<ed::UUID> changed_entity_ids_;
 
     void updateSnapshots();
 

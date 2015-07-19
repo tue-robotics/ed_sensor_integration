@@ -167,6 +167,7 @@ add_library(ed_fitter_plugin
     src/fitter/beam_model.h
     src/fitter/gui.cpp
     src/fitter/gui.h
+    src/fitter/snapshot.h
 )
 add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
 
