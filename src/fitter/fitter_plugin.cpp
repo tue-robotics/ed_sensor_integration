@@ -944,6 +944,12 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
         return true;
     }
 
+    // Remove snapshots that are no longer needed
+    for(std::vector<std::string>::const_iterator it = req.delete_ids.begin(); it != req.delete_ids.end(); ++it)
+    {
+        snapshots_.erase(*it);
+    }
+
     for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
     {
         const Snapshot& snapshot = it->second;
