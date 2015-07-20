@@ -83,7 +83,7 @@ private:
     void RenderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
                       std::vector<double>& model_ranges, std::vector<int>& identifiers);
 
-    void FitEntity(const ed::UUID& id, int expected_center_beam, int beam_window, const Shape2D& shape2d,
+    bool FitEntity(const ed::UUID& id, int expected_center_beam, int beam_window, const Shape2D& shape2d,
                    const std::vector<double>& sensor_ranges, const geo::Pose3D& sensor_pose_xya,
                    geo::Pose3D& expected_pose);
 
