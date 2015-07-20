@@ -1129,10 +1129,6 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
             bool changed;
             DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, fitted_entity_ids_, current_image, changed);
 
-            res.images.push_back(ed_sensor_integration::ImageBinary());
-            ed_sensor_integration::ImageBinary& img_msg = res.images.back();
-            ImageToMsg(current_image.canvas, "jpg", img_msg);
-
             last_image_update_ = time;
 
             ++revision_;
