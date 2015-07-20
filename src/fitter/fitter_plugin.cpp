@@ -340,6 +340,9 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             {
                 identifier = entities_to_check.size();
                 entities_to_check.push_back(e);
+
+                // Just for now (Hack!)
+                update_request_->removeFlag(e->id(), "dynamic");
             }
 
             RenderEntity(e, sensor_pose_xya, identifier, model_ranges, rendered_indices);
@@ -421,11 +424,8 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             int beam_search_window = 100; // TODO: hard-coded
 
             geo::Pose3D new_pose;
-            if (FitEntity(e->id(), i_beam, beam_search_window, model->shape_2d, ranges, sensor_pose_xya, new_pose))
+            if (FitEntity(e->id(), i_beam, beam_search_window, model->shape_2d, ranges, sensor_pose_xya, new_pose, false))
             {
-                // TODO: now we assume that the object MUST appear in the 'i_beam'th beam. This does not have to be
-                // the case if the object has moved far
-
                 update_request_->setPose(e->id(), new_pose);
                 changed_entity_ids_.insert(e->id());
             }
@@ -643,7 +643,7 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
 
 bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int beam_window, const Shape2D& shape2d,
                const std::vector<double>& sensor_ranges, const geo::Pose3D& sensor_pose_xya,
-               geo::Pose3D& expected_pose)
+               geo::Pose3D& expected_pose, bool snap_to_expected_beam)
 {
     // -------------------------------------
     // Render world model objects
@@ -708,7 +708,7 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
             std::vector<int> identifiers(sensor_ranges.size(), 0);
             beam_model_.RenderModel(shape2d, pose, 1, test_ranges, identifiers);
 
-            if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+            if (snap_to_expected_beam && identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
                 continue;
 
             // ----------------
