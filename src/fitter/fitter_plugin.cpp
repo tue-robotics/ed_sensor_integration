@@ -330,8 +330,8 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             int identifier = -1;
             if (e->hasFlag("dynamic"))
             {
-                entities_to_check.push_back(e);
                 identifier = entities_to_check.size();
+                entities_to_check.push_back(e);
             }
 
             RenderEntity(e, sensor_pose_xya, identifier, model_ranges, rendered_indices);
@@ -353,7 +353,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
                 continue;
 
             int i_entity = rendered_indices[i];
-            if (i_entity != i) // Does not belong to fitted entity
+            if (i_entity < 0) // Does not belong to any fitted entity
                 continue;
 
             ++fitted_entities_num_beams[i_entity];
@@ -396,7 +396,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             int n = fitted_entities_num_beams[i];
             double err = fitted_entities_errors[i] / n;
 
-            std::cout << "Checking " << e->id() << ": distance = " << dist_to_entity << ", num_beams = " << n << ", error = " << err << std::endl;
+//            std::cout << "Checking " << e->id() << ": distance = " << dist_to_entity << ", num_beams = " << n << ", error = " << err << std::endl;
 
             if (dist_to_entity > 4 || dist_to_entity < 1.5) // TODO: hard-coded value
                 continue;
