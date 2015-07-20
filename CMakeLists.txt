@@ -32,6 +32,7 @@ add_service_files(
   GetSnapshots.srv
   GetPOIs.srv
   MakeSnapshot.srv
+  NavigateTo.srv
 )
 
 # Generate added messages and services with any dependencies listed here

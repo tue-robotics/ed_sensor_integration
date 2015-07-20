@@ -24,6 +24,7 @@
 #include "ed_sensor_integration/GetSnapshots.h"
 #include "ed_sensor_integration/GetPOIs.h"
 #include "ed_sensor_integration/MakeSnapshot.h"
+#include "ed_sensor_integration/NavigateTo.h"
 
 // Visualization
 #include <ed/helpers/image_publisher.h>
@@ -156,6 +157,10 @@ private:
     ros::ServiceServer srv_get_pois_;
 
     bool srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_sensor_integration::GetPOIs::Response& res);
+
+    ros::ServiceServer srv_navigate_to_;
+
+    bool srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req, ed_sensor_integration::NavigateTo::Response& res);
 
     // Visualization
 

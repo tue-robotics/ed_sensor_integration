@@ -256,6 +256,7 @@ void FitterPlugin::initialize(ed::InitData& init)
     srv_get_snapshots_ = nh.advertiseService("gui/get_snapshots", &FitterPlugin::srvGetSnapshots, this);
     srv_make_snapshot_ = nh.advertiseService("make_snapshot", &FitterPlugin::srvMakeSnapshot, this);
     srv_get_pois_ = nh.advertiseService("get_pois", &FitterPlugin::srvGetPOIs, this);
+    srv_navigate_to_ = nh.advertiseService("navigate_to", &FitterPlugin::srvNavigateTo, this);
 
     // Visualization
     debug_viz_.initialize("viz/fitter");
@@ -426,78 +427,78 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         // TODO: re-render world model with re-fitted objects (for better background filter)
     }
 
-    // -------------------------------------
-    // Filter background
+//    // -------------------------------------
+//    // Filter background
 
-    std::vector<geo::Vec2> sensor_points;
-    beam_model_.CalculatePoints(ranges, sensor_points);
+//    std::vector<geo::Vec2> sensor_points;
+//    beam_model_.CalculatePoints(ranges, sensor_points);
 
-    std::vector<geo::Vec2> model_points;
-    beam_model_.CalculatePoints(model_ranges, model_points);
+//    std::vector<geo::Vec2> model_points;
+//    beam_model_.CalculatePoints(model_ranges, model_points);
 
-    std::vector<double> filtered_ranges(ranges.size(), 0);
+//    std::vector<double> filtered_ranges(ranges.size(), 0);
 
-    double max_corr_dist = 0.1;
-    double max_corr_dist_sq = max_corr_dist * max_corr_dist;
-    for(unsigned int i = 0; i < ranges.size(); ++i)
-    {
-        double ds = ranges[i];
-        double dm = model_ranges[i];
+//    double max_corr_dist = 0.1;
+//    double max_corr_dist_sq = max_corr_dist * max_corr_dist;
+//    for(unsigned int i = 0; i < ranges.size(); ++i)
+//    {
+//        double ds = ranges[i];
+//        double dm = model_ranges[i];
 
-        if (ds <= 0)
-            continue;
+//        if (ds <= 0)
+//            continue;
 
-        if (ds > dm - max_corr_dist)
-            continue;
+//        if (ds > dm - max_corr_dist)
+//            continue;
 
-        const geo::Vec2& ps = sensor_points[i];
+//        const geo::Vec2& ps = sensor_points[i];
 
-        // Find the beam window in which possible corresponding points may be situated
-        // NOTE: this is an approximation: it underestimates the window size. TODO: fix
-        int i_min = std::max(0, beam_model_.CalculateBeam(ps.x - max_corr_dist, ps.y));
-        int i_max = std::min(beam_model_.CalculateBeam(ps.x + max_corr_dist, ps.y), (int)ranges.size() - 1);
+//        // Find the beam window in which possible corresponding points may be situated
+//        // NOTE: this is an approximation: it underestimates the window size. TODO: fix
+//        int i_min = std::max(0, beam_model_.CalculateBeam(ps.x - max_corr_dist, ps.y));
+//        int i_max = std::min(beam_model_.CalculateBeam(ps.x + max_corr_dist, ps.y), (int)ranges.size() - 1);
 
-        // check neighboring points and see if they are within max_corr_dist distance from 'ps'
-        bool corresponds = false;
-        for(unsigned int j = i_min; j < i_max; ++j)
-        {
-            const geo::Vec2& pm = model_points[j];
-            if (pm.x == pm.x && (ps - pm).length2() < max_corr_dist_sq)
-            {
-                corresponds = true;
-                break;
-            }
-        }
+//        // check neighboring points and see if they are within max_corr_dist distance from 'ps'
+//        bool corresponds = false;
+//        for(unsigned int j = i_min; j < i_max; ++j)
+//        {
+//            const geo::Vec2& pm = model_points[j];
+//            if (pm.x == pm.x && (ps - pm).length2() < max_corr_dist_sq)
+//            {
+//                corresponds = true;
+//                break;
+//            }
+//        }
 
-        if (!corresponds)
-            filtered_ranges[i] = ds;
-    }
+//        if (!corresponds)
+//            filtered_ranges[i] = ds;
+//    }
 
-    // -------------------------------------
-    // Determine points of interest
+//    // -------------------------------------
+//    // Determine points of interest
 
-    std::vector<Segment> segments;
-    segment(filtered_ranges, beam_model_, 0.2, 3, 0.3, segments);
+//    std::vector<Segment> segments;
+//    segment(filtered_ranges, beam_model_, 0.2, 3, 0.3, segments);
 
-    for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
-    {
-        const Segment& seg = *it;
-        int i_center = seg[seg.size() / 2];
-        geo::Vec2 poi_MAP = sensor_pose_xya_2d * beam_model_.CalculatePoint(i_center, ranges[i_center]);
+//    for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+//    {
+//        const Segment& seg = *it;
+//        int i_center = seg[seg.size() / 2];
+//        geo::Vec2 poi_MAP = sensor_pose_xya_2d * beam_model_.CalculatePoint(i_center, ranges[i_center]);
 
-        bool poi_exists = false;
-        for(std::vector<geo::Vec2>::const_iterator it_poi = pois_.begin(); it_poi != pois_.end(); ++it_poi)
-        {
-            if ((poi_MAP - *it_poi).length2() < min_poi_distance_ * min_poi_distance_)
-            {
-                poi_exists = true;
-                break;
-            }
-        }
+//        bool poi_exists = false;
+//        for(std::vector<geo::Vec2>::const_iterator it_poi = pois_.begin(); it_poi != pois_.end(); ++it_poi)
+//        {
+//            if ((poi_MAP - *it_poi).length2() < min_poi_distance_ * min_poi_distance_)
+//            {
+//                poi_exists = true;
+//                break;
+//            }
+//        }
 
-        if (!poi_exists)
-            pois_.push_back(poi_MAP);
-    }
+//        if (!poi_exists)
+//            pois_.push_back(poi_MAP);
+//    }
 
     // -------------------------------------
     // Make snapshot (if requested)
@@ -539,28 +540,28 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         DrawWorldVisualization(world, sensor_pose_xya, canvas);
         DrawRanges(ranges,          cv::Scalar(0, 80, 0),  canvas);
         DrawRanges(model_ranges,    cv::Scalar(0, 0, 255), canvas);
-        DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
+//        DrawRanges(filtered_ranges, cv::Scalar(0, 255, 0), canvas);
 
-        // Draw segments
-        for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
-        {
-            const Segment& seg = *it;
-            geo::Vec2 p1 = beam_model_.CalculatePoint(seg.front(), ranges[seg.front()]);
-            geo::Vec2 p2 = beam_model_.CalculatePoint(seg.back(), ranges[seg.back()]);
+//        // Draw segments
+//        for(std::vector<Segment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+//        {
+//            const Segment& seg = *it;
+//            geo::Vec2 p1 = beam_model_.CalculatePoint(seg.front(), ranges[seg.front()]);
+//            geo::Vec2 p2 = beam_model_.CalculatePoint(seg.back(), ranges[seg.back()]);
 
-            cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
-            cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
+//            cv::Point p1_canvas(p1.x * 100 + canvas.cols / 2, canvas.rows - p1.y * 100);
+//            cv::Point p2_canvas(p2.x * 100 + canvas.cols / 2, canvas.rows - p2.y * 100);
 
-            cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(0, 255, 255), 2);
-        }
+//            cv::line(canvas, p1_canvas, p2_canvas, cv::Scalar(0, 255, 255), 2);
+//        }
 
-        // Draw points of interest
-        for(std::vector<geo::Vec2>::const_iterator it = pois_.begin(); it != pois_.end(); ++it)
-        {
-            geo::Vec2 p = sensor_pose_xya_2d.inverse() * (*it);
-            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
-            cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
-        }
+//        // Draw points of interest
+//        for(std::vector<geo::Vec2>::const_iterator it = pois_.begin(); it != pois_.end(); ++it)
+//        {
+//            geo::Vec2 p = sensor_pose_xya_2d.inverse() * (*it);
+//            cv::Point p_canvas(p.x * 100 + canvas.cols / 2, canvas.rows - p.y * 100);
+//            cv::circle(canvas, p_canvas, 3, cv::Scalar(255, 255, 0), 2);
+//        }
 
         debug_viz_.publish(canvas);
     }
@@ -951,6 +952,18 @@ void FitterPlugin::DrawRanges(const std::vector<double>& ranges, const cv::Scala
 
 bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed_sensor_integration::FitModel::Response& res)
 {
+//    // TEMP!!!!
+//    ed_sensor_integration::NavigateTo::Request nav_req;
+//    ed_sensor_integration::NavigateTo::Response nav_res;
+
+//    nav_req.click_x_ratio = req.click_x_ratio;
+//    nav_req.click_y_ratio = req.click_y_ratio;
+//    nav_req.snapshot_id = req.image_id;
+
+//    srvNavigateTo(nav_req, nav_res);
+//    return true;
+
+
     // Only called if 'undo latest fit' is requested
     if (req.undo_latest_fit)
     {
@@ -1160,6 +1173,70 @@ bool FitterPlugin::srvGetPOIs(ed_sensor_integration::GetPOIs::Request& req, ed_s
         p.point.y = pois_[i].y;
         p.point.z = 0;
     }
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req, ed_sensor_integration::NavigateTo::Response& res)
+{
+    std::map<ed::UUID, Snapshot>::const_iterator it_image = snapshots_.find(req.snapshot_id);
+    if (it_image == snapshots_.end())
+    {
+        res.error_msg = "Snapshot with ID '" + req.snapshot_id + "' could not be found.";
+        return true;
+    }
+
+    const Snapshot& snapshot = it_image->second;
+
+    const cv::Mat& depth = snapshot.image->getDepthImage();
+
+    int click_x = req.click_x_ratio * depth.cols;
+    int click_y = req.click_y_ratio * depth.rows;
+
+    if (click_x < 0 || click_x >= depth.cols || click_y < 0 || click_y >= depth.rows)
+    {
+        res.error_msg = "Clicked position outside of depth bounds";
+        return true;
+    }
+
+    float d = depth.at<float>(click_y, click_x);
+    for(int i = 1; i < 20; ++i)
+    {
+        for(int x = click_x - i; x <= click_x + i; ++x)
+        {
+            for(int y = click_y - i; y <= click_y + i; ++ y)
+            {
+                if (x < 0 || y < 0 || x >= depth.cols || y >= depth.rows)
+                    continue;
+
+                d = depth.at<float>(y, x);
+                if (d > 0 && d == d)
+                {
+                    break;
+                }
+            }
+            if (d > 0 && d == d)
+                break;
+        }
+        if (d > 0 && d == d)
+            break;
+    }
+
+    if (d <= 0 || d != d)
+    {
+        res.error_msg = "Could not determine 3D position";
+        return true;
+    }
+
+    rgbd::View view(*snapshot.image, depth.cols);
+    geo::Vec3 p_SENSOR = view.getRasterizer().project2Dto3D(click_x, click_y) * d;
+
+    geo::Vec3 p_MAP = (snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp) * p_SENSOR;
+
+    pois_.clear();
+    pois_.push_back(geo::Vec2(p_MAP.x, p_MAP.y));
 
     return true;
 }
