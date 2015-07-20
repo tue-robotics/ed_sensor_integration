@@ -119,6 +119,8 @@ private:
 
     std::vector<ed::UUID> fitted_entity_ids_stack_;   // Can be used to undo fitting
 
+    std::string snapshot_id_to_first_update_;
+
 
     // Debug visualization
 

@@ -243,7 +243,7 @@ void FitterPlugin::initialize(ed::InitData& init)
         config.endArray();
     }
 
-    beam_model_.initialize(2, 200);
+    beam_model_.initialize(4, 200);
 
     tf_listener_ = new tf::TransformListener;
 
@@ -497,9 +497,10 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         snapshot.sensor_pose_xya = sensor_pose_xya;
         snapshot.sensor_pose_zrp = sensor_pose_zrp;
 
-//        cv::resize(image->getRGBImage(), snapshot.original_image, cv::Size(1280, 960));
+        double h = 640;
+        double w = (h * image->getRGBImage().rows) / image->getRGBImage().cols;
 
-        snapshot.canvas = image->getRGBImage();
+        cv::resize(image->getRGBImage(), snapshot.background_image, cv::Size(h, w));
 
         bool changed;
         DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, changed);
@@ -830,9 +831,30 @@ void FitterPlugin::RenderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& 
 
 void FitterPlugin::updateSnapshots()
 {
+    // First update 'snapshot_id_to_first_update_'
+    std::map<ed::UUID, Snapshot>::iterator it = snapshots_.find(snapshot_id_to_first_update_);
+    if (it != snapshots_.end())
+    {
+        Snapshot& snapshot = it->second;
+
+        bool changed;
+        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, changed);
+
+        if (changed)
+        {
+            ++revision_;
+            snapshot.revision = revision_;
+        }
+    }
+
+    // Then update the rest
     for(std::map<ed::UUID, Snapshot>::iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
     {
         Snapshot& snapshot = it->second;
+
+        // Skip snapshot that was already updated
+        if (it->first.str() == snapshot_id_to_first_update_)
+            continue;
 
         bool changed;
         DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, changed);
@@ -921,6 +943,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
 
         // Snapshots need to be redrawn
         changed_entity_ids_.insert(undo_id);
+        snapshot_id_to_first_update_ = req.image_id;
 
         fitted_entity_ids_stack_.pop_back();
 
@@ -990,6 +1013,7 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     changed_entity_ids_.insert(new_id);  // Indicates that on next plugin cycle the snapshots need to be updated
     fitted_entity_ids_.insert(new_id);
     fitted_entity_ids_stack_.push_back(new_id);
+    snapshot_id_to_first_update_ = req.image_id;
 
     return true;
 }
@@ -1037,7 +1061,13 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
     for(std::map<ed::UUID, Snapshot>::const_iterator it = snapshots_.begin(); it != snapshots_.end(); ++it)
     {
         const Snapshot& snapshot = it->second;
+
+        // Check if the client already has the newest version of the snapshot
         if (snapshot.revision <= req.revision)
+            continue;
+
+        // Check if the client
+        if (req.max_num_revisions > 0 && snapshot.revision > req.revision + req.max_num_revisions)
             continue;
 
         // Add snapshot image
@@ -1049,7 +1079,10 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
         res.image_ids.push_back(it->first.str());
     }
 
-    res.new_revision = revision_;
+    if (req.max_num_revisions == 0)
+        res.new_revision = revision_;
+    else
+        res.new_revision = std::min(revision_, req.revision + req.max_num_revisions);
 
     return true;
 }

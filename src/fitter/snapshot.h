@@ -11,6 +11,7 @@ struct Snapshot
     rgbd::ImageConstPtr image;      // original camera image
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
+    cv::Mat background_image;       // background image (from original camera image)
     cv::Mat canvas;                 // camera image including visualizations
     std::set<ed::UUID> visualized_ids;
     unsigned int revision;

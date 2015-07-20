@@ -43,14 +43,15 @@ public:
 void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>& ids,
                            const std::set<ed::UUID>& updated_ids, Snapshot& snapshot, bool& changed)
 {
+    int image_width = snapshot.background_image.cols;
+    int image_height = snapshot.background_image.rows;
+
     geo::Pose3D sensor_pose = snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp;
 
-    const cv::Mat& original = snapshot.image->getRGBImage();
+    rgbd::View view(*snapshot.image, image_width);
 
-    rgbd::View view(*snapshot.image, original.cols);
-
-    cv::Mat depth_render(original.rows, original.cols, CV_32FC1, 0.0);
-    cv::Mat entity_index_map(original.rows, original.cols, CV_32SC1, cv::Scalar(-1));
+    cv::Mat depth_render(image_height, image_width, CV_32FC1, 0.0);
+    cv::Mat entity_index_map(image_height, image_width, CV_32SC1, cv::Scalar(-1));
 
     SimpleRenderResult res(depth_render, entity_index_map);
 
@@ -105,10 +106,15 @@ void DrawWorldModelOverlay(const ed::WorldModel& world, const std::set<ed::UUID>
     }
 
     if (!changed)
-        return;
+    {
+        if (!snapshot.canvas.data)
+            snapshot.canvas = snapshot.background_image;
 
-    // Convert depth image to rgb
-    snapshot.canvas = original.clone();
+        return;
+    }
+
+    // Draw world model on top of background
+    snapshot.canvas = snapshot.background_image.clone();
 
     for(int y = 0; y < snapshot.canvas.rows - 1; ++y)
     {
