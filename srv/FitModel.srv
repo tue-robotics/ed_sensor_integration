@@ -9,8 +9,8 @@ string model_name
 string image_id
 
 # Position on image where user clicked
-uint32 click_x
-uint32 click_y
+float32 click_x_ratio
+float32 click_y_ratio
 ---
 # Empty if no error
 string error_msg
