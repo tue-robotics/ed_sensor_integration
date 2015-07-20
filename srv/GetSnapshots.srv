@@ -9,4 +9,6 @@ string[] delete_ids
 ed_sensor_integration/ImageBinary[] images      # images
 string[]                            image_ids   # image ids
 
+string[] entity_ids
+
 uint32 new_revision

@@ -300,6 +300,13 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
 
     // -------------------------------------
+
+    Snapshot& current_image = snapshots_["current"];
+    current_image.image = image;
+    current_image.sensor_pose_xya = sensor_pose_xya;
+    current_image.sensor_pose_zrp = sensor_pose_zrp;
+
+    // -------------------------------------
     // Calculate virtual rgbd beam ranges
 
     std::vector<double> ranges;
@@ -1107,6 +1114,32 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
         snapshots_.erase(*it);
     }
 
+    if (snapshots_.find("current") != snapshots_.end())
+    {
+        ros::Time time = ros::Time::now();
+        if ((time - last_image_update_) > ros::Duration(0.5))
+        {
+            Snapshot& current_image = snapshots_["current"];
+
+            double h = 640;
+            double w = (h * current_image.image->getRGBImage().rows) / current_image.image->getRGBImage().cols;
+
+            cv::resize(current_image.image->getRGBImage(), current_image.background_image, cv::Size(h, w));
+
+            bool changed;
+            DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, fitted_entity_ids_, current_image, changed);
+
+            res.images.push_back(ed_sensor_integration::ImageBinary());
+            ed_sensor_integration::ImageBinary& img_msg = res.images.back();
+            ImageToMsg(current_image.canvas, "jpg", img_msg);
+
+            last_image_update_ = time;
+
+            ++revision_;
+            current_image.revision = revision_;
+        }
+    }
+
     if (req.revision >= revision_)
     {
         res.new_revision = revision_;
@@ -1138,6 +1171,13 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
         res.new_revision = revision_;
     else
         res.new_revision = std::min(revision_, req.revision + req.max_num_revisions);
+
+    for(ed::WorldModel::const_iterator it = world_model_->begin(); it != world_model_->end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (e->hasFlag("furniture"))
+            res.entity_ids.push_back(e->id().str());
+    }
 
     return true;
 }

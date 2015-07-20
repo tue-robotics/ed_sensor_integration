@@ -67,6 +67,10 @@ private:
 
     bool NextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
 
+//    Snapshot last_image_;
+
+    ros::Time last_image_update_;
+
 
     // Points of interest
 
