@@ -319,7 +319,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Render fitted objects
 
-    std::vector<ed::EntityConstPtr> fitted_entities;
+    std::vector<ed::EntityConstPtr> entities_to_check;
 
     std::vector<double> model_ranges = model_ranges_background;
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
@@ -327,94 +327,104 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         const ed::EntityConstPtr& e = *it;
         if (fitted_entity_ids_.find(e->id()) != fitted_entity_ids_.end())
         {
-            int identifier = fitted_entities.size();
+            int identifier = -1;
+            if (e->hasFlag("dynamic"))
+            {
+                entities_to_check.push_back(e);
+                identifier = entities_to_check.size();
+            }
+
             RenderEntity(e, sensor_pose_xya, identifier, model_ranges, rendered_indices);
-            fitted_entities.push_back(e);
         }
     }
 
     // -------------------------------------
     // Determine position errors of fitted objects
 
-    std::vector<int> fitted_entities_num_beams(fitted_entities.size(), 0); // number of beams corresponding to this entity
-    std::vector<double> fitted_entities_errors(fitted_entities.size(), 0);    // error corresponding to this entity
-
-    for(unsigned int i = 0; i < ranges.size(); ++i)
+    if (!entities_to_check.empty())
     {
-        double rs = ranges[i];
-        if (rs == 0)
-            continue;
+        std::vector<int> fitted_entities_num_beams(entities_to_check.size(), 0); // number of beams corresponding to this entity
+        std::vector<double> fitted_entities_errors(entities_to_check.size(), 0);    // error corresponding to this entity
 
-        int i_entity = rendered_indices[i];
-        if (i_entity < 0) // Does not belong to fitted entity
-            continue;
-
-        ++fitted_entities_num_beams[i_entity];
-
-        double rm = model_ranges[i];
-        double diff = rm - rs;
-
-        if (std::abs(diff) < 0.1)
-            continue;
-
-        double err = 0;
-        if (diff > 0)
+        for(unsigned int i = 0; i < ranges.size(); ++i)
         {
-            // occlusion
-            err = 0.1;
-        }
-        else
-        {
-            // rendered point not there...
-            err = 1;
+            double rs = ranges[i];
+            if (rs == 0)
+                continue;
+
+            int i_entity = rendered_indices[i];
+            if (i_entity != i) // Does not belong to fitted entity
+                continue;
+
+            ++fitted_entities_num_beams[i_entity];
+
+            double rm = model_ranges[i];
+            double diff = rm - rs;
+
+            if (std::abs(diff) < 0.1)
+                continue;
+
+            double err = 0;
+            if (diff > 0)
+            {
+                // occlusion
+                err = 0.1;
+            }
+            else
+            {
+                // rendered point not there...
+                err = 1;
+            }
+
+            fitted_entities_errors[i_entity] += err;
         }
 
-        fitted_entities_errors[i_entity] += err;
+        // -------------------------------------
+        // Re-fit incorrect positioned objects
+
+        for(unsigned int i = 0; i < entities_to_check.size(); ++i)
+        {
+            const ed::EntityConstPtr& e = entities_to_check[i];
+
+            // Calculate 2d entity pose in sensor frame
+            geo::Pose3D e_pose_xya;
+            geo::Pose3D e_pose_zrp;
+            decomposePose(e->pose(), e_pose_xya, e_pose_zrp);
+            geo::Transform2 e_pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(e_pose_xya);
+
+            double dist_to_entity = e_pose_2d_SENSOR.t.length();
+            int n = fitted_entities_num_beams[i];
+            double err = fitted_entities_errors[i] / n;
+
+            std::cout << "Checking " << e->id() << ": distance = " << dist_to_entity << ", num_beams = " << n << ", error = " << err << std::endl;
+
+            if (dist_to_entity > 4 || dist_to_entity < 1.5) // TODO: hard-coded value
+                continue;
+
+            if (n < 30 || err < 0.1)   // TODO: hard-coded
+                continue;  // Error not big or entity not fully in view, so don't update it
+
+            const EntityRepresentation2D* model = GetOrCreateEntity2D(e);
+
+            int i_beam = beam_model_.CalculateBeam(e_pose_2d_SENSOR.t.x, e_pose_2d_SENSOR.t.y);
+            if (i_beam < 0 || i_beam >= ranges.size())
+                continue;
+
+            int beam_search_window = 100; // TODO: hard-coded
+
+            geo::Pose3D new_pose;
+            if (FitEntity(e->id(), i_beam, beam_search_window, model->shape_2d, ranges, sensor_pose_xya, new_pose))
+            {
+                // TODO: now we assume that the object MUST appear in the 'i_beam'th beam. This does not have to be
+                // the case if the object has moved far
+
+                update_request_->setPose(e->id(), new_pose);
+                changed_entity_ids_.insert(e->id());
+            }
+        }
+
+        // TODO: re-render world model with re-fitted objects (for better background filter)
     }
-
-    // -------------------------------------
-    // Re-fit incorrect positioned objects
-
-    for(unsigned int i = 0; i < fitted_entities.size(); ++i)
-    {
-        const ed::EntityConstPtr& e = fitted_entities[i];
-
-        // Calculate 2d entity pose in sensor frame
-        geo::Pose3D e_pose_xya;
-        geo::Pose3D e_pose_zrp;
-        decomposePose(e->pose(), e_pose_xya, e_pose_zrp);
-        geo::Transform2 e_pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(e_pose_xya);
-
-        double dist_to_entity = e_pose_2d_SENSOR.t.length();
-        if (dist_to_entity > 4 || dist_to_entity < 1.5) // TODO: hard-coded value
-            continue;
-
-        int n = fitted_entities_num_beams[i];
-        double err = fitted_entities_errors[i] / n;
-
-        if (n < 30 || err < 0.1)   // TODO: hard-coded
-            continue;  // Error not big or entity not fully in view, so don't update it
-
-        const EntityRepresentation2D* model = GetOrCreateEntity2D(e);
-
-        int i_beam = beam_model_.CalculateBeam(e_pose_2d_SENSOR.t.x, e_pose_2d_SENSOR.t.y);
-        if (i_beam < 0 || i_beam >= ranges.size())
-            continue;
-
-        int beam_search_window = 100; // TODO: hard-coded
-
-        geo::Pose3D new_pose;
-        if (FitEntity(e->id(), i_beam, beam_search_window, model->shape_2d, ranges, sensor_pose_xya, new_pose))
-        {
-            // TODO: now we assume that the object MUST appear in the 'i_beam'th beam. This does not have to be
-            // the case if the object has moved far
-
-            update_request_->setPose(e->id(), new_pose);
-            changed_entity_ids_.insert(e->id());
-        }
-    }
-
-    // TODO: re-render world model with re-fitted objects (for better background filter)
 
     // -------------------------------------
     // Filter background
