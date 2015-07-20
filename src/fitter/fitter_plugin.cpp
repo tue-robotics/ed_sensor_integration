@@ -76,7 +76,7 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
         rgb_params.resize(3, 0);
 
         rgb_params[0] = CV_IMWRITE_JPEG_QUALITY;
-        rgb_params[1] = 95; // default is 95
+        rgb_params[1] = 50; // default is 95
 
         // Compress image
         if (!cv::imencode(".jpg", rgb_image, msg.data, rgb_params)) {
