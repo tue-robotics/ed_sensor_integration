@@ -1270,7 +1270,7 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
 
 bool FitterPlugin::srvCreateWalls(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
 {
-    geo::ShapeConstPtr shape = map_filter_.createWallShape(1.5);
+    geo::ShapeConstPtr shape = map_filter_.createWallShape(0.8);
 
     if (shape)
     {
