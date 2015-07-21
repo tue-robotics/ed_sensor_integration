@@ -1272,10 +1272,13 @@ bool FitterPlugin::srvCreateWalls(std_srvs::Empty::Request& req, std_srvs::Empty
 {
     geo::ShapeConstPtr shape = map_filter_.createWallShape(0.5);
 
-    ed::UUID id = "walls";
+    if (shape)
+    {
+        ed::UUID id = "walls";
 
-    update_request_->setShape(id, shape);
-    update_request_->setPose(id, geo::Pose3D::identity());
+        update_request_->setShape(id, shape);
+        update_request_->setPose(id, geo::Pose3D::identity());
+    }
 
     return true;
 }
