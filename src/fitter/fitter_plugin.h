@@ -29,6 +29,8 @@
 // Visualization
 #include <ed/helpers/image_publisher.h>
 
+#include "map_filter.h"
+
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 // ----------------------------------------------------------------------------------------------------
@@ -77,6 +79,11 @@ private:
     double min_poi_distance_;
 
     std::vector<geo::Vec2> pois_;
+
+
+    // Map fitering
+
+    MapFilter map_filter_;
 
 
     // Fitting

@@ -191,6 +191,13 @@ void FitterPlugin::initialize(ed::InitData& init)
 
     config.value("min_poi_distance", min_poi_distance_);
 
+    std::string map_topic_in, map_topic_out;
+    if (config.value("map_topic_in", map_topic_in))
+    {
+        config.value("map_topic_out", map_topic_out);
+        map_filter_.initialize(map_topic_in, map_topic_out);
+    }
+
     // Load models (used for fitting)
     if (config.readArray("models"))
     {
@@ -282,6 +289,11 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     make_snapshot_ = false;
     cb_queue_.callAvailable();
+
+    // -------------------------------------
+    // Map filter
+
+//    map_filter_.update();
 
     // -------------------------------------
     // Grab image and sensor pose
@@ -762,6 +774,9 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
 
     std::cout << "Found a pose: " << best_pose << std::endl;
 
+    // Update map filter
+//    map_filter_.setEntityPose(best_pose, shape2d);
+
     // Convert to 3D Pose
 
     geo::Pose3D pose_3d;
@@ -1237,6 +1252,8 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
         return true;
     }
 
+    std::cout << "Navigating to pixel " << click_x << ", " << click_y << std::endl;
+
     float d = depth.at<float>(click_y, click_x);
     for(int i = 1; i < 20; ++i)
     {
@@ -1273,6 +1290,8 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
 
     pois_.clear();
     pois_.push_back(geo::Vec2(p_MAP.x, p_MAP.y));
+
+    std::cout << "    Which is: " << p_MAP << std::endl;
 
     return true;
 }
