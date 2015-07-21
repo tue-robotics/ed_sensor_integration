@@ -110,9 +110,9 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "segment_and_show");
     ros::NodeHandle nh;
-    ros::ServiceClient cl_segment = nh.serviceClient<ed_sensor_integration::Segment>("/amigo/ed/kinect/segment");
-    ros::ServiceClient cl_info = nh.serviceClient<ed_gui_server::GetEntityInfo>("/amigo/ed/gui/get_entity_info");
-    ros::ServiceClient cl_perception = nh.serviceClient<ed_perception::Classify>("/amigo/ed/classify");
+    ros::ServiceClient cl_segment = nh.serviceClient<ed_sensor_integration::Segment>("ed/kinect/segment");
+    ros::ServiceClient cl_info = nh.serviceClient<ed_gui_server::GetEntityInfo>("ed/gui/get_entity_info");
+    ros::ServiceClient cl_perception = nh.serviceClient<ed_perception::Classify>("ed/classify");
 
     ed_sensor_integration::Segment srv;
     srv.request.max_sensor_range = 2.0;
@@ -181,10 +181,19 @@ int main(int argc, char **argv)
         cv::imshow(id.str(), img_cropped);
     }  
 
+    if (!img_combined.data)
+    {
+        std::cout << "No entities found" << std::endl;
+        return 1;
+    }
+
     //Create a window
     cv::namedWindow("Segmentation", 1);
 
-    cv::imshow("Segmentation", img_combined);
+    cv::Mat img_combined_resized;
+    cv::resize(img_combined, img_combined_resized, cv::Size(img_combined.cols / 2, img_combined.rows / 2));
+
+    cv::imshow("Segmentation", img_combined_resized);
     cv::waitKey();
 
     // Try to classify
@@ -212,7 +221,8 @@ int main(int argc, char **argv)
     //set the callback function for any mouse event
     cv::setMouseCallback("Segmentation", mouseCallback, NULL);
 
-    cv::imshow("Segmentation", img_combined);
+    cv::resize(img_combined, img_combined_resized, cv::Size(img_combined.cols / 2, img_combined.rows / 2));
+    cv::imshow("Segmentation", img_combined_resized);
     cv::waitKey();
 
     return 0;

@@ -29,6 +29,8 @@
 // Visualization
 #include <ed/helpers/image_publisher.h>
 
+#include "gui.h"   // TODO: Navigator is in here!
+
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 // ----------------------------------------------------------------------------------------------------
@@ -125,6 +127,11 @@ private:
     std::vector<ed::UUID> fitted_entity_ids_stack_;   // Can be used to undo fitting
 
     std::string snapshot_id_to_first_update_;
+
+
+    // Navigation
+
+    Navigator navigator_;
 
 
     // Debug visualization

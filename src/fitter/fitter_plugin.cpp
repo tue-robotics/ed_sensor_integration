@@ -22,9 +22,6 @@
 // Communication
 #include "ed_sensor_integration/ImageBinary.h"
 
-// Snapshot visualization
-#include "gui.h"
-
 // ----------------------------------------------------------------------------------------------------
 
 // Decomposes 'pose' into a (X, Y, YAW) and (Z, ROLL, PITCH) component
@@ -79,7 +76,8 @@ bool ImageToMsg(const cv::Mat& image, const std::string& encoding, ed_sensor_int
         rgb_params[1] = 50; // default is 95
 
         // Compress image
-        if (!cv::imencode(".jpg", rgb_image, msg.data, rgb_params)) {
+        if (!cv::imencode(".jpg", rgb_image, msg.data, rgb_params))
+        {
             std::cout << "RGB image compression failed" << std::endl;
             return false;
         }
@@ -190,6 +188,12 @@ void FitterPlugin::initialize(ed::InitData& init)
         rgbd_client_.intialize(rgbd_topic);
 
     config.value("min_poi_distance", min_poi_distance_);
+
+    ros::NodeHandle nh_global;
+    nh_global.setCallbackQueue(&cb_queue_);
+    std::string nav_goal_topic;
+    if (config.value("nav_goal_topic", nav_goal_topic))
+        navigator_.initialize(nh_global, nav_goal_topic);
 
     // Load models (used for fitting)
     if (config.readArray("models"))
@@ -517,6 +521,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         snapshot.image = image;
         snapshot.sensor_pose_xya = sensor_pose_xya;
         snapshot.sensor_pose_zrp = sensor_pose_zrp;
+        snapshot.first_timestamp = image->getTimestamp();
 
         double h = 640;
         double w = (h * image->getRGBImage().rows) / image->getRGBImage().cols;
@@ -524,7 +529,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         cv::resize(image->getRGBImage(), snapshot.background_image, cv::Size(h, w));
 
         bool changed;
-        DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, changed);
+        DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, true, changed);
 
         ++revision_;
         snapshot.revision = revision_;
@@ -867,7 +872,7 @@ void FitterPlugin::updateSnapshots()
         Snapshot& snapshot = it->second;
 
         bool changed;
-        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, changed);
+        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, false, changed);
 
         if (changed)
         {
@@ -886,7 +891,7 @@ void FitterPlugin::updateSnapshots()
             continue;
 
         bool changed;
-        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, changed);
+        DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, changed_entity_ids_, snapshot, false, changed);
 
         if (changed)
         {
@@ -1125,9 +1130,11 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
             double w = (h * current_image.image->getRGBImage().rows) / current_image.image->getRGBImage().cols;
 
             cv::resize(current_image.image->getRGBImage(), current_image.background_image, cv::Size(h, w));
+            current_image.canvas = current_image.background_image;
+            current_image.visualized_ids.clear();
 
             bool changed;
-            DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, fitted_entity_ids_, current_image, changed);
+            DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, fitted_entity_ids_, current_image, true, changed);
 
             last_image_update_ = time;
 
@@ -1161,6 +1168,9 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
 
         // Add snapshot id
         res.image_ids.push_back(it->first.str());
+
+        // Add snapshot timestamp
+        res.image_timestamps.push_back(ros::Time(snapshot.first_timestamp));
     }
 
     if (req.max_num_revisions == 0)
@@ -1231,48 +1241,10 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
     int click_x = req.click_x_ratio * depth.cols;
     int click_y = req.click_y_ratio * depth.rows;
 
-    if (click_x < 0 || click_x >= depth.cols || click_y < 0 || click_y >= depth.rows)
+    if (!navigator_.navigate(snapshot, click_x, click_y))
     {
-        res.error_msg = "Clicked position outside of depth bounds";
-        return true;
+        res.error_msg = "Could not navigate to point";
     }
-
-    float d = depth.at<float>(click_y, click_x);
-    for(int i = 1; i < 20; ++i)
-    {
-        for(int x = click_x - i; x <= click_x + i; ++x)
-        {
-            for(int y = click_y - i; y <= click_y + i; ++ y)
-            {
-                if (x < 0 || y < 0 || x >= depth.cols || y >= depth.rows)
-                    continue;
-
-                d = depth.at<float>(y, x);
-                if (d > 0 && d == d)
-                {
-                    break;
-                }
-            }
-            if (d > 0 && d == d)
-                break;
-        }
-        if (d > 0 && d == d)
-            break;
-    }
-
-    if (d <= 0 || d != d)
-    {
-        res.error_msg = "Could not determine 3D position";
-        return true;
-    }
-
-    rgbd::View view(*snapshot.image, depth.cols);
-    geo::Vec3 p_SENSOR = view.getRasterizer().project2Dto3D(click_x, click_y) * d;
-
-    geo::Vec3 p_MAP = (snapshot.sensor_pose_xya * snapshot.sensor_pose_zrp) * p_SENSOR;
-
-    pois_.clear();
-    pois_.push_back(geo::Vec2(p_MAP.x, p_MAP.y));
 
     return true;
 }

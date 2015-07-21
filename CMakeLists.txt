@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
     ed
     kdl_parser
     blackboard
+    cb_planner_msgs_srvs
 )
 
 # find_package(Boost REQUIRED COMPONENTS system program_options)
@@ -19,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
    FILES
    ImageBinary.msg
+   GUIAction.msg
 )
 
 # Generate services
@@ -174,6 +176,7 @@ add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
 
 add_executable(ed_fitter_gui tools/fitter_gui.cpp)
 target_link_libraries(ed_fitter_gui ${catkin_LIBRARIES})
+add_dependencies(ed_fitter_gui ${PROJECT_NAME}_gencpp)
 
 # ------------------------------------------------------------------------------------------------
 

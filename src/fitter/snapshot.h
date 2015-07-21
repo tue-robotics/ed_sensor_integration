@@ -9,6 +9,7 @@ struct Snapshot
     Snapshot() : revision(0) {}
 
     rgbd::ImageConstPtr image;      // original camera image
+    double first_timestamp;         // timestamp of first image (not current image!)
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
     cv::Mat background_image;       // background image (from original camera image)

@@ -9,6 +9,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include "ed_sensor_integration/GUIAction.h"
+
 // ----------------------------------------------------------------------------------------------------
 
 double BUTTON_SIZE = 30;
@@ -49,6 +51,9 @@ int i_model_selected = -1;
 
 View snapshot_view;
 View model_view;
+
+// GUI actions
+ed_sensor_integration::GUIAction::ConstPtr gui_action_;
 
 void DrawModels(cv::Mat& img, unsigned int i_start);
 
@@ -171,6 +176,33 @@ void DrawSnapshot(cv::Mat& img)
 
 // ----------------------------------------------------------------------------------------------------
 
+void DrawAction()
+{
+
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void cbGUIAction(const ed_sensor_integration::GUIAction::ConstPtr& msg)
+{
+    if (msg->action == "switch_snapshot")
+    {
+        current_image_id_ = msg->params[0];
+        DrawSnapshot(snapshot_view.roi);
+    }
+    else if (msg->action == "fit_model")
+    {
+        std::string model_name = msg->params[0];
+        std::string image_id = msg->params[1];
+        double click_x_ratio = atof(msg->params[2].c_str());
+        double click_y_ratio = atof(msg->params[3].c_str());
+    }
+
+    gui_action_ = msg;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "ed_fitter_gui");
@@ -180,6 +212,8 @@ int main(int argc, char **argv)
     ros::ServiceClient cl_get_snapshots = nh.serviceClient<ed_sensor_integration::GetSnapshots>("ed/gui/get_snapshots");
     ros::ServiceClient cl_get_models = nh.serviceClient<ed_sensor_integration::GetModels>("ed/gui/get_models");
     cl_fit_model_ = nh.serviceClient<ed_sensor_integration::FitModel>("ed/gui/fit_model");
+
+    ros::Subscriber sub_gui_actions_= nh.subscribe<ed_sensor_integration::GUIAction>("ed/gui/viz_action", 1, cbGUIAction);
 
     cv::Mat canvas(480, 840, CV_8UC3, cv::Scalar(20, 20, 20));
 
