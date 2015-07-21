@@ -171,6 +171,8 @@ add_library(ed_fitter_plugin
     src/fitter/gui.cpp
     src/fitter/gui.h
     src/fitter/snapshot.h
+    src/fitter/map_filter.cpp
+    src/fitter/map_filter.h
 )
 add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
 

@@ -195,6 +195,13 @@ void FitterPlugin::initialize(ed::InitData& init)
     if (config.value("nav_goal_topic", nav_goal_topic))
         navigator_.initialize(nh_global, nav_goal_topic);
 
+    std::string map_topic_in, map_topic_out;
+    if (config.value("map_topic_in", map_topic_in))
+    {
+        config.value("map_topic_out", map_topic_out);
+        map_filter_.initialize(map_topic_in, map_topic_out);
+    }
+
     // Load models (used for fitting)
     if (config.readArray("models"))
     {
@@ -261,6 +268,8 @@ void FitterPlugin::initialize(ed::InitData& init)
     srv_make_snapshot_ = nh.advertiseService("make_snapshot", &FitterPlugin::srvMakeSnapshot, this);
     srv_get_pois_ = nh.advertiseService("get_pois", &FitterPlugin::srvGetPOIs, this);
     srv_navigate_to_ = nh.advertiseService("navigate_to", &FitterPlugin::srvNavigateTo, this);
+    srv_create_walls_ = nh.advertiseService("create_walls", &FitterPlugin::srvCreateWalls, this);
+
 
     // Visualization
     debug_viz_.initialize("viz/fitter");
@@ -286,6 +295,11 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     make_snapshot_ = false;
     cb_queue_.callAvailable();
+
+    // -------------------------------------
+    // Map filter
+
+//    map_filter_.update();
 
     // -------------------------------------
     // Grab image and sensor pose
@@ -324,7 +338,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
-        if (fitted_entity_ids_.find(e->id()) == fitted_entity_ids_.end())
+        if (fitted_entity_ids_.find(e->id()) == fitted_entity_ids_.end() && e->id() != "walls")
             RenderEntity(e, sensor_pose_xya, -1, model_ranges_background, rendered_indices);
     }
 
@@ -658,7 +672,7 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
     for(ed::WorldModel::const_iterator it = world_model_->begin(); it != world_model_->end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
-        if (e->id() == id) // Skip entity id that needs to be fitted
+        if (e->id() == id || e->id() == "walls") // Skip entity id that needs to be fitted
             continue;
 
         RenderEntity(e, sensor_pose_xya, -1, model_ranges, dummy_identifiers);
@@ -766,6 +780,9 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
     }
 
     std::cout << "Found a pose: " << best_pose << std::endl;
+
+    // Update map filter
+//    map_filter_.setEntityPose(best_pose, shape2d);
 
     // Convert to 3D Pose
 
@@ -1250,5 +1267,20 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
 }
 
 // ----------------------------------------------------------------------------------------------------
+
+bool FitterPlugin::srvCreateWalls(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
+{
+    geo::ShapeConstPtr shape = map_filter_.createWallShape(0.5);
+
+    ed::UUID id = "walls";
+
+    update_request_->setShape(id, shape);
+    update_request_->setPose(id, geo::Pose3D::identity());
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 
 ED_REGISTER_PLUGIN(FitterPlugin)

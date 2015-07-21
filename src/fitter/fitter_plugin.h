@@ -25,11 +25,13 @@
 #include "ed_sensor_integration/GetPOIs.h"
 #include "ed_sensor_integration/MakeSnapshot.h"
 #include "ed_sensor_integration/NavigateTo.h"
+#include <std_srvs/Empty.h>
 
 // Visualization
 #include <ed/helpers/image_publisher.h>
 
 #include "gui.h"   // TODO: Navigator is in here!
+#include "map_filter.h"
 
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
@@ -79,6 +81,11 @@ private:
     double min_poi_distance_;
 
     std::vector<geo::Vec2> pois_;
+
+
+    // Map fitering
+
+    MapFilter map_filter_;
 
 
     // Fitting
@@ -172,6 +179,10 @@ private:
     ros::ServiceServer srv_navigate_to_;
 
     bool srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req, ed_sensor_integration::NavigateTo::Response& res);
+
+    ros::ServiceServer srv_create_walls_;
+
+    bool srvCreateWalls(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
 
     // Visualization
 
