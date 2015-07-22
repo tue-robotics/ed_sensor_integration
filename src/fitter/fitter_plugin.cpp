@@ -299,7 +299,7 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Map filter
 
-//    map_filter_.update();
+    map_filter_.update();
 
     // -------------------------------------
     // Grab image and sensor pose
@@ -682,7 +682,7 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
     // Fit
 
     double min_error = 1e9;
-    geo::Transform2 best_pose;
+    geo::Transform2 best_pose_SENSOR;
 
     std::cout << "expected_center_beam: " << expected_center_beam << std::endl;
 
@@ -767,7 +767,7 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
 
             if (error < min_error)
             {
-                best_pose = pose;
+                best_pose_SENSOR = pose;
                 min_error = error;
             }
         }
@@ -779,20 +779,20 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
         return false;
     }
 
-    std::cout << "Found a pose: " << best_pose << std::endl;
+    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
 
     // Update map filter
-//    map_filter_.setEntityPose(best_pose, shape2d);
+    map_filter_.setEntityPose(XYYawToTransform2(sensor_pose_xya) * best_pose_SENSOR, shape2d);
 
     // Convert to 3D Pose
 
     geo::Pose3D pose_3d;
-    pose_3d.t = geo::Vec3(best_pose.t.x, best_pose.t.y, 0);
+    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, 0);
     pose_3d.R = geo::Mat3::identity();
-    pose_3d.R.xx = best_pose.R.xx;
-    pose_3d.R.xy = best_pose.R.xy;
-    pose_3d.R.yx = best_pose.R.yx;
-    pose_3d.R.yy = best_pose.R.yy;
+    pose_3d.R.xx = best_pose_SENSOR.R.xx;
+    pose_3d.R.xy = best_pose_SENSOR.R.xy;
+    pose_3d.R.yx = best_pose_SENSOR.R.yx;
+    pose_3d.R.yy = best_pose_SENSOR.R.yy;
 
     expected_pose = sensor_pose_xya * pose_3d;
 

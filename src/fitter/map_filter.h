@@ -44,7 +44,13 @@ private:
 
     nav_msgs::OccupancyGrid::ConstPtr map_in_;
 
+    nav_msgs::OccupancyGrid filtered_map_;
+
     void mapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+
+    void worldToGrid(double x, double y, int& mx, int& my);
+
+    void gridToWorld(int mx, int my, double& x, double& y);
 
 
 };
