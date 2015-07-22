@@ -25,6 +25,7 @@
 #include "ed_sensor_integration/GetPOIs.h"
 #include "ed_sensor_integration/MakeSnapshot.h"
 #include "ed_sensor_integration/NavigateTo.h"
+#include "ed_sensor_integration/GUIAction.h"
 #include <std_srvs/Empty.h>
 
 // Visualization
@@ -143,6 +144,11 @@ private:
     // Navigation
 
     Navigator navigator_;
+
+
+    // Visualization
+
+    ros::Publisher pub_gui_actions_;
 
 
     // Debug visualization

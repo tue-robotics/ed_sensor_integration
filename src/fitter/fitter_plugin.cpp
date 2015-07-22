@@ -273,6 +273,7 @@ void FitterPlugin::initialize(ed::InitData& init)
     srv_navigate_to_ = nh.advertiseService("navigate_to", &FitterPlugin::srvNavigateTo, this);
     srv_create_walls_ = nh.advertiseService("create_walls", &FitterPlugin::srvCreateWalls, this);
 
+    pub_gui_actions_ = nh.advertise<ed_sensor_integration::GUIAction>("gui/actions", 1);
 
     // Visualization
     debug_viz_.initialize("viz/fitter");
@@ -1031,6 +1032,10 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
 
         fitted_entity_ids_stack_.pop_back();
 
+        ed_sensor_integration::GUIAction msg;
+        msg.action = "undo";
+        pub_gui_actions_.publish(msg);
+
         return true;
     }
 
@@ -1119,6 +1124,17 @@ bool FitterPlugin::srvFitModel(ed_sensor_integration::FitModel::Request& req, ed
     fitted_entity_ids_.insert(new_id);
     fitted_entity_ids_stack_.push_back(new_id);
     snapshot_id_to_first_update_ = req.image_id;
+
+    // Publish GUI action
+
+    ed_sensor_integration::GUIAction msg;
+    msg.action = "fit_model";
+    msg.params.push_back(req.image_id);
+    msg.params.push_back(req.model_name);
+    msg.params_float.push_back(req.click_x_ratio);
+    msg.params_float.push_back(req.click_y_ratio);
+
+    pub_gui_actions_.publish(msg);
 
     return true;
 }
@@ -1230,6 +1246,10 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
 
 bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res)
 {
+    ed_sensor_integration::GUIAction msg;
+    msg.action = "make_snapshot";
+    pub_gui_actions_.publish(msg);
+
     make_snapshot_ = true;
     return true;
 }
@@ -1283,6 +1303,10 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
     {
         res.error_msg = "Could not navigate to point";
     }
+
+    ed_sensor_integration::GUIAction msg;
+    msg.action = "navigate_to";
+    pub_gui_actions_.publish(msg);
 
     return true;
 }
