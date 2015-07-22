@@ -688,7 +688,8 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
         double l = beam_model_.rays()[i_beam].length();
         geo::Vec2 r = beam_model_.rays()[i_beam] / l;
 
-        for(double alpha = 0; alpha < 3.1415 * 2; alpha += 0.1)
+        // HACK: makes sure bed is fitted correctly
+        for(double alpha = 0; alpha < 3.1415; alpha += 0.1)
         {
             // ----------------
             // Calculate rotation
