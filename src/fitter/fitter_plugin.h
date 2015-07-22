@@ -85,6 +85,10 @@ private:
 
     // Map fitering
 
+    double wall_height_;
+
+    ros::Time last_wall_creation_;
+
     MapFilter map_filter_;
 
 

@@ -202,6 +202,9 @@ void FitterPlugin::initialize(ed::InitData& init)
         map_filter_.initialize(map_topic_in, map_topic_out);
     }
 
+    if (!config.value("wall_height", wall_height_, tue::OPTIONAL))
+        wall_height_ = 0.8;
+
     // Load models (used for fitting)
     if (config.readArray("models"))
     {
@@ -273,6 +276,9 @@ void FitterPlugin::initialize(ed::InitData& init)
 
     // Visualization
     debug_viz_.initialize("viz/fitter");
+
+    last_wall_creation_ = ros::Time(0);
+    last_image_update_ = ros::Time(0);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -300,6 +306,21 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // Map filter
 
     map_filter_.update();
+
+    if (ros::Time::now() - last_wall_creation_ > ros::Duration(3))
+    {
+        geo::ShapeConstPtr shape = map_filter_.createWallShape(wall_height_);
+
+        if (shape)
+        {
+            ed::UUID id = "walls";
+
+            update_request_->setShape(id, shape);
+            update_request_->setPose(id, geo::Pose3D::identity());
+        }
+
+        last_wall_creation_ = ros::Time::now();
+    }
 
     // -------------------------------------
     // Grab image and sensor pose
@@ -1270,7 +1291,7 @@ bool FitterPlugin::srvNavigateTo(ed_sensor_integration::NavigateTo::Request& req
 
 bool FitterPlugin::srvCreateWalls(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
 {
-    geo::ShapeConstPtr shape = map_filter_.createWallShape(0.8);
+    geo::ShapeConstPtr shape = map_filter_.createWallShape(wall_height_);
 
     if (shape)
     {
