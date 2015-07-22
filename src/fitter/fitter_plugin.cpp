@@ -782,7 +782,7 @@ bool FitterPlugin::FitEntity(const ed::UUID& id, int expected_center_beam, int b
     std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
 
     // Update map filter
-    map_filter_.setEntityPose(XYYawToTransform2(sensor_pose_xya) * best_pose_SENSOR, shape2d);
+    map_filter_.setEntityPose(XYYawToTransform2(sensor_pose_xya) * best_pose_SENSOR, shape2d, 0.5);
 
     // Convert to 3D Pose
 

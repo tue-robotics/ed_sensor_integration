@@ -20,7 +20,7 @@ public:
 
     void initialize(const std::string& in_topic, const std::string& out_topic);
 
-    void setEntityPose(const geo::Transform2& pose, const std::vector<std::vector<geo::Vec2> >& contour);
+    void setEntityPose(const geo::Transform2& pose, const std::vector<std::vector<geo::Vec2> >& contour, double obstacle_inflation);
 
     geo::ShapeConstPtr createWallShape(double height);
 

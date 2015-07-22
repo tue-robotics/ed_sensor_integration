@@ -42,7 +42,8 @@ void MapFilter::gridToWorld(int mx, int my, double& x, double& y)
 
 // ----------------------------------------------------------------------------------------------------
 
-void MapFilter::setEntityPose(const geo::Transform2& pose, const std::vector<std::vector<geo::Vec2> >& contours)
+void MapFilter::setEntityPose(const geo::Transform2& pose, const std::vector<std::vector<geo::Vec2> >& contours,
+                              double obstacle_inflation)
 {
     std::cout << "MapFilter::setEntityPose" << std::endl;
 
@@ -63,13 +64,15 @@ void MapFilter::setEntityPose(const geo::Transform2& pose, const std::vector<std
             worldToGrid(p_MAP.x, p_MAP.y, mx, my);
 
             points[i] = cv::Point(mx, my);
-
-            std::cout << p_MAP << "    " << contour[i] << std::endl;
-
-            std::cout << points[i] << std::endl;
         }
 
         cv_contours.push_back(points);
+
+        for(unsigned int i = 0; i < contour.size(); ++i)
+        {
+            int j = (i + 1) % contour.size();
+            cv::line(mask_, points[i], points[j], cv::Scalar(0), obstacle_inflation / res_ + 1);
+        }
     }
 
     cv::fillPoly(mask_, cv_contours, cv::Scalar(0));
