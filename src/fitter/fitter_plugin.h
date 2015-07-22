@@ -77,6 +77,11 @@ private:
     ros::Time last_image_update_;
 
 
+    // Making snapshots
+
+    Snapshot current_snapshot_;
+
+
     // Points of interest
 
     double min_poi_distance_;
@@ -175,8 +180,6 @@ private:
     ros::ServiceServer srv_get_snapshots_;
 
     bool srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request& req, ed_sensor_integration::GetSnapshots::Response& res);
-
-    bool make_snapshot_;
 
     ros::ServiceServer srv_make_snapshot_;
 

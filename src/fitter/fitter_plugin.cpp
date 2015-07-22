@@ -300,7 +300,6 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // -------------------------------------
     // Handle service requests
 
-    make_snapshot_ = false;
     cb_queue_.callAvailable();
 
     // -------------------------------------
@@ -345,6 +344,8 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     current_image.image = image;
     current_image.sensor_pose_xya = sensor_pose_xya;
     current_image.sensor_pose_zrp = sensor_pose_zrp;
+
+    current_snapshot_ = current_image;
 
     // -------------------------------------
     // Calculate virtual rgbd beam ranges
@@ -546,37 +547,6 @@ void FitterPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 //        if (!poi_exists)
 //            pois_.push_back(poi_MAP);
 //    }
-
-    // -------------------------------------
-    // Make snapshot (if requested)
-
-    if (make_snapshot_)
-    {
-        ed::UUID snapshot_id = ed::Entity::generateID();
-        Snapshot& snapshot = snapshots_[snapshot_id];
-        snapshot.image = image;
-        snapshot.sensor_pose_xya = sensor_pose_xya;
-        snapshot.sensor_pose_zrp = sensor_pose_zrp;
-        snapshot.first_timestamp = image->getTimestamp();
-
-        double h = 640;
-        double w = (h * image->getRGBImage().rows) / image->getRGBImage().cols;
-
-        cv::resize(image->getRGBImage(), snapshot.background_image, cv::Size(h, w));
-
-        bool changed;
-        DrawWorldModelOverlay(world, fitted_entity_ids_, fitted_entity_ids_, snapshot, true, changed);
-
-        ++revision_;
-        snapshot.revision = revision_;
-
-        // For easy debugging (auto fitting):
-//        ed_sensor_integration::FitModel::Request fit_req;
-//        ed_sensor_integration::FitModel::Response fit_res;
-//        fit_req.image_id = snapshot_id.str();
-//        fit_req.model_name = models_.begin()->first;
-//        srvFitModel(fit_req, fit_res);
-    }
 
     // -------------------------------------
     // Visualize
@@ -1246,11 +1216,31 @@ bool FitterPlugin::srvGetSnapshots(ed_sensor_integration::GetSnapshots::Request&
 
 bool FitterPlugin::srvMakeSnapshot(ed_sensor_integration::MakeSnapshot::Request& req, ed_sensor_integration::MakeSnapshot::Response& res)
 {
+    ed::UUID snapshot_id = ed::Entity::generateID();
+    Snapshot& snapshot = snapshots_[snapshot_id];
+
+    snapshot = current_snapshot_;
+    snapshot.first_timestamp = snapshot.image->getTimestamp();
+
+    double h = 640;
+    double w = (h * snapshot.image->getRGBImage().rows) / snapshot.image->getRGBImage().cols;
+
+    cv::resize(snapshot.image->getRGBImage(), snapshot.background_image, cv::Size(h, w));
+
+    bool changed;
+    DrawWorldModelOverlay(*world_model_, fitted_entity_ids_, fitted_entity_ids_, snapshot, true, changed);
+
+    ++revision_;
+    snapshot.revision = revision_;
+
+    // ------
+
     ed_sensor_integration::GUIAction msg;
     msg.action = "make_snapshot";
     pub_gui_actions_.publish(msg);
 
-    make_snapshot_ = true;
+    // ------
+
     return true;
 }
 
