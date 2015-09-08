@@ -8,6 +8,7 @@
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
+#include <ed/serialization/serialization.h>
 
 #include <geolib/Shape.h>
 
@@ -43,6 +44,11 @@
 // Meshing
 #include "ed_sensor_integration/meshing.h"
 #include <geolib/serialization.h>
+
+// Service GetImage
+#include <rgbd/serialization.h>
+#include <tue/serialization/conversions.h>
+#include <ed/io/json_writer.h>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -365,8 +371,9 @@ void KinectPlugin::initialize(ed::InitData& init)
     nh.setCallbackQueue(&cb_queue_);
 
     srv_segment_ = nh.advertiseService("kinect/segment", &KinectPlugin::srvSegment, this);
+    srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
     srv_lock_entities_ = nh.advertiseService("kinect/lock_entities", &KinectPlugin::srvLockEntities, this);
-    srv_mesh_entity_in_view_ = nh.advertiseService("kinect/mesh_entity_in_view", &KinectPlugin::srvMeshEntityInView, this);
+    srv_mesh_entity_in_view_ = nh.advertiseService("kinect/mesh_entity_in_view", &KinectPlugin::srvMeshEntityInView, this);    
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -575,6 +582,49 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 // ----------------------------------------------------------------------------------------------------
 
+bool KinectPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose)
+{
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Fetch kinect image
+
+    rgbd::ImageConstPtr rgbd_image = kinect_client_.nextImage();
+    if (!rgbd_image)
+    {
+        ROS_WARN("[ED KINECT PLUGIN] No RGBD image available");
+        return true;
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Determine absolute kinect pose based on TF
+
+    if (!tf_listener_->waitForTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(1.0)))
+    {
+        ROS_WARN("[ED ROBOCUP] Could not get camera pose");
+        return true;
+    }
+
+    try
+    {
+        tf::StampedTransform t_sensor_pose;
+        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+        geo::convert(t_sensor_pose, sensor_pose);
+    }
+    catch(tf::TransformException& ex)
+    {
+        ROS_WARN("[ED ROBOCUP] Could not get camera pose: %s", ex.what());
+        return true;
+    }
+
+    // Convert from ROS coordinate frame to geolib coordinate frame
+    sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+
+    image = rgbd_image;
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_sensor_integration::Segment::Response& res)
 {
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -596,40 +646,12 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // Fetch kinect image and place in image buffer
+    // Fetch kinect image
 
-    rgbd::ImageConstPtr rgbd_image = kinect_client_.nextImage();
-    if (!rgbd_image)
-    {
-        ROS_WARN("[ED KINECT PLUGIN] No RGBD image available");
-        return true;
-    }
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    // Determine absolute kinect pose based on TF
-
+    rgbd::ImageConstPtr rgbd_image;
     geo::Pose3D sensor_pose;
-
-    if (!tf_listener_->waitForTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(1.0)))
-    {
-        ROS_WARN("[ED ROBOCUP] Could not get camera pose");
+    if (!NextImage("/map", rgbd_image, sensor_pose))
         return true;
-    }
-
-    try
-    {
-        tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform("map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
-        geo::convert(t_sensor_pose, sensor_pose);
-    }
-    catch(tf::TransformException& ex)
-    {
-        ROS_WARN("[ED ROBOCUP] Could not get camera pose: %s", ex.what());
-        return true;
-    }
-
-    // Convert from ROS coordinate frame to geolib coordinate frame
-    sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -652,6 +674,46 @@ bool KinectPlugin::srvSegment(ed_sensor_integration::Segment::Request& req, ed_s
     }
 
     visualizeUpdateRequest(*world_, *update_req_, rgbd_image, viz_update_req_);
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res)
+{
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Fetch kinect image
+
+    rgbd::ImageConstPtr rgbd_image;
+    geo::Pose3D sensor_pose;
+    if (!NextImage("/map", rgbd_image, sensor_pose))
+        return true;
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Serialize RGBD image
+
+    std::stringstream stream;
+    tue::serialization::OutputArchive a(stream);
+    rgbd::serialize(*rgbd_image, a, rgbd::RGB_STORAGE_JPG, rgbd::DEPTH_STORAGE_PNG);
+    tue::serialization::convert(stream, res.rgbd_data);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Write meta data
+
+    std::stringstream meta_data;
+    ed::io::JSONWriter w(meta_data);
+
+    w.writeGroup("sensor_pose");
+    ed::serialize(sensor_pose, w);
+    w.endGroup();
+
+    w.finish();
+
+    res.json_meta_data = meta_data.str();
+
+    ROS_INFO_STREAM("[ED KINECT] Requested image. Image size: " << res.rgbd_data.size()
+                    << " bytes. Meta-data size: " << res.json_meta_data.size() << " bytes.");
 
     return true;
 }

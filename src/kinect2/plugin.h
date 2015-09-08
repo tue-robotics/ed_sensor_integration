@@ -19,6 +19,7 @@
 #include "ed_sensor_integration/Segment.h"
 #include "ed_sensor_integration/LockEntities.h"
 #include "ed_sensor_integration/MeshEntityInView.h"
+#include "ed_sensor_integration/GetImage.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -71,6 +72,8 @@ private:
 
     ros::CallbackQueue cb_queue_;
 
+    bool NextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
+
 
     // SERVICES
 
@@ -82,6 +85,11 @@ private:
     ros::ServiceServer srv_segment_;
 
     bool srvSegment(ed_sensor_integration::Segment::Request& req, ed_sensor_integration::Segment::Response& res);
+
+
+    ros::ServiceServer srv_get_image_;
+
+    bool srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res);
 
 
     ros::ServiceServer srv_lock_entities_;

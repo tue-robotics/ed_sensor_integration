@@ -607,7 +607,7 @@ bool FitterPlugin::NextImage(const std::string& root_frame, rgbd::ImageConstPtr&
     try
     {
         tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform("/map", rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
         geo::convert(t_sensor_pose, sensor_pose);
         image_buffer_.pop();
     }
