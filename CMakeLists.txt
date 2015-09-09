@@ -46,7 +46,7 @@ generate_messages(
 )
 
 # ------------------------------------------------------------------------------------------------
-#                                          CATKIN EXPORT
+#                                        CATKIN EXPORT
 # ------------------------------------------------------------------------------------------------
 
 catkin_package(
@@ -57,10 +57,8 @@ catkin_package(
 )
 
 # ------------------------------------------------------------------------------------------------
-#                                              BUILD
+#                                           BUILD
 # ------------------------------------------------------------------------------------------------
-
-file(GLOB_RECURSE HEADER_FILES include/*.h)
 
 include_directories(
     include
@@ -68,41 +66,7 @@ include_directories(
 )
 
 # ------------------------------------------------------------------------------------------------
-
-add_library(ed_sensor_integration_properties
-#    src/properties/convex_hull_info.cpp
-#    src/properties/convex_hull_calc.cpp
-    src/properties/pose_info.cpp
-)
-target_link_libraries(ed_sensor_integration_properties ${catkin_LIBRARIES})
-
-# ------------------------------------------------------------------------------------------------
-
-#add_library(kinect_association
-#    src/kinect/almodules/point_normal_alm.cpp
-#    src/kinect/almodules/polygon_height_alm.cpp
-#    src/kinect/almodules/world_model_renderer.cpp
-#    ${HEADER_FILES}
-#)
-#add_dependencies(kinect_association ${PROJECT_NAME}_gencpp)
-
-#add_library(kinect_segmentation
-#    src/kinect/segmodules/euclidean_clustering_sm.cpp
-#    src/kinect/segmodules/floodfill_sm.cpp
-#)
-#add_dependencies(kinect_segmentation ${PROJECT_NAME}_gencpp)
-
-#target_link_libraries(kinect_segmentation kinect_association)
-
-#add_library(ed_kinect_plugin
-#    src/kinect/plugin.cpp
-#    src/kinect/plugin.h
-#    src/kinect/sampling_projector_localizer.cpp
-#    src/kinect/sampling_render_localizer.cpp
-#    src/kinect/visualization.cpp
-#)
-#target_link_libraries(ed_kinect_plugin kinect_segmentation kinect_association ${catkin_LIBRARIES})
-
+#                                         LIBRARIES
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_association
@@ -110,45 +74,20 @@ add_library(ed_association
     include/ed_sensor_integration/association_matrix.h
 )
 
-add_library(ed_meshing
-    src/meshing.cpp
-    include/ed_sensor_integration/meshing.h
-)
-
-
+# ------------------------------------------------------------------------------------------------
+#                                          PLUGINS
 # ------------------------------------------------------------------------------------------------
 
-add_library(ed_kinect2_plugin
-    src/kinect2/plugin.cpp
-    src/kinect2/plugin.h
-    src/kinect2/visualization.cpp
-    src/kinect2/visualization.h
-    src/kinect2/segmentation.cpp
-    src/kinect2/segmentation.h
-
-src/kinect2/distributed/data/mask_clusters.h    src/kinect2/distributed/data/mask.h
-src/kinect2/distributed/data/depth_data.h  src/kinect2/distributed/data/rgbd_clusters.h
+add_library(ed_kinect_plugin
+    src/kinect/kinect_plugin.cpp
+    src/kinect/kinect_plugin.h
+    src/kinect/image_buffer.cpp
+    src/kinect/image_buffer.h
+    src/kinect/fitter.cpp
+    src/kinect/fitter.h
 )
-target_link_libraries(ed_kinect2_plugin ed_association ed_meshing ${catkin_LIBRARIES})
-add_dependencies(ed_kinect2_plugin ${PROJECT_NAME}_gencpp)
-
-#add_executable(segment-and-show tools/segment_and_show.cpp)
-#target_link_libraries(segment-and-show ${catkin_LIBRARIES})
-
-add_executable(ed_image_saver tools/image_saver.cpp)
-target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
-
-add_library(ed_clearer_plugin
-    src/clearer/clearer_plugin.cpp
-    src/clearer/clearer_plugin.h
-)
-target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
-
-
-# ------------------------------------------------------------------------------------------------
-
-add_executable(test_cloud_serialization src/kinect2/distributed/test_serialization.cpp)
-target_link_libraries(test_cloud_serialization ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
+add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)
 
 # ------------------------------------------------------------------------------------------------
 
@@ -158,34 +97,15 @@ add_library(ed_laser_plugin
 )
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 
-#add_library(ed_sensor_integration_plugin
-#	src/sensor_integration_plugin.cpp
-#	src/color_table.cpp
-#)
-#target_link_libraries(ed_sensor_integration_plugin ${catkin_LIBRARIES})
-
+# ------------------------------------------------------------------------------------------------
+#                                           TOOLS
 # ------------------------------------------------------------------------------------------------
 
-add_library(ed_fitter_plugin
-    src/fitter/fitter_plugin.cpp
-    src/fitter/fitter_plugin.h
-    src/fitter/mesh_tools.cpp
-    src/fitter/mesh_tools.h
-    src/fitter/beam_model.cpp
-    src/fitter/beam_model.h
-    src/fitter/gui.cpp
-    src/fitter/gui.h
-    src/fitter/snapshot.h
-    src/fitter/map_filter.cpp
-    src/fitter/map_filter.h
+add_executable(ed_image_saver tools/image_saver.cpp)
+target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
+
+add_library(ed_clearer_plugin
+    src/clearer/clearer_plugin.cpp
+    src/clearer/clearer_plugin.h
 )
-add_dependencies(ed_fitter_plugin ${PROJECT_NAME}_gencpp)
-
-add_executable(ed_fitter_gui tools/fitter_gui.cpp)
-target_link_libraries(ed_fitter_gui ${catkin_LIBRARIES})
-add_dependencies(ed_fitter_gui ${PROJECT_NAME}_gencpp)
-
-# ------------------------------------------------------------------------------------------------
-
-add_executable(test_convex_hull test/test_convex_hull.cpp)
-target_link_libraries(test_convex_hull ${catkin_LIBRARIES})
+target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
