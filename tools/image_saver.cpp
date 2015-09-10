@@ -105,7 +105,8 @@ int main(int argc, char **argv)
             // ----------------------------------------
             // Write RGBD file
             std::ofstream f_out;
-            f_out.open((filename + ".rgbd").c_str());
+            std::string rgbd_filename = filename + ".rgbd";
+            f_out.open(rgbd_filename.c_str());
             f_out.write(reinterpret_cast<char*>(&srv.response.rgbd_data[0]), srv.response.rgbd_data.size());
 
             // ----------------------------------------
@@ -118,7 +119,10 @@ int main(int argc, char **argv)
             f_meta.open((filename + ".json").c_str());
 
             // Write world model filename as extra field
-            f_meta << json_str << "\"world_model_filename\":\"" << wm_filename << "\"}";
+            f_meta << json_str
+                   << "\"world_model_filename\":\"" << wm_filename << "\","
+                   << "\"rgbd_filename\":\"" << rgbd_filename << "\""
+                   << "}";
         }
     }
 
