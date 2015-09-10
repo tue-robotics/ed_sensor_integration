@@ -5,10 +5,12 @@
 #include <ed/types.h>
 
 #include "image_buffer.h"
+#include "fitter.h"
 
 // Services
 #include <ros/service_server.h>
 #include <ed_sensor_integration/GetImage.h>
+#include <ed_sensor_integration/Update.h>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -36,6 +38,11 @@ private:
     geo::Pose3D last_sensor_pose_;
 
 
+    // Entity fitting
+
+    Fitter fitter_;
+
+
     // Communication
 
     const ed::WorldModel* world_;
@@ -50,6 +57,14 @@ private:
     ros::ServiceServer srv_get_image_;
 
     bool srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res);
+
+
+    ros::ServiceServer srv_update_;
+
+    bool srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res);
+
+
+
 
 };
 

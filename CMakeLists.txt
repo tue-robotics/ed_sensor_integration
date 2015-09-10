@@ -26,16 +26,8 @@ add_message_files(
 # Generate services
 add_service_files(
   FILES
-  LockEntities.srv
-  MeshEntityInView.srv
-  Segment.srv
-  FitModel.srv
-  GetModels.srv
-  GetSnapshots.srv
-  GetPOIs.srv
-  MakeSnapshot.srv
-  NavigateTo.srv
   GetImage.srv
+  Update.srv
 )
 
 # Generate added messages and services with any dependencies listed here
@@ -85,6 +77,10 @@ add_library(ed_kinect_plugin
     src/kinect/image_buffer.h
     src/kinect/fitter.cpp
     src/kinect/fitter.h
+    src/kinect/beam_model.cpp
+    src/kinect/beam_model.h
+    src/kinect/mesh_tools.cpp
+    src/kinect/mesh_tools.h
 )
 target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
 add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)

@@ -1,12 +1,16 @@
 world:
-  - type: rwc2015
-    id: _rwc2015    # Use an underscore in the id to NOT namespace all child entities
+  - type: $(env ROBOT_ENV)
+    id: _world    # Use an underscore in the id to NOT namespace all child entities
 
 plugins:
   - name: kinect_plugin
     lib: libed_kinect_plugin.so
     parameters:
         topic: /amigo/top_kinect/rgbd
+  - name: gui_server
+    lib: libed_gui_server_plugin.so
+    parameters:
+        robot_name: amigo
   - name: localization
     lib: libed_localization_plugin.so
     enabled: 1

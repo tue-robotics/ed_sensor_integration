@@ -4,6 +4,11 @@
 
 #include <ros/node_handle.h>
 
+#include <ed/uuid.h>
+#include <ed/world_model.h>
+#include <ed/entity.h>
+#include <ed/update_request.h>
+
 // GetImage
 #include <rgbd/serialization.h>
 #include <tue/serialization/conversions.h>
@@ -37,7 +42,6 @@ void KinectPlugin::initialize(ed::InitData& init)
         image_buffer_.initialize(topic);
     }
 
-
     // - - - - - - - - - - - - - - - - - -
     // Services
 
@@ -45,6 +49,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     nh.setCallbackQueue(&cb_queue_);
 
     srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
+    srv_update_ = nh.advertiseService("kinect/update", &KinectPlugin::srvUpdate, this);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -105,6 +110,45 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
     ROS_INFO_STREAM("[ED KINECT] Requested image. Image size: " << res.rgbd_data.size()
                     << " bytes. Meta-data size: " << res.json_meta_data.size() << " bytes.");
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res)
+{
+    ed::UUID entity_id = req.update_space_description; // for now
+    ed::EntityConstPtr e = world_->getEntity(entity_id);
+
+    if (!e)
+    {
+        res.error_msg = "No such entity: '" + entity_id.str() + "'.";
+        return true;
+    }
+    else if (!e->has_pose())
+    {
+        res.error_msg = "Entity: '" + entity_id.str() + "' has no pose.";
+        return true;
+    }
+    else if (!last_image_)
+    {
+        res.error_msg = "No image available.";
+        return true;
+    }
+
+    FitterData fitter_data;
+    fitter_.processSensorData(*last_image_, last_sensor_pose_, fitter_data);
+
+    geo::Pose3D new_pose;
+    if (fitter_.estimateEntityPose(fitter_data, *world_, entity_id, e->pose(), new_pose))
+    {
+        update_req_->setPose(entity_id, new_pose);
+    }
+    else
+    {
+        res.error_msg = "Could not determine pose of '" + entity_id.str() + "'.";
+    }
 
     return true;
 }
