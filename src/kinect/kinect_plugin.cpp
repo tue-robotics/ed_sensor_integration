@@ -13,6 +13,8 @@
 
 #include <rgbd/View.h>
 
+#include "association.h"
+
 // GetImage
 #include <rgbd/serialization.h>
 #include <tue/serialization/conversions.h>
@@ -233,14 +235,16 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
 
         std::cout << clusters.size() << " clusters" << std::endl;
 
-        for(unsigned int i = 0; i < clusters.size(); ++i)
-        {
-            const Cluster& cluster = clusters[i];
+        associateAndUpdate(*world_, clusters, last_image_, *update_req_);
 
-            ed::UUID cluster_id = ed::Entity::generateID();
+//        for(unsigned int i = 0; i < clusters.size(); ++i)
+//        {
+//            const Cluster& cluster = clusters[i];
 
-            update_req_->setConvexHullNew(cluster_id, cluster.chull, cluster.pose_map, 0);
-        }
+//            ed::UUID cluster_id = ed::Entity::generateID();
+
+//            update_req_->setConvexHullNew(cluster_id, cluster.chull, cluster.pose_map, 0);
+//        }
 
     }
 

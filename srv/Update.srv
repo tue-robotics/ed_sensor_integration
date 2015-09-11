@@ -2,8 +2,8 @@
 # and 'on_top_of' must be specified in the model of the corresponding entity.
 
 # Examples:
-# "on_top_of(table-123)"        Updates table-123's pose and searches for objects on top
-# "in_front_of(cabinet-7)"      Updates cabinet-7's pose and searches for objects in front
+# "on_top_of table-123"        Updates table-123's pose and searches for objects on top
+# "in_front_of cabinet-7"      Updates cabinet-7's pose and searches for objects in front
 # "table-123"                   Updates table-123's pose  
 
 string update_space_description

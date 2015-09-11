@@ -1,11 +1,14 @@
 #ifndef ED_SENSOR_INTEGRATION_SEGMENTER_H_
 #define ED_SENSOR_INTEGRATION_SEGMENTER_H_
 
+#include "cluster.h"
+
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
 #include <opencv2/core/core.hpp>
 
 #include <ed/convex_hull.h>
+#include <ed/types.h>
 
 namespace cv
 {
@@ -16,14 +19,6 @@ namespace geo
 {
     class DepthCamera;
 }
-
-struct Cluster
-{
-    std::vector<unsigned int> pixel_indices;
-    std::vector<geo::Vec3> points;
-    ed::ConvexHull chull;
-    geo::Pose3D pose_map;
-};
 
 // ----------------------------------------------------------------------------------------------------
 

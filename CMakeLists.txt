@@ -83,8 +83,11 @@ add_library(ed_kinect_plugin
     src/kinect/mesh_tools.h
     src/kinect/segmenter.cpp
     src/kinect/segmenter.h
+    src/kinect/association.cpp
+    src/kinect/association.h
+    src/kinect/cluster.h
 )
-target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin ed_association ${catkin_LIBRARIES})
 add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)
 
 # ------------------------------------------------------------------------------------------------

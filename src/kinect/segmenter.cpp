@@ -119,20 +119,25 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
 
     cv::Mat visited(height, width, CV_8UC1, cv::Scalar(0));
 
-    // Mark borders as visited
+    // Mark borders as visited (2-pixel border)
     for(int x = 0; x < width; ++x)
     {
         visited.at<unsigned char>(0, x) = 1;
+        visited.at<unsigned char>(1, x) = 1;
         visited.at<unsigned char>(height - 1, x) = 1;
+        visited.at<unsigned char>(height - 2, x) = 1;
     }
 
     for(int y = 0; y < height; ++y)
     {
         visited.at<unsigned char>(y, 0) = 1;
+        visited.at<unsigned char>(y, 1) = 1;
         visited.at<unsigned char>(y, width - 1) = 1;
+        visited.at<unsigned char>(y, width - 2) = 1;
     }
 
-    int dirs[] = { -1, 1, -width, width };
+    int dirs[] = { -1, 1, -width, width,
+                   -2, 2, -width * 2, width * 2};  // Also try one pixel skipped (filtering may cause some 1-pixel gaps)
 
     for(unsigned int i_pixel = 0; i_pixel < width * height; ++i_pixel)
     {
@@ -162,7 +167,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             cluster.pixel_indices.push_back(p1);
             cluster.points.push_back(cam_model.project2Dto3D(p1 % width, p1 / width) * p1_d);
 
-            for(int dir = 0; dir < 4; ++dir)
+            for(int dir = 0; dir < 8; ++dir)
             {
                 unsigned int p2 = p1 + dirs[dir];
                 float p2_d = depth_image.at<float>(p2);
