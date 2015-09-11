@@ -11,6 +11,8 @@
 
 #include <tue/config/reader.h>
 
+#include <rgbd/View.h>
+
 // GetImage
 #include <rgbd/serialization.h>
 #include <tue/serialization/conversions.h>
@@ -217,12 +219,29 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
             res.error_msg = "Could not load shape of area '" + area_name + "' for entity '" + entity_id.str() + "'.";
             return true;
         }
-        else
+
+        geo::Pose3D shape_pose = last_sensor_pose_.inverse() * new_pose;
+        cv::Mat filtered_depth_image;
+        segmenter_.calculatePointsWithin(*last_image_, shape, shape_pose, filtered_depth_image);
+
+        // Determine camera model
+        rgbd::View view(*last_image_, filtered_depth_image.cols);
+        const geo::DepthCamera& cam_model = view.getRasterizer();
+
+        std::vector<Cluster> clusters;
+        segmenter_.cluster(filtered_depth_image, cam_model, last_sensor_pose_, clusters);
+
+        std::cout << clusters.size() << " clusters" << std::endl;
+
+        for(unsigned int i = 0; i < clusters.size(); ++i)
         {
-            geo::Pose3D shape_pose = last_sensor_pose_.inverse() * new_pose;
-            cv::Mat filtered_depth_image;
-            segmenter_.calculatePointsWithin(*last_image_, shape, shape_pose, filtered_depth_image);
+            const Cluster& cluster = clusters[i];
+
+            ed::UUID cluster_id = ed::Entity::generateID();
+
+            update_req_->setConvexHullNew(cluster_id, cluster.chull, cluster.pose_map, 0);
         }
+
     }
 
     return true;
