@@ -81,6 +81,8 @@ add_library(ed_kinect_plugin
     src/kinect/beam_model.h
     src/kinect/mesh_tools.cpp
     src/kinect/mesh_tools.h
+    src/kinect/segmenter.cpp
+    src/kinect/segmenter.h
 )
 target_link_libraries(ed_kinect_plugin ${catkin_LIBRARIES})
 add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)

@@ -83,21 +83,8 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
 
-//    // Calculate beam number corresponding to click location in image
-//    rgbd::View view(*snapshot.image, snapshot.canvas.cols);
-//    geo::Vec3 click_ray = view.getRasterizer().project2Dto3D(click_x, click_y);
-//    geo::Vec3 p_aligned = snapshot.sensor_pose_zrp * click_ray;
-//    int i_click_beam = beam_model_.CalculateBeam(p_aligned.x, p_aligned.y);
-
     geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
     int expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
-
-    std::cout << "sensor pose: " << data.sensor_pose << std::endl;
-
-    std::cout << "Expected pose:" << std::endl;
-    std::cout << "    MAP:    " << expected_pose << std::endl;
-    std::cout << "    SENSOR: " << expected_pos_SENSOR << std::endl;
-    std::cout << "    BEAM:   " << expected_center_beam << std::endl;
 
     // -------------------------------------
     // Render world model objects

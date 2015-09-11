@@ -6,6 +6,7 @@
 
 #include "image_buffer.h"
 #include "fitter.h"
+#include "segmenter.h"
 
 // Services
 #include <ros/service_server.h>
@@ -41,6 +42,11 @@ private:
     // Entity fitting
 
     Fitter fitter_;
+
+
+    // Segmentation
+
+    Segmenter segmenter_;
 
 
     // Communication
