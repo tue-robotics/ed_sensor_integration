@@ -66,6 +66,25 @@ add_library(ed_association
     include/ed_sensor_integration/association_matrix.h
 )
 
+add_library(ed_kinect
+    src/kinect/image_buffer.cpp
+    include/ed/kinect/image_buffer.h
+    src/kinect/fitter.cpp
+    include/ed/kinect/fitter.h
+    src/kinect/beam_model.cpp
+    include/ed/kinect/beam_model.h
+    src/kinect/mesh_tools.cpp
+    include/ed/kinect/mesh_tools.h
+    src/kinect/segmenter.cpp
+    include/ed/kinect/segmenter.h
+    src/kinect/association.cpp
+    include/ed/kinect/association.h
+    src/kinect/updater.cpp
+    include/ed/kinect/updater.h
+    include/ed/kinect/entity_update.h
+)
+target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
+
 # ------------------------------------------------------------------------------------------------
 #                                          PLUGINS
 # ------------------------------------------------------------------------------------------------
@@ -73,21 +92,8 @@ add_library(ed_association
 add_library(ed_kinect_plugin
     src/kinect/kinect_plugin.cpp
     src/kinect/kinect_plugin.h
-    src/kinect/image_buffer.cpp
-    src/kinect/image_buffer.h
-    src/kinect/fitter.cpp
-    src/kinect/fitter.h
-    src/kinect/beam_model.cpp
-    src/kinect/beam_model.h
-    src/kinect/mesh_tools.cpp
-    src/kinect/mesh_tools.h
-    src/kinect/segmenter.cpp
-    src/kinect/segmenter.h
-    src/kinect/association.cpp
-    src/kinect/association.h
-    src/kinect/cluster.h
 )
-target_link_libraries(ed_kinect_plugin ed_association ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin ed_kinect ${catkin_LIBRARIES})
 add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)
 
 # ------------------------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-#include "segmenter.h"
+#include "ed/kinect/segmenter.h"
 
 #include <geolib/sensors/DepthCamera.h>
 #include <geolib/Shape.h>
@@ -112,7 +112,7 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 // ----------------------------------------------------------------------------------------------------
 
 void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<Cluster>& clusters)
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -147,8 +147,8 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             continue;
 
         // Create cluster
-        clusters.push_back(Cluster());
-        Cluster& cluster = clusters.back();
+        clusters.push_back(EntityUpdate());
+        EntityUpdate& cluster = clusters.back();
 
         // Mark visited
         visited.at<unsigned char>(i_pixel) = 1;

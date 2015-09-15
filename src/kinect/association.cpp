@@ -1,5 +1,5 @@
-#include "association.h"
-#include "cluster.h"
+#include "ed/kinect/association.h"
+#include "ed/kinect/entity_update.h"
 
 #include "ed_sensor_integration/association_matrix.h"
 
@@ -12,13 +12,13 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>& clusters, const rgbd::ImageConstPtr& image, ed::UpdateRequest& req)
+void associateAndUpdate(const ed::WorldModel& world, const rgbd::Image& image, std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
 {
     if (clusters.empty())
         return;
 
-    const cv::Mat& depth = image->getDepthImage();
-    rgbd::View view(*image, depth.cols);
+    const cv::Mat& depth = image.getDepthImage();
+    rgbd::View view(image, depth.cols);
 
     float max_dist = 0.3;
 
@@ -44,7 +44,7 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
-        const Cluster& cluster = clusters[i_cluster];
+        const EntityUpdate& cluster = clusters[i_cluster];
 
         for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
         {
@@ -102,7 +102,7 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
 
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
-        const Cluster& cluster = clusters[i_cluster];
+        EntityUpdate& cluster = clusters[i_cluster];
 
         // Get the assignment for this cluster
         int i_entity = assig[i_cluster];
@@ -120,11 +120,15 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
             // Generate unique ID
             id = ed::Entity::generateID();
 
+            cluster.is_new = true;
+
             // Update existence probability
             req.setExistenceProbability(id, 1.0); // TODO magic number
         }
         else
         {
+            cluster.is_new = false;
+
 //            // Mark the entity as being associated
 //            entities_associated[i_entity] = i_cluster;
 
@@ -209,11 +213,15 @@ void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>&
         // Set convex hull and pose
         if (!new_chull.points.empty())
         {
-            req.setConvexHullNew(id, new_chull, new_pose, image->getTimestamp(), image->getFrameId());
+            cluster.id = id;
+            cluster.chull = new_chull;
+            cluster.pose_map = new_pose;
+
+            req.setConvexHullNew(id, new_chull, new_pose, image.getTimestamp(), image.getFrameId());
         }
 
         // Set timestamp
-        req.setLastUpdateTimestamp(id, image->getTimestamp());
+        req.setLastUpdateTimestamp(id, image.getTimestamp());
 
         // Add measurement
 //        req.addMeasurement(id, ed::MeasurementPtr(new ed::Measurement(image, cluster.image_mask, sensor_pose)));

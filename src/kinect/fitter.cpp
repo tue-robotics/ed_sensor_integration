@@ -1,4 +1,4 @@
-#include "fitter.h"
+#include "ed/kinect/fitter.h"
 
 #include <ed/entity.h>
 #include <ed/world_model.h>
@@ -17,7 +17,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 // 2D model creation
-#include "mesh_tools.h"
+#include "ed/kinect/mesh_tools.h"
 
 // Communication
 #include "ed_sensor_integration/ImageBinary.h"

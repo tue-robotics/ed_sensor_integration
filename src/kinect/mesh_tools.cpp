@@ -1,4 +1,4 @@
-#include "mesh_tools.h"
+#include "ed/kinect/mesh_tools.h"
 
 #include <geolib/Mesh.h>
 #include <opencv2/core/core.hpp>

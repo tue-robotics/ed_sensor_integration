@@ -1,4 +1,4 @@
-#include "image_buffer.h"
+#include "ed/kinect/image_buffer.h"
 
 #include <rgbd/Client.h>
 #include <rgbd/Image.h>

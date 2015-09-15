@@ -1,7 +1,7 @@
 #ifndef ED_SENSOR_INTEGRATION_SEGMENTER_H_
 #define ED_SENSOR_INTEGRATION_SEGMENTER_H_
 
-#include "cluster.h"
+#include "ed/kinect/entity_update.h"
 
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
@@ -35,7 +35,7 @@ public:
                                const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image);
 
     void cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<Cluster>& clusters);
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters);
 
 private:
 

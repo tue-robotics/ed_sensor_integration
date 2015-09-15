@@ -5,8 +5,8 @@
 #include <ed/types.h>
 #include <rgbd/types.h>
 
-class Cluster;
+class EntityUpdate;
 
-void associateAndUpdate(const ed::WorldModel& world, const std::vector<Cluster>& clusters, const rgbd::ImageConstPtr& image, ed::UpdateRequest& req);
+void associateAndUpdate(const ed::WorldModel& world, const rgbd::Image& image, std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req);
 
 #endif

@@ -13,7 +13,7 @@
 
 #include <rgbd/View.h>
 
-#include "association.h"
+#include "ed/kinect/association.h"
 
 // GetImage
 #include <rgbd/serialization.h>
@@ -125,127 +125,25 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
 bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res)
 {    
-    // -------------------------------------
-    // Parse space description (split on space)
-
-    const std::string& descr = req.update_space_description;
-    std::size_t i_space = descr.find(' ');
-
-    ed::UUID entity_id;
-    std::string area_name;
-
-    if (i_space == std::string::npos)
+    UpdateResult update_result(*update_req_);
+    if (!updater_.update(*world_, *last_image_, last_sensor_pose_, req.update_space_description, update_result))
     {
-        entity_id = descr;
-    }
-    else
-    {
-        area_name = descr.substr(0, i_space);
-        entity_id = descr.substr(i_space + 1);
-    }
-
-    // -------------------------------------
-    // Check for entity and last image existence
-
-    ed::EntityConstPtr e = world_->getEntity(entity_id);
-
-    if (!e)
-    {
-        res.error_msg = "No such entity: '" + entity_id.str() + "'.";
-        return true;
-    }
-    else if (!e->has_pose())
-    {
-        res.error_msg = "Entity: '" + entity_id.str() + "' has no pose.";
-        return true;
-    }
-    else if (!last_image_)
-    {
-        res.error_msg = "No image available.";
+        res.error_msg = update_result.error.str();
         return true;
     }
 
-    // -------------------------------------
-    // Update entity position
-
-    FitterData fitter_data;
-    fitter_.processSensorData(*last_image_, last_sensor_pose_, fitter_data);
-
-    geo::Pose3D new_pose;
-    if (fitter_.estimateEntityPose(fitter_data, *world_, entity_id, e->pose(), new_pose))
+    for(unsigned int i = 0; i < update_result.entity_updates.size(); ++i)
     {
-        update_req_->setPose(entity_id, new_pose);
-    }
-    else
-    {
-        res.error_msg = "Could not determine pose of '" + entity_id.str() + "'.";
-        return true;
+        EntityUpdate& e_update = update_result.entity_updates[i];
+        if (e_update.is_new)
+            res.new_ids.push_back(e_update.id.str());
+        else
+            res.updated_ids.push_back(e_update.id.str());
     }
 
-    // -------------------------------------
-    // Segment objects
-
-    if (!area_name.empty())
+    for(unsigned int i = 0; i < update_result.removed_entity_ids.size(); ++i)
     {
-        // Determine segmentation area (the geometrical shape in which the segmentation should take place)
-
-        geo::Shape shape;
-        bool found = false;
-        tue::config::Reader r(e->data());
-
-        if (r.readArray("areas"))
-        {
-            while(r.nextArrayItem())
-            {
-                std::string a_name;
-                if (!r.value("name", a_name) || a_name != area_name)
-                    continue;
-
-                if (ed::deserialize(r, "shape", shape))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            r.endArray();
-        }
-
-        if (!found)
-        {
-            res.error_msg = "No area '" + area_name + "' for entity '" + entity_id.str() + "'.";
-            return true;
-        }
-        else if (shape.getMesh().getTriangleIs().empty())
-        {
-            res.error_msg = "Could not load shape of area '" + area_name + "' for entity '" + entity_id.str() + "'.";
-            return true;
-        }
-
-        geo::Pose3D shape_pose = last_sensor_pose_.inverse() * new_pose;
-        cv::Mat filtered_depth_image;
-        segmenter_.calculatePointsWithin(*last_image_, shape, shape_pose, filtered_depth_image);
-
-        // Determine camera model
-        rgbd::View view(*last_image_, filtered_depth_image.cols);
-        const geo::DepthCamera& cam_model = view.getRasterizer();
-
-        std::vector<Cluster> clusters;
-        segmenter_.cluster(filtered_depth_image, cam_model, last_sensor_pose_, clusters);
-
-        std::cout << clusters.size() << " clusters" << std::endl;
-
-        associateAndUpdate(*world_, clusters, last_image_, *update_req_);
-
-//        for(unsigned int i = 0; i < clusters.size(); ++i)
-//        {
-//            const Cluster& cluster = clusters[i];
-
-//            ed::UUID cluster_id = ed::Entity::generateID();
-
-//            update_req_->setConvexHullNew(cluster_id, cluster.chull, cluster.pose_map, 0);
-//        }
-
+        res.deleted_ids.push_back(update_result.removed_entity_ids[i].str());
     }
 
     return true;

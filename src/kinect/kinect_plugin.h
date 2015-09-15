@@ -4,9 +4,8 @@
 #include <ed/plugin.h>
 #include <ed/types.h>
 
-#include "image_buffer.h"
-#include "fitter.h"
-#include "segmenter.h"
+#include "ed/kinect/image_buffer.h"
+#include "ed/kinect/updater.h"
 
 // Services
 #include <ros/service_server.h>
@@ -39,14 +38,7 @@ private:
     geo::Pose3D last_sensor_pose_;
 
 
-    // Entity fitting
-
-    Fitter fitter_;
-
-
-    // Segmentation
-
-    Segmenter segmenter_;
+    Updater updater_;
 
 
     // Communication
