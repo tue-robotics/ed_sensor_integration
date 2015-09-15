@@ -105,14 +105,20 @@ add_library(ed_laser_plugin
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
-#                                           TOOLS
-# ------------------------------------------------------------------------------------------------
-
-add_executable(ed_image_saver tools/image_saver.cpp)
-target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 
 add_library(ed_clearer_plugin
     src/clearer/clearer_plugin.cpp
     src/clearer/clearer_plugin.h
 )
 target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
+
+# ------------------------------------------------------------------------------------------------
+#                                           TOOLS
+# ------------------------------------------------------------------------------------------------
+
+add_executable(ed_image_saver tools/image_saver.cpp)
+target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
+
+add_executable(ed_segmenter tools/segmenter.cpp)
+target_link_libraries(ed_segmenter ed_kinect)
+
