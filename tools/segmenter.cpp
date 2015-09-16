@@ -195,7 +195,7 @@ int main(int argc, char **argv)
         std::string error_msg = res.error.str();
         if (!error_msg.empty())
         {
-            std::cout << error_msg << std::endl;
+            std::cerr << error_msg << std::endl;
             continue;
         }
 
@@ -204,14 +204,11 @@ int main(int argc, char **argv)
         for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
         {
             const EntityUpdate& e_update = res.entity_updates[i];
-            std::cout << e_update.id << std::endl;
-
             for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
             {
                 rgb.at<cv::Vec3b>(*it) = cv::Vec3b(0, 0, 255);
             }
         }
-        std::cout << std::endl;
 
         cv::imshow("RGB", rgb);
         char key = cv::waitKey();
@@ -234,7 +231,7 @@ int main(int argc, char **argv)
             break;
         }
 
-        std::cout << (int)key << std::endl;
+//        std::cout << (int)key << std::endl;
     }
 
     return 0;

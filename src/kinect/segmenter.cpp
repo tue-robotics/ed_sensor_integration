@@ -11,7 +11,7 @@
 #include <ed/convex_hull_calc.h>
 
 // Visualization
-#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/highgui/highgui.hpp>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -103,10 +103,10 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
             filtered_depth_image.at<float>(i) = d;
     }
 
-    cv::imshow("min", res.min_buffer / 10);
-    cv::imshow("max", res.max_buffer / 10);
-    cv::imshow("filtered", filtered_depth_image / 10);
-    cv::waitKey(3);
+//    cv::imshow("min", res.min_buffer / 10);
+//    cv::imshow("max", res.max_buffer / 10);
+//    cv::imshow("filtered", filtered_depth_image / 10);
+//    cv::waitKey(3);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -209,8 +209,6 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
         }
-
-        std::cout << "    " << z_min << " " << z_max << std::endl;
 
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;

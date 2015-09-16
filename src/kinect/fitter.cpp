@@ -190,11 +190,11 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 
     if (min_error > 1e5)
     {
-        std::cout << "No pose found!" << std::endl;
+//        std::cout << "No pose found!" << std::endl;
         return false;
     }
 
-    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
+//    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
 
     // Convert to 3D Pose
 

@@ -21,8 +21,7 @@
 #include <ed/io/json_writer.h>
 #include <ed/serialization/serialization.h>
 
-#include <opencv2/highgui/highgui.hpp>
-#include <geolib/Box.h>
+//#include <opencv2/highgui/highgui.hpp>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -82,8 +81,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
     // - - - - - - - - - - - - - - - - - -
 
-    cv::imshow("kinect", last_image_->getRGBImage());
-    cv::waitKey(3);
+//    cv::imshow("kinect", last_image_->getRGBImage());
+//    cv::waitKey(3);
 }
 
 // ----------------------------------------------------------------------------------------------------
