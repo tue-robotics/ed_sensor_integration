@@ -19,6 +19,14 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+struct Snapshot
+{
+    rgbd::Image image;
+    geo::Pose3D sensor_pose;
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose)
 {
     std::ifstream f_in;
@@ -73,6 +81,31 @@ bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sen
 
 // ----------------------------------------------------------------------------------------------------
 
+bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
+{
+    ed::UpdateRequest req;
+
+    ed::models::ModelLoader model_loader;
+
+    std::stringstream error;
+    if (!model_loader.create("_root", model_name, req, error))
+    {
+        std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
+        std::cerr << error.str() << std::endl;
+        return false;
+    }
+
+    // Reset world
+    world_model = ed::WorldModel();
+
+    // Update world
+    world_model.update(req);
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 void usage()
 {
     std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY WORLD-MODEL-NAME" << std::endl;
@@ -91,45 +124,73 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    ed::UpdateRequest req;
-
     std::string model_name = argv[2];
-    ed::models::ModelLoader model_loader;
-    std::stringstream error;
-    if (!model_loader.create("_root", model_name, req, error))
-    {
-        std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
-        std::cerr << error.str() << std::endl;
-        return 1;
-    }
 
-    // Create world
     ed::WorldModel world_model;
-    world_model.update(req);
+    if (!loadWorldModel(model_name, world_model))
+        return false;
 
     tue::filesystem::Path path = argv[1];
-    tue::filesystem::Crawler crawler(path);
+    tue::filesystem::Crawler crawler;
+
+    if (path.isDirectory())
+        crawler.setRootPath(path);
+    else
+        crawler.setRootPath(path.parentPath());
 
     Updater updater;
 
-    tue::filesystem::Path filename;
-    while(crawler.nextPath(filename))
+    std::vector<Snapshot> snapshots;
+    unsigned int i_snapshot = 0;
+
+    while(true)
     {
-        if (filename.extension() != ".json")
-            continue;
-
-        rgbd::Image image;
-        geo::Pose3D sensor_pose;
-
-        if (!readImage(filename.string(), image, sensor_pose))
+        if (i_snapshot >= snapshots.size())
         {
-            std::cerr << "Could not read " << filename << std::endl;
-            continue;
+            bool file_found = true;
+            tue::filesystem::Path filename;
+
+            if (path.isRegularFile() && snapshots.empty())
+                filename = path;
+            else
+            {
+                file_found = false;
+                while (crawler.nextPath(filename))
+                {
+                    if (filename.extension() == ".json")
+                    {
+                        file_found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (file_found)
+            {
+                i_snapshot = snapshots.size();
+                snapshots.push_back(Snapshot());
+                Snapshot& snapshot = snapshots.back();
+
+                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
+                {
+                    std::cerr << "Could not read " << filename << std::endl;
+                    continue;
+                }
+            }
+            else
+            {
+                if (snapshots.empty())
+                    break;
+
+                i_snapshot = snapshots.size() - 1;
+            }
         }
+
+        Snapshot& snapshot = snapshots[i_snapshot];
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
-        updater.update(world_model, image, sensor_pose, "on_top_of cabinet", res);
+        updater.update(world_model, snapshot.image, snapshot.sensor_pose, "on_top_of cabinet", res);
 
         std::string error_msg = res.error.str();
         if (!error_msg.empty())
@@ -138,9 +199,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        std::cout << sensor_pose << std::endl;
-
-        cv::Mat rgb = image.getRGBImage().clone();
+        cv::Mat rgb = snapshot.image.getRGBImage().clone();
 
         for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
         {
@@ -155,8 +214,28 @@ int main(int argc, char **argv)
         std::cout << std::endl;
 
         cv::imshow("RGB", rgb);
-        cv::waitKey();
+        char key = cv::waitKey();
+
+        if (key == 81)  // Left arrow
+        {
+            if (i_snapshot > 0)
+                --i_snapshot;
+        }
+        else if (key == 83) // Right arrow
+        {
+            ++i_snapshot;
+        }
+        else if (key == 'r')
+        {
+            // Reload
+            loadWorldModel(model_name, world_model);
+        } else if (key == 'q')
+        {
+            break;
+        }
+
+        std::cout << (int)key << std::endl;
     }
 
-   return 0;
+    return 0;
 }
