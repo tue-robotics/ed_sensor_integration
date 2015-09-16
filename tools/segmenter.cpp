@@ -23,11 +23,12 @@ struct Snapshot
 {
     rgbd::Image image;
     geo::Pose3D sensor_pose;
+    std::string area_description;
 };
 
 // ----------------------------------------------------------------------------------------------------
 
-bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose)
+bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose, std::string& area_description)
 {
     std::ifstream f_in;
     f_in.open(filename.c_str());
@@ -50,6 +51,9 @@ bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sen
         std::cerr << "No field 'rgbd_filename' specified." << std::endl;
         return false;
     }
+
+    if (!r.readValue("area", area_description))
+        area_description.clear();
 
     if (r.readGroup("sensor_pose"))
     {
@@ -177,7 +181,7 @@ int main(int argc, char **argv)
                 snapshots.push_back(Snapshot());
                 Snapshot& snapshot = snapshots.back();
 
-                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
+                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose, snapshot.area_description))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
@@ -201,27 +205,55 @@ int main(int argc, char **argv)
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
-        updater.update(world_model, snapshot.image, snapshot.sensor_pose, "on_top_of cabinet", res);
+        updater.update(world_model, snapshot.image, snapshot.sensor_pose, snapshot.area_description, res);
+
+        cv::Mat canvas = snapshot.image.getRGBImage().clone();
 
         std::string error_msg = res.error.str();
-        if (!error_msg.empty())
+        if (error_msg.empty())
+        {
+            int depth_width = snapshot.image.getDepthImage().cols;
+            double f = (double)canvas.cols / depth_width;
+
+            for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
+            {
+                const EntityUpdate& e_update = res.entity_updates[i];
+                if (e_update.pixel_indices.empty())
+                    continue;
+
+                unsigned i_pxl = e_update.pixel_indices[0];
+                cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
+                cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
+
+                for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
+                {
+                    int x = *it % depth_width;
+                    int y = *it / depth_width;
+
+                    bb_min.x = std::min(bb_min.x, x);
+                    bb_min.y = std::min(bb_min.y, y);
+                    bb_max.x = std::max(bb_max.x, x);
+                    bb_max.y = std::max(bb_max.y, y);
+
+                    for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
+                        for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
+                            canvas.at<cv::Vec3b>(y2, x2) = cv::Vec3b(0, 0, 255);
+                }
+
+                cv::Point d(2, 2);
+                cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
+                cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
+                cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
+            }
+
+        }
+        else
         {
             std::cerr << error_msg << std::endl;
-            continue;
+            cv::putText(canvas, "Segmentation failed", cv::Point(10, 20), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
         }
 
-        cv::Mat rgb = snapshot.image.getRGBImage().clone();
-
-        for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
-        {
-            const EntityUpdate& e_update = res.entity_updates[i];
-            for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
-            {
-                rgb.at<cv::Vec3b>(*it) = cv::Vec3b(0, 0, 255);
-            }
-        }
-
-        cv::imshow("RGB", rgb);
+        cv::imshow("RGB", canvas);
         char key = cv::waitKey();
 
         if (key == 81)  // Left arrow
