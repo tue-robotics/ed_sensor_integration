@@ -128,9 +128,15 @@ int main(int argc, char **argv)
 
     ed::WorldModel world_model;
     if (!loadWorldModel(model_name, world_model))
-        return false;
+        return 1;
 
     tue::filesystem::Path path = argv[1];
+    if (!path.exists())
+    {
+        std::cerr << "Path '" << path << "' does not exist." << std::endl;
+        return 1;
+    }
+
     tue::filesystem::Crawler crawler;
 
     if (path.isDirectory())
@@ -174,7 +180,12 @@ int main(int argc, char **argv)
                 if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
+                    snapshots.pop_back();
                     continue;
+                }
+                else
+                {
+//                    std::cout << "Successfully loaded " << filename << std::endl;
                 }
             }
             else
