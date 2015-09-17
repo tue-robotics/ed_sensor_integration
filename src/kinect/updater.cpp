@@ -12,6 +12,7 @@
 #include <ed/serialization/serialization.h>
 
 #include "ed/kinect/association.h"
+#include "ed/kinect/renderer.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -82,6 +83,16 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, cons
     }
 
     // -------------------------------------
+    // Optimize sensor pose
+
+    geo::Pose3D new_sensor_pose;
+    fitZRP(*e->shape(), new_pose, image, sensor_pose, new_sensor_pose);
+
+    std::cout << "Old sensor pose: " << sensor_pose << std::endl;
+    std::cout << "New sensor pose: " << new_sensor_pose << std::endl;
+    std::cout << std::endl;
+
+    // -------------------------------------
     // Segment objects
 
     if (!area_name.empty())
@@ -121,7 +132,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, cons
             return false;
         }
 
-        geo::Pose3D shape_pose = sensor_pose.inverse() * new_pose;
+        geo::Pose3D shape_pose = new_sensor_pose.inverse() * new_pose;
         cv::Mat filtered_depth_image;
         segmenter_.calculatePointsWithin(image, shape, shape_pose, filtered_depth_image);
 

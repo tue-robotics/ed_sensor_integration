@@ -153,7 +153,7 @@ int main(int argc, char **argv)
     std::vector<Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
-    while(true)
+    while(ros::ok())
     {
         if (i_snapshot >= snapshots.size())
         {

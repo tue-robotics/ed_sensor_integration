@@ -173,7 +173,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
                 float p2_d = depth_image.at<float>(p2);
 
                 // If not yet visited, and depth is within bounds
-                if (visited.at<unsigned char>(p2) == 0 && std::abs<float>(p2_d - p1_d) < 0.1)
+                if (visited.at<unsigned char>(p2) == 0 && std::abs<float>(p2_d - p1_d) < 0.05)
                 {
                     // Mark visited
                     visited.at<unsigned char>(p2) = 1;

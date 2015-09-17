@@ -82,6 +82,8 @@ add_library(ed_kinect
     src/kinect/updater.cpp
     include/ed/kinect/updater.h
     include/ed/kinect/entity_update.h
+    src/kinect/renderer.cpp
+    include/ed/kinect/renderer.h
 )
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
 
