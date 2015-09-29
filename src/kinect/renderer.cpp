@@ -89,8 +89,8 @@ void fitZRP(const geo::Shape& shape, const geo::Pose3D& shape_pose, const rgbd::
                 opt.setMesh(shape.getMesh(), test_pose.inverse() * shape_pose);
                 rasterizer.render(opt, res);
 
-                cv::imshow("sample", model / 10);
-                cv::waitKey(3);
+//                cv::imshow("sample", model / 10);
+//                cv::waitKey(3);
 
                 int n = 0;
                 double total_error = 0;

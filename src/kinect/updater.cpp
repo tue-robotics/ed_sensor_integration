@@ -85,8 +85,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, cons
     // -------------------------------------
     // Optimize sensor pose
 
-    geo::Pose3D new_sensor_pose;
-    fitZRP(*e->shape(), new_pose, image, sensor_pose, new_sensor_pose);
+    geo::Pose3D new_sensor_pose = sensor_pose;
+//    fitZRP(*e->shape(), new_pose, image, sensor_pose, new_sensor_pose);
 
     std::cout << "Old sensor pose: " << sensor_pose << std::endl;
     std::cout << "New sensor pose: " << new_sensor_pose << std::endl;
