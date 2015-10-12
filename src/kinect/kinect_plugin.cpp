@@ -138,6 +138,9 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
             res.new_ids.push_back(e_update.id.str());
         else
             res.updated_ids.push_back(e_update.id.str());
+
+        // Lock it, such that is won't be cleared by the clearer plugin
+        update_req_->setFlag(e_update.id, "locked");
     }
 
     for(unsigned int i = 0; i < update_result.removed_entity_ids.size(); ++i)
