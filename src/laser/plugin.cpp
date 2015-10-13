@@ -27,7 +27,7 @@ namespace
 
 typedef std::vector<unsigned int> ScanSegment;
 
-struct Cluster
+struct EntityUpdate
 {
     ed::ConvexHull chull;
     geo::Pose3D pose;
@@ -287,7 +287,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
 
-    std::vector<Cluster> clusters;
+    std::vector<EntityUpdate> clusters;
 
     for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
     {
@@ -322,8 +322,8 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             }
         }
 
-        clusters.push_back(Cluster());
-        Cluster& cluster = clusters.back();
+        clusters.push_back(EntityUpdate());
+        EntityUpdate& cluster = clusters.back();
 
         cluster.pose = geo::Pose3D::identity();
         ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
@@ -350,9 +350,9 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     {
         geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
         geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        for (std::vector<Cluster>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
+        for (std::vector<EntityUpdate>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
         {
-            const Cluster& cluster = *it;
+            const EntityUpdate& cluster = *it;
 
             area_min.x = std::min(area_min.x, cluster.pose.t.x);
             area_min.y = std::min(area_min.y, cluster.pose.t.y);
@@ -394,7 +394,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
-        const Cluster& cluster = clusters[i_cluster];
+        const EntityUpdate& cluster = clusters[i_cluster];
 
         for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
         {
@@ -440,7 +440,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
-        const Cluster& cluster = clusters[i_cluster];
+        const EntityUpdate& cluster = clusters[i_cluster];
 
         // Get the assignment for this cluster
         int i_entity = assig[i_cluster];
