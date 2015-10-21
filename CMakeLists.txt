@@ -124,7 +124,3 @@ target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
 
-add_executable(ed_old_segmenter tools/old_segmenter.cpp)
-target_link_libraries(ed_old_segmenter ${catkin_LIBRARIES})
-#target_link_libraries(ed_old_segmenter ed_kinect)
-
