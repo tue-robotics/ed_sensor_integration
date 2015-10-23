@@ -70,9 +70,13 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     // -------------------------------------
     // Get 2D contour
 
+    std::cout << "A" << std::endl;
+
     ed::EntityConstPtr e = world.getEntity(id);
     if (!e->shape())
         return false;
+
+    std::cout << "B" << std::endl;
 
     const EntityRepresentation2D* repr_2d = GetOrCreateEntity2D(e);
     if (!repr_2d)
@@ -80,11 +84,15 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 
     const Shape2D& shape2d = repr_2d->shape_2d;
 
+    std::cout << "C" << std::endl;
+
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
 
     geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
     int expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
+
+    std::cout << "expected_center_beam: " << expected_center_beam << std::endl;
 
     // -------------------------------------
     // Render world model objects

@@ -12,8 +12,14 @@
 
 #include <rgbd/Image.h>
 #include <rgbd/serialization.h>
+#include <rgbd/View.h>
 
 #include <opencv2/highgui/highgui.hpp>
+
+#include <tue/config/read.h>
+#include <tue/config/reader.h>
+
+#include <ed/entity.h>
 
 #include <fstream>
 
@@ -28,57 +34,104 @@ struct Snapshot
 
 // ----------------------------------------------------------------------------------------------------
 
-bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose, std::string& area_description)
+bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose,
+               ed::WorldModel& world_model, std::string& area_description)
 {
-    std::ifstream f_in;
-    f_in.open(filename.c_str());
+    tue::config::DataPointer meta_data;
 
-    if (!f_in.is_open())
+    try
     {
-        std::cerr << "Could not open '" << filename << "'." << std::endl;
+        meta_data = tue::config::fromFile(filename);
+    }
+    catch (tue::config::ParseException& e)
+    {
+        std::cerr << "Could not open '" << filename << "'.\n\n" << e.what() << std::endl;
         return false;
     }
 
-    std::stringstream buffer;
-    buffer << f_in.rdbuf();
-    std::string json = buffer.str();
+    tue::config::Reader r(meta_data);
 
-    ed::io::JSONReader r(json.c_str());
-
+    // Read image
     std::string rgbd_filename;
-    if (!r.readValue("rgbd_filename", rgbd_filename))
+    if (r.value("rgbd_filename", rgbd_filename))
     {
-        std::cerr << "No field 'rgbd_filename' specified." << std::endl;
-        return false;
+        tue::filesystem::Path abs_rgbd_filename = tue::filesystem::Path(filename).parentPath().join(rgbd_filename);
+
+        std::ifstream f_rgbd;
+        f_rgbd.open(abs_rgbd_filename.string().c_str(), std::ifstream::binary);
+
+        if (!f_rgbd.is_open())
+        {
+            std::cerr << "Could not open '" << filename << "'." << std::endl;
+            return false;
+        }
+
+        tue::serialization::InputArchive a_in(f_rgbd);
+        rgbd::deserialize(a_in, image);
     }
 
-    if (!r.readValue("area", area_description))
-        area_description.clear();
-
-    if (r.readGroup("sensor_pose"))
-    {
-        ed::deserialize(r, sensor_pose);
-        r.endGroup();
-    }
-    else
+    // Read sensor pose
+    if (!ed::deserialize(r, "sensor_pose", sensor_pose))
     {
         std::cerr << "No field 'sensor_pose' specified." << std::endl;
         return false;
     }
 
-    tue::filesystem::Path abs_rgbd_filename = tue::filesystem::Path(filename).parentPath().join(rgbd_filename);
+    // Reset world
+    world_model = ed::WorldModel();
 
-    std::ifstream f_rgbd;
-    f_rgbd.open(abs_rgbd_filename.string().c_str(), std::ifstream::binary);
-
-    if (!f_rgbd.is_open())
+    // Read annotations
+    if (r.readArray("annotations"))
     {
-        std::cerr << "Could not open '" << filename << "'." << std::endl;
-        return false;
+        while(r.nextArrayItem())
+        {
+            std::string type;
+            double px, py;
+
+            if (!r.value("label", type) || !r.value("px", px) || !r.value("py", py))
+                continue;
+
+            // - - - - - - -
+
+            ed::UpdateRequest req;
+            ed::models::ModelLoader model_loader;
+
+            std::cout << type << std::endl;
+
+            std::stringstream error;
+            ed::UUID id = "support";
+            if (type == "robotics_testlab_B.corridor_cabinet" && model_loader.create(id, type, req, error))
+            {
+                int x = px * image.getDepthImage().cols;
+                int y = py * image.getDepthImage().rows;
+                rgbd::View view(image, image.getDepthImage().cols);
+
+//                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
+                geo::Vec3 pos(3.3, 4.35, 0);
+                pos.z = 0;
+
+                std::cout << "added object at " << pos << std::endl;
+
+                req.setPose(id, geo::Pose3D(geo::Mat3::identity(), pos));
+
+                // Update world
+                world_model.update(req);
+
+                area_description = "on_top_of " + id.str();
+            }
+
+            // - - - - - - -
+
+        }
+
+        r.endArray();
     }
 
-    tue::serialization::InputArchive a_in(f_rgbd);
-    rgbd::deserialize(a_in, image);
+//    if (r.hasError())
+//    {
+//        std::cout << "Error while reading file '" << filename << "':\n\n" << r.error() << std::endl;
+//        return false;
+//    }
 
     return true;
 }
@@ -112,7 +165,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY WORLD-MODEL-NAME" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY" << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -122,17 +175,17 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "ed_segmenter");
     ros::NodeHandle nh;
 
-    if (argc != 3)
+    if (argc != 2)
     {
         usage();
         return 1;
     }
 
-    std::string model_name = argv[2];
+//    std::string model_name = argv[2];
 
     ed::WorldModel world_model;
-    if (!loadWorldModel(model_name, world_model))
-        return 1;
+//    if (!loadWorldModel(model_name, world_model))
+//        return 1;
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
@@ -181,7 +234,8 @@ int main(int argc, char **argv)
                 snapshots.push_back(Snapshot());
                 Snapshot& snapshot = snapshots.back();
 
-                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose, snapshot.area_description))
+                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
+                               world_model, snapshot.area_description))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
@@ -189,6 +243,8 @@ int main(int argc, char **argv)
                 }
                 else
                 {
+                    std::cout << world_model.getEntity("support")->pose() << std::endl;
+
 //                    std::cout << "Successfully loaded " << filename << std::endl;
                 }
             }
@@ -265,11 +321,7 @@ int main(int argc, char **argv)
         {
             ++i_snapshot;
         }
-        else if (key == 'r')
-        {
-            // Reload
-            loadWorldModel(model_name, world_model);
-        } else if (key == 'q')
+        else if (key == 'q')
         {
             break;
         }
