@@ -30,6 +30,7 @@ struct Snapshot
     rgbd::Image image;
     geo::Pose3D sensor_pose;
     std::string area_description;
+    ed::WorldModel world_model;
 };
 
 // ----------------------------------------------------------------------------------------------------
@@ -96,21 +97,39 @@ bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sen
             ed::UpdateRequest req;
             ed::models::ModelLoader model_loader;
 
-            std::cout << type << std::endl;
-
             std::stringstream error;
             ed::UUID id = "support";
-            if (type == "robotics_testlab_B.corridor_cabinet" && model_loader.create(id, type, req, error))
+            if (model_loader.create(id, type, req, error))
             {
+                // Check if this model has an 'on_top_of' area defined
+                bool on_top_of_found = false;
+                if (!req.datas.empty())
+                {
+                    tue::config::Reader r(req.datas.begin()->second);
+
+                    if (r.readArray("areas"))
+                    {
+                        while(r.nextArrayItem())
+                        {
+                            std::string a_name;
+                            if (r.value("name", a_name) && a_name == "on_top_of")
+                            {
+                                on_top_of_found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!on_top_of_found)
+                    continue;
+
                 int x = px * image.getDepthImage().cols;
                 int y = py * image.getDepthImage().rows;
                 rgbd::View view(image, image.getDepthImage().cols);
 
-//                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
-                geo::Vec3 pos(3.3, 4.35, 0);
+                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
                 pos.z = 0;
-
-                std::cout << "added object at " << pos << std::endl;
 
                 req.setPose(id, geo::Pose3D(geo::Mat3::identity(), pos));
 
@@ -183,7 +202,7 @@ int main(int argc, char **argv)
 
 //    std::string model_name = argv[2];
 
-    ed::WorldModel world_model;
+//    ed::WorldModel world_model;
 //    if (!loadWorldModel(model_name, world_model))
 //        return 1;
 
@@ -235,7 +254,7 @@ int main(int argc, char **argv)
                 Snapshot& snapshot = snapshots.back();
 
                 if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
-                               world_model, snapshot.area_description))
+                               snapshot.world_model, snapshot.area_description))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
@@ -243,8 +262,6 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    std::cout << world_model.getEntity("support")->pose() << std::endl;
-
 //                    std::cout << "Successfully loaded " << filename << std::endl;
                 }
             }
@@ -261,7 +278,7 @@ int main(int argc, char **argv)
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
-        updater.update(world_model, snapshot.image, snapshot.sensor_pose, snapshot.area_description, res);
+        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, snapshot.area_description, res);
 
         cv::Mat canvas = snapshot.image.getRGBImage().clone();
 
