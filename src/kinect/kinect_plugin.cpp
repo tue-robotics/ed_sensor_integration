@@ -125,7 +125,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res)
 {    
     UpdateResult update_result(*update_req_);
-    if (!updater_.update(*world_, *last_image_, last_sensor_pose_, req.update_space_description, update_result))
+    if (!updater_.update(*world_, last_image_, last_sensor_pose_, req.update_space_description, update_result))
     {
         res.error_msg = update_result.error.str();
         return true;

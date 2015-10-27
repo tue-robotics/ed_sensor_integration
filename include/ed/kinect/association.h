@@ -4,9 +4,11 @@
 #include <vector>
 #include <ed/types.h>
 #include <rgbd/types.h>
+#include <geolib/datatypes.h>
 
 class EntityUpdate;
 
-void associateAndUpdate(const ed::WorldModel& world, const rgbd::Image& image, std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req);
+void associateAndUpdate(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
+                        std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req);
 
 #endif

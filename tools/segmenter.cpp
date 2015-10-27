@@ -27,7 +27,7 @@
 
 struct Snapshot
 {
-    rgbd::Image image;
+    rgbd::ImagePtr image;
     geo::Pose3D sensor_pose;
     std::string area_description;
     ed::WorldModel world_model;
@@ -35,7 +35,7 @@ struct Snapshot
 
 // ----------------------------------------------------------------------------------------------------
 
-bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sensor_pose,
+bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose,
                ed::WorldModel& world_model, std::string& area_description)
 {
     tue::config::DataPointer meta_data;
@@ -67,8 +67,10 @@ bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sen
             return false;
         }
 
+        image.reset(new rgbd::Image);
+
         tue::serialization::InputArchive a_in(f_rgbd);
-        rgbd::deserialize(a_in, image);
+        rgbd::deserialize(a_in, *image);
     }
 
     // Read sensor pose
@@ -124,9 +126,9 @@ bool readImage(const std::string& filename, rgbd::Image& image, geo::Pose3D& sen
                 if (!on_top_of_found)
                     continue;
 
-                int x = px * image.getDepthImage().cols;
-                int y = py * image.getDepthImage().rows;
-                rgbd::View view(image, image.getDepthImage().cols);
+                int x = px * image->getDepthImage().cols;
+                int y = py * image->getDepthImage().rows;
+                rgbd::View view(*image, image->getDepthImage().cols);
 
                 geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
                 pos.z = 0;
@@ -280,12 +282,14 @@ int main(int argc, char **argv)
         UpdateResult res(update_req);
         updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, snapshot.area_description, res);
 
-        cv::Mat canvas = snapshot.image.getRGBImage().clone();
+        std::cout << update_req.measurements.size() << std::endl;
+
+        cv::Mat canvas = snapshot.image->getRGBImage().clone();
 
         std::string error_msg = res.error.str();
         if (error_msg.empty())
         {
-            int depth_width = snapshot.image.getDepthImage().cols;
+            int depth_width = snapshot.image->getDepthImage().cols;
             double f = (double)canvas.cols / depth_width;
 
             for(unsigned int i = 0; i < res.entity_updates.size(); ++i)

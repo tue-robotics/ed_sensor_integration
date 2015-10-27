@@ -28,7 +28,7 @@ public:
 
     ~Updater();
 
-    bool update(const ed::WorldModel& world, const rgbd::Image& image, const geo::Pose3D& sensor_pose,
+    bool update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
                 const std::string& update_command, UpdateResult& res);
 
 private:

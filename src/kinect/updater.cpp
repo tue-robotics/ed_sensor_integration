@@ -28,7 +28,7 @@ Updater::~Updater()
 
 // ----------------------------------------------------------------------------------------------------
 
-bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, const geo::Pose3D& sensor_pose,
+bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
                      const std::string& update_command, UpdateResult& res)
 {
     // -------------------------------------
@@ -69,7 +69,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, cons
     // Update entity position
 
     FitterData fitter_data;
-    fitter_.processSensorData(image, sensor_pose, fitter_data);
+    fitter_.processSensorData(*image, sensor_pose, fitter_data);
 
     geo::Pose3D new_pose;
     if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
@@ -134,15 +134,15 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::Image& image, cons
 
         geo::Pose3D shape_pose = new_sensor_pose.inverse() * new_pose;
         cv::Mat filtered_depth_image;
-        segmenter_.calculatePointsWithin(image, shape, shape_pose, filtered_depth_image);
+        segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
 
         // Determine camera model
-        rgbd::View view(image, filtered_depth_image.cols);
+        rgbd::View view(*image, filtered_depth_image.cols);
         const geo::DepthCamera& cam_model = view.getRasterizer();
 
         segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
 
-        associateAndUpdate(world, image, res.entity_updates, res.update_req);
+        associateAndUpdate(world, image, sensor_pose, res.entity_updates, res.update_req);
 
     }
 

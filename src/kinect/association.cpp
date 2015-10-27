@@ -6,19 +6,21 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/update_request.h>
+#include <ed/measurement.h>
 
 #include <rgbd/Image.h>
 #include <rgbd/View.h>
 
 // ----------------------------------------------------------------------------------------------------
 
-void associateAndUpdate(const ed::WorldModel& world, const rgbd::Image& image, std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
+void associateAndUpdate(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
+                        std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
 {
     if (clusters.empty())
         return;
 
-    const cv::Mat& depth = image.getDepthImage();
-    rgbd::View view(image, depth.cols);
+    const cv::Mat& depth = image->getDepthImage();
+    rgbd::View view(*image, depth.cols);
 
     float max_dist = 0.3;
 
@@ -217,11 +219,20 @@ void associateAndUpdate(const ed::WorldModel& world, const rgbd::Image& image, s
             cluster.chull = new_chull;
             cluster.pose_map = new_pose;
 
-            req.setConvexHullNew(id, new_chull, new_pose, image.getTimestamp(), image.getFrameId());
+            req.setConvexHullNew(id, new_chull, new_pose, image->getTimestamp(), image->getFrameId());
         }
 
+        // Create and add measurement
+        ed::ImageMask mask;
+        mask.setSize(image->getDepthImage().cols, image->getDepthImage().rows);
+        for(std::vector<unsigned int>::const_iterator it = cluster.pixel_indices.begin(); it != cluster.pixel_indices.end(); ++it)
+            mask.addPoint(*it);
+
+        ed::MeasurementPtr m(new ed::Measurement(image, mask, sensor_pose));
+        req.addMeasurement(id, m);
+
         // Set timestamp
-        req.setLastUpdateTimestamp(id, image.getTimestamp());
+        req.setLastUpdateTimestamp(id, image->getTimestamp());
 
         // Add measurement
 //        req.addMeasurement(id, ed::MeasurementPtr(new ed::Measurement(image, cluster.image_mask, sensor_pose)));
