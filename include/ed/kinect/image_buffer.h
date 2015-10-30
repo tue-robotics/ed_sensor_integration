@@ -27,7 +27,11 @@ public:
 
     void initialize(const std::string& topic);
 
+    // Polls to see if there is a new image with transform. If not, returns false
     bool nextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
+
+    // Blocks until a new image with transform is found. Returns false if no image or tf could be found within 'timeout_sec' seconds
+    bool waitForRecentImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose, double timeout_sec);
 
 private:
 

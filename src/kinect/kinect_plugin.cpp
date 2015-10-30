@@ -67,9 +67,9 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and pose
 
-    last_image_.reset();
-    if (!image_buffer_.nextImage("map", last_image_, last_sensor_pose_))
-        return;
+//    last_image_.reset();
+//    if (!image_buffer_.nextImage("map", last_image_, last_sensor_pose_))
+//        return;
 
     // - - - - - - - - - - - - - - - - - -
     // Check ROS callback queue
@@ -89,15 +89,24 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res)
 {
-    if (!last_image_)
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Get new image
+
+    rgbd::ImageConstPtr image;
+    geo::Pose3D sensor_pose;
+
+    if (!image_buffer_.waitForRecentImage("map", image, sensor_pose, 2.0))
+    {
+        res.error_msg = "Could not get image";
         return true;
+    }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Serialize RGBD image
 
     std::stringstream stream;
     tue::serialization::OutputArchive a(stream);
-    rgbd::serialize(*last_image_, a, rgbd::RGB_STORAGE_JPG, rgbd::DEPTH_STORAGE_PNG);
+    rgbd::serialize(*image, a, rgbd::RGB_STORAGE_JPG, rgbd::DEPTH_STORAGE_PNG);
     tue::serialization::convert(stream, res.rgbd_data);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -108,7 +117,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
     // Write sensor pose
     w.writeGroup("sensor_pose");
-    ed::serialize(last_sensor_pose_, w);
+    ed::serialize(sensor_pose, w);
     w.endGroup();
 
     // Write rgbd filename
@@ -116,7 +125,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
     // Write timestamp
     w.writeGroup("timestamp");
-    ed::serializeTimestamp(last_image_->getTimestamp(), w);
+    ed::serializeTimestamp(image->getTimestamp(), w);
     w.endGroup();
 
     w.finish();
@@ -133,12 +142,30 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
 bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res)
 {    
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Get new image
+
+    rgbd::ImageConstPtr image;
+    geo::Pose3D sensor_pose;
+
+    if (!image_buffer_.waitForRecentImage("map", image, sensor_pose, 2.0))
+    {
+        res.error_msg = "Could not get image";
+        return true;
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Perform update
+
     UpdateResult update_result(*update_req_);
-    if (!updater_.update(*world_, last_image_, last_sensor_pose_, req.update_space_description, update_result))
+    if (!updater_.update(*world_, image, sensor_pose, req.update_space_description, update_result))
     {
         res.error_msg = update_result.error.str();
         return true;
     }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Set result
 
     for(unsigned int i = 0; i < update_result.entity_updates.size(); ++i)
     {
@@ -153,9 +180,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
     }
 
     for(unsigned int i = 0; i < update_result.removed_entity_ids.size(); ++i)
-    {
         res.deleted_ids.push_back(update_result.removed_entity_ids[i].str());
-    }
 
     return true;
 }

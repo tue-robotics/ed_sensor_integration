@@ -34,6 +34,61 @@ void ImageBuffer::initialize(const std::string& topic)
 
 // ----------------------------------------------------------------------------------------------------
 
+bool ImageBuffer::waitForRecentImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose, double timeout_sec)
+{
+    if (!kinect_client_)
+        return false;
+
+    // - - - - - - - - - - - - - - - - - -
+    // Wait until we get a new image
+
+    ros::Time t_start = ros::Time::now();
+
+    rgbd::ImageConstPtr rgbd_image;
+    while(ros::ok())
+    {
+        if (ros::Time::now() - t_start > ros::Duration(timeout_sec))
+            return false;
+
+        rgbd_image = kinect_client_->nextImage();
+
+        if (rgbd_image)
+            break;
+        else
+            ros::Duration(0.1).sleep();
+    }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Wait until we have a tf
+
+    if (!tf_listener_->waitForTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(timeout_sec)))
+        return false;
+
+    // - - - - - - - - - - - - - - - - - -
+    // Calculate tf
+
+    try
+    {
+        tf::StampedTransform t_sensor_pose;
+        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+        geo::convert(t_sensor_pose, sensor_pose);
+    }
+    catch(tf::TransformException& ex)
+    {
+        ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+        return false;
+    }
+
+    // Convert from ROS coordinate frame to geolib coordinate frame
+    sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+
+    image = rgbd_image;
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose)
 {
     if (!kinect_client_)
@@ -75,7 +130,7 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
             if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
             {
                 image_buffer_.pop();
-                ROS_WARN_STREAM("[ED KINECT PLUGIN] Image too old to look-up tf: image timestamp = " << std::fixed
+                ROS_WARN_STREAM("[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
                                 << ros::Time(rgbd_image->getTimestamp()));
             }
 
@@ -83,13 +138,13 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         }
         catch(tf::TransformException& exc)
         {
-            ROS_WARN("[ED KINECT PLUGIN] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+            ROS_WARN("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
             return false;
         }
     }
     catch(tf::TransformException& ex)
     {
-        ROS_WARN("[ED KINECT PLUGIN] Could not get sensor pose: %s", ex.what());
+        ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         return false;
     }
 

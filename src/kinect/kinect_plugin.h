@@ -33,9 +33,9 @@ private:
 
     ImageBuffer image_buffer_;
 
-    rgbd::ImageConstPtr last_image_;
+//    rgbd::ImageConstPtr last_image_;
 
-    geo::Pose3D last_sensor_pose_;
+//    geo::Pose3D last_sensor_pose_;
 
 
     Updater updater_;
