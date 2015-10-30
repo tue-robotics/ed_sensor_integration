@@ -106,8 +106,17 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
     std::stringstream meta_data;
     ed::io::JSONWriter w(meta_data);
 
+    // Write sensor pose
     w.writeGroup("sensor_pose");
     ed::serialize(last_sensor_pose_, w);
+    w.endGroup();
+
+    // Write rgbd filename
+    w.writeValue("rgbd_filename", req.filename + ".rgbd");
+
+    // Write timestamp
+    w.writeGroup("timestamp");
+    ed::serializeTimestamp(last_image_->getTimestamp(), w);
     w.endGroup();
 
     w.finish();

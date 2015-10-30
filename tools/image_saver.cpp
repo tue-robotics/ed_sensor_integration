@@ -51,6 +51,7 @@ int main(int argc, char **argv)
     {
         // Try to retrieve the current kinect image
         ed_sensor_integration::GetImage srv;
+        srv.request.filename = currentDateTime();
         if (!cl_get_image.call(srv))
         {
             std::cout << "Could not call service '" << cl_get_image.getService() << "'." << std::endl;
@@ -80,27 +81,27 @@ int main(int argc, char **argv)
         }
         else if (key == 32) // SPACE
         {
-            std::string filename = currentDateTime();
+            const std::string& filename = srv.request.filename;
 
-            if (wm_filename.empty())
-            {
-                // If world model has not been stored yet, query it and store it
-                ed::Query srv_wm;
-                if (cl_query_wm.call(srv_wm))
-                {
-                    // Save world model
-                    wm_filename = filename + ".wm";
-                    std::ofstream f_wm;
-                    f_wm.open(wm_filename.c_str());
-                    f_wm << srv_wm.response.human_readable;
-                }
-                else
-                {
-                    std::cout << "Could not call service '" << cl_query_wm.getService() << "'." << std::endl;
-                    ros::Duration(1.0).sleep();
-                    continue;
-                }
-            }
+//            if (wm_filename.empty())
+//            {
+//                // If world model has not been stored yet, query it and store it
+//                ed::Query srv_wm;
+//                if (cl_query_wm.call(srv_wm))
+//                {
+//                    // Save world model
+//                    wm_filename = filename + ".wm";
+//                    std::ofstream f_wm;
+//                    f_wm.open(wm_filename.c_str());
+//                    f_wm << srv_wm.response.human_readable;
+//                }
+//                else
+//                {
+//                    std::cout << "Could not call service '" << cl_query_wm.getService() << "'." << std::endl;
+//                    ros::Duration(1.0).sleep();
+//                    continue;
+//                }
+//            }
 
             // ----------------------------------------
             // Write RGBD file
@@ -110,19 +111,10 @@ int main(int argc, char **argv)
             f_out.write(reinterpret_cast<char*>(&srv.response.rgbd_data[0]), srv.response.rgbd_data.size());
 
             // ----------------------------------------
-            // Write JSON file with extra field containing world_model_filename
-            std::string& json_str = srv.response.json_meta_data;
-            json_str[json_str.size() - 1] = ','; // Change last '}' into ',' (I know this is ugly...)
-
-            // Open file for writing
+            // Write JSON file
             std::ofstream f_meta;
-            f_meta.open((filename + ".json").c_str());
-
-            // Write world model filename as extra field
-            f_meta << json_str
-                   << "\"world_model_filename\":\"" << wm_filename << "\","
-                   << "\"rgbd_filename\":\"" << rgbd_filename << "\""
-                   << "}";
+            f_meta.open((filename + ".json").c_str());            
+            f_meta << srv.response.json_meta_data;
         }
     }
 
