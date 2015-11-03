@@ -40,81 +40,124 @@ std::string currentDateTime()
 
 int main(int argc, char **argv)
 {
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Show usage
+
+    std::cout << "Shows RGBD image stream and allows to save images." << std::endl
+              << std::endl
+              << "Keys:" << std::endl
+              << std::endl
+              << "       <SPACE>    Save image to disk" << std::endl
+              << "             +    Increase frames per second" << std::endl
+              << "             -    decrease frames per second" << std::endl
+              << "    <ESC> or q    quit" << std::endl
+              << std::endl;
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Initialize
+
     ros::init(argc, argv, "ed_image_saver");
     ros::NodeHandle nh;
     ros::ServiceClient cl_get_image = nh.serviceClient<ed_sensor_integration::GetImage>("ed/kinect/get_image");
-    ros::ServiceClient cl_query_wm = nh.serviceClient<ed::Query>("ed/query");
 
-    std::string wm_filename;
+    double fps = 1;
+
+    ros::Time t_last_saved(0);
+
+    rgbd::Image image;
+    ed_sensor_integration::GetImage srv;
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Start loop
 
     while (ros::ok())
     {
-        // Try to retrieve the current kinect image
-        ed_sensor_integration::GetImage srv;
-        srv.request.filename = currentDateTime();
-        if (!cl_get_image.call(srv))
+        ros::Time t_now = ros::Time::now();
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Check if it is time to request image
+
+        if (t_now - t_last_saved > ros::Duration(1.0 / fps))
         {
-            std::cout << "Could not call service '" << cl_get_image.getService() << "'." << std::endl;
-            ros::Duration(1.0).sleep();
-            continue;
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Retrieve image
+
+            // Try to retrieve the current kinect image
+            srv.request.filename = currentDateTime();
+            if (!cl_get_image.call(srv))
+            {
+                std::cout << "Could not call service '" << cl_get_image.getService() << "'." << std::endl;
+                ros::Duration(1.0).sleep();
+                continue;
+            }
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Deserialize rgbd image
+
+            std::stringstream stream;
+            tue::serialization::convert(srv.response.rgbd_data, stream);
+            tue::serialization::InputArchive a_in(stream);
+            rgbd::deserialize(a_in, image);
+
+            t_last_saved = t_now;
         }
 
-        // ----------------------------------------
-        // Deserialize rgbd image
-
-        std::stringstream stream;
-        tue::serialization::convert(srv.response.rgbd_data, stream);
-        tue::serialization::InputArchive a_in(stream);
-
-        rgbd::Image image;
-        rgbd::deserialize(a_in, image);
-
-        // ----------------------------------------
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // Show rgbd image
 
-        cv::imshow("RGB", image.getRGBImage());
-        unsigned char key = cv::waitKey(1000);
+        cv::Mat img = image.getRGBImage().clone();
+        cv::putText(img, "Press <SPACE> to save", cv::Point(10, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
 
-        if (key == 27 || key == 113) // ESC or 'q'
+        std::stringstream s_fps;
+        s_fps << fps << " fps";
+
+        cv::putText(img, s_fps.str(), cv::Point(img.cols - 60, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
+
+        cv::imshow("Image Saver", img);
+        unsigned char key = cv::waitKey(30);
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Deal with key press
+
+        if (key == 27 || key == 'q') // ESC or 'q'
         {
             break;
+        }
+        else if (key == '+')
+        {
+            fps = std::min<double>(10, fps + 1);
+        }
+        else if (key == '-')
+        {
+            fps = std::max<double>(1, fps - 1);
         }
         else if (key == 32) // SPACE
         {
             const std::string& filename = srv.request.filename;
 
-//            if (wm_filename.empty())
-//            {
-//                // If world model has not been stored yet, query it and store it
-//                ed::Query srv_wm;
-//                if (cl_query_wm.call(srv_wm))
-//                {
-//                    // Save world model
-//                    wm_filename = filename + ".wm";
-//                    std::ofstream f_wm;
-//                    f_wm.open(wm_filename.c_str());
-//                    f_wm << srv_wm.response.human_readable;
-//                }
-//                else
-//                {
-//                    std::cout << "Could not call service '" << cl_query_wm.getService() << "'." << std::endl;
-//                    ros::Duration(1.0).sleep();
-//                    continue;
-//                }
-//            }
-
-            // ----------------------------------------
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Write RGBD file
+
             std::ofstream f_out;
             std::string rgbd_filename = filename + ".rgbd";
             f_out.open(rgbd_filename.c_str());
             f_out.write(reinterpret_cast<char*>(&srv.response.rgbd_data[0]), srv.response.rgbd_data.size());
 
-            // ----------------------------------------
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
             // Write JSON file
+
             std::ofstream f_meta;
             f_meta.open((filename + ".json").c_str());            
             f_meta << srv.response.json_meta_data;
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Show image with filename
+
+            cv::Mat img = image.getRGBImage().clone();
+            cv::putText(img, "Saved to " + filename + ".json", cv::Point(10, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
+
+            cv::imshow("Image Saver", img);
+            cv::waitKey(1000);
         }
     }
 
