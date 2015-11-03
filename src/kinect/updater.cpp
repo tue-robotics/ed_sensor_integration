@@ -18,6 +18,60 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+// Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
+// and updates the convex hull height based on the points found
+void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
+                     const Segmenter& segmenter_, EntityUpdate& up)
+{
+    up.pose_map.t.z += (up.chull.z_max + up.chull.z_min) / 2;
+
+    geo::Shape chull_shape;
+    std::vector<geo::Vec2> points(up.chull.points.size());
+    for(unsigned int i = 0; i < points.size(); ++i)
+        points[i] = geo::Vec2(up.chull.points[i].x, up.chull.points[i].y);
+    geo::createConvexPolygon(chull_shape, points, up.chull.height());
+
+    cv::Mat filtered_depth_image;
+    segmenter_.calculatePointsWithin(image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
+
+    up.points.clear();
+    up.pixel_indices.clear();
+
+    float z_min =  1e9;
+    float z_max = -1e9;
+
+    int i_pixel = 0;
+    for(int y = 0; y < filtered_depth_image.rows; ++y)
+    {
+        for(int x = 0; x < filtered_depth_image.cols; ++x)
+        {
+            float d = filtered_depth_image.at<float>(y, x);
+            if (d == 0)
+            {
+                ++i_pixel;
+                continue;
+            }
+
+            geo::Vec3 p = cam_model.project2Dto3D(x, y) * d;
+            geo::Vec3 p_map = sensor_pose * p;
+
+            z_min = std::min<float>(z_min, p_map.z);
+            z_max = std::max<float>(z_max, p_map.z);
+
+            up.pixel_indices.push_back(i_pixel);
+            up.points.push_back(p);
+            ++i_pixel;
+        }
+    }
+
+    double h = z_max - z_min;
+    up.pose_map.t.z = (z_max + z_min) / 2;
+    up.chull.z_min = -h / 2;
+    up.chull.z_max =  h / 2;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 Updater::Updater()
 {
 }
@@ -154,52 +208,18 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
 
         // -------------------------------------
-        //
+        // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
+        // Then shrink the convex hulls again to get rid of the surface pixels
 
         for(std::vector<EntityUpdate>::iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
         {
             EntityUpdate& up = *it;
 
-            geo::Shape chull_shape;
-            std::vector<geo::Vec2> points(up.chull.points.size());
-            for(unsigned int i = 0; i < points.size(); ++i)
-                points[i] = geo::Vec2(up.chull.points[i].x, up.chull.points[i].y);
-            geo::createConvexPolygon(chull_shape, points, up.chull.height() + 0.08);
+            up.chull.z_min -= 0.04;
+            refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
 
-            cv::Mat filtered_depth_image;
-            segmenter_.calculatePointsWithin(*image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
-
-            up.points.clear();
-            up.pixel_indices.clear();
-
-            int i_pixel = 0;
-            for(int y = 0; y < filtered_depth_image.rows; ++y)
-            {
-                for(int x = 0; x < filtered_depth_image.cols; ++x)
-                {
-//                    std::cout << x << ", " << y << std::endl;
-
-                    float d = filtered_depth_image.at<float>(y, x);
-                    if (d == 0)
-                    {
-                        ++i_pixel;
-                        continue;
-                    }
-
-                    geo::Vec3 p = cam_model.project2Dto3D(x, y) * d;
-                    geo::Vec3 p_map = sensor_pose * p;
-
-                    up.chull.z_min = std::min<float>(up.chull.z_min, p_map.z);
-                    up.chull.z_max = std::max<float>(up.chull.z_max, p_map.z);
-
-                    up.pixel_indices.push_back(i_pixel);
-                    up.points.push_back(p);
-                    ++i_pixel;
-                }
-            }
-
-//            cv::imshow("new segment", filtered_depth_image);
-//            cv::waitKey();
+            up.chull.z_min += 0.01;
+            refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
         }
 
         // -------------------------------------

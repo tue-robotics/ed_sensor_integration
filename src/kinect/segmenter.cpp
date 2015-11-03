@@ -63,7 +63,7 @@ Segmenter::~Segmenter()
 // ----------------------------------------------------------------------------------------------------
 
 void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape& shape,
-                                      const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image)
+                                      const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image) const
 {
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Render shape
@@ -106,7 +106,7 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 // ----------------------------------------------------------------------------------------------------
 
 void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters)
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const
 {
     int width = depth_image.cols;
     int height = depth_image.rows;

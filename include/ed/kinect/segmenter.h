@@ -32,10 +32,10 @@ public:
     ~Segmenter();
 
     void calculatePointsWithin(const rgbd::Image& image, const geo::Shape& shape,
-                               const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image);
+                               const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image) const;
 
     void cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters);
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const;
 
 private:
 
