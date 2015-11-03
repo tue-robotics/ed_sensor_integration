@@ -34,20 +34,13 @@ public:
         // the triangle points (away or to the camera) and test the pixel in the depth
         // image to be on the correct side. ... etc ...
 
-        float d_min = min_buffer.at<float>(y, x);
-        if (d_min == 0)
-        {
-            min_buffer.at<float>(y, x) = depth;
-        }
-        else if (depth < d_min)
-        {
-            min_buffer.at<float>(y, x) = depth;
-            max_buffer.at<float>(y, x) = d_min;
-        }
-        else
-        {
-            max_buffer.at<float>(y, x) = depth;
-        }
+        float& d_min = min_buffer.at<float>(y, x);
+        float& d_max = max_buffer.at<float>(y, x);
+
+        if (d_min == 0 || depth < d_min)
+            d_min = depth;
+
+        d_max = std::max(d_max, depth);
     }
 
     cv::Mat min_buffer;
@@ -99,14 +92,15 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
         float d_min = res.min_buffer.at<float>(i);
         float d_max = res.max_buffer.at<float>(i);
 
-        if (d_min > 0 && d_max > 0 && d > d_min && d < d_max)
+        if (d_min > 0 && d_max > 0 && d >= d_min && d <= d_max)
             filtered_depth_image.at<float>(i) = d;
     }
 
 //    cv::imshow("min", res.min_buffer / 10);
 //    cv::imshow("max", res.max_buffer / 10);
+//    cv::imshow("diff", (res.max_buffer - res.min_buffer) * 10);
 //    cv::imshow("filtered", filtered_depth_image / 10);
-//    cv::waitKey(3);
+//    cv::waitKey();
 }
 
 // ----------------------------------------------------------------------------------------------------
