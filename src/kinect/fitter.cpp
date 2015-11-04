@@ -97,6 +97,9 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
         if (e->id() == id) // Skip entity id that needs to be fitted
             continue;
 
+        if (e->hasFlag("self")) // Skip the robot itself
+            continue;
+
         renderEntity(e, data.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
     }
 
