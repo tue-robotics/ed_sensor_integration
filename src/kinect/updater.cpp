@@ -88,21 +88,33 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
                      const std::string& update_command, UpdateResult& res)
 {
     // -------------------------------------
+    // Check if the update_command is a segmented entity.
+    // If so, lookup the corresponding area_description
+
+    std::string area_description;
+
+    std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(update_command);
+    if (it_area_descr != id_to_area_description_.end())
+        area_description = it_area_descr->second;
+    else
+        area_description = update_command;
+
+    // -------------------------------------
     // Parse space description (split on space)
 
-    std::size_t i_space = update_command.find(' ');
+    std::size_t i_space = area_description.find(' ');
 
     ed::UUID entity_id;
     std::string area_name;
 
     if (i_space == std::string::npos)
     {
-        entity_id = update_command;
+        entity_id = area_description;
     }
     else
     {
-        area_name = update_command.substr(0, i_space);
-        entity_id = update_command.substr(i_space + 1);
+        area_name = area_description.substr(0, i_space);
+        entity_id = area_description.substr(i_space + 1);
     }
 
     // -------------------------------------
@@ -227,8 +239,16 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         associateAndUpdate(world, image, sensor_pose, res.entity_updates, res.update_req);
 
+        // -------------------------------------
+        // Remember the area description with which the segments where found
+
+        for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
+        {
+            const EntityUpdate& up = *it;
+            id_to_area_description_[up.id] = area_description;
+        }
+
     }
 
     return true;
 }
-
