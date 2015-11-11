@@ -135,6 +135,12 @@ add_dependencies(ed_kinect2_plugin ${PROJECT_NAME}_gencpp)
 #add_executable(segment-and-show tools/segment_and_show.cpp)
 #target_link_libraries(segment-and-show ${catkin_LIBRARIES})
 
+add_library(ed_kinect_diff_plugin
+    src/kinect_diff/plugin.cpp
+    src/kinect_diff/plugin.h
+)
+target_link_libraries(ed_kinect_diff_plugin ${catkin_LIBRARIES})
+
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 
