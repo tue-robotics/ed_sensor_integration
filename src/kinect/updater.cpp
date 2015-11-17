@@ -134,6 +134,36 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     }
 
     // -------------------------------------
+    // Clear convex hulls that are no longer there
+
+    const cv::Mat& depth = image->getDepthImage();
+    rgbd::View view(*image, depth.cols);
+
+    std::vector<ed::EntityConstPtr> associatable_entities;
+
+    for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+    {
+        const ed::EntityConstPtr& e = *e_it;
+        if (e->shape() || !e->has_pose() || e->convexHull().points.empty())
+            continue;
+
+        associatable_entities.push_back(e);
+
+        geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
+
+        cv::Point p_2d = view.getRasterizer().project3Dto2D(p_3d);
+        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+            continue;
+
+        float d = depth.at<float>(p_2d);
+        if (d > 0 && d == d && -p_3d.z < d)
+        {
+            res.update_req.removeEntity(e->id());
+            associatable_entities.pop_back();
+        }
+    }
+
+    // -------------------------------------
     // Update entity position
 
     FitterData fitter_data;
@@ -237,7 +267,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         // -------------------------------------
         // Perform association and update
 
-        associateAndUpdate(world, image, sensor_pose, res.entity_updates, res.update_req);
+        associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
 
         // -------------------------------------
         // Remember the area description with which the segments where found

@@ -8,7 +8,7 @@
 
 class EntityUpdate;
 
-void associateAndUpdate(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
+void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
                         std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req);
 
 #endif

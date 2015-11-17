@@ -13,7 +13,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-void associateAndUpdate(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
+void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
                         std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
 {
     if (clusters.empty())
@@ -24,23 +24,7 @@ void associateAndUpdate(const ed::WorldModel& world, const rgbd::ImageConstPtr& 
 
     float max_dist = 0.3;
 
-    std::vector<ed::EntityConstPtr> entities;
     std::vector<int> entities_associated;
-
-    for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
-    {
-        const ed::EntityConstPtr& e = *e_it;
-        if (e->shape() || !e->has_pose())
-            continue;
-
-        const geo::Pose3D& entity_pose = e->pose();
-        const ed::ConvexHull& entity_chull = e->convexHull();
-
-        if (entity_chull.points.empty())
-            continue;
-
-        entities.push_back(e);
-    }
 
     // Create association matrix
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
