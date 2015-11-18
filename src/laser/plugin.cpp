@@ -72,10 +72,18 @@ LaserPlugin::~LaserPlugin()
 
 void LaserPlugin::initialize(ed::InitData& init)
 {
-    std::string laser_topic;
-    init.config.value("laser_topic", laser_topic);
+    tue::Configuration& config = init.config;
 
-    if (init.config.hasError())
+    std::string laser_topic;
+    config.value("laser_topic", laser_topic);
+    config.value("world_association_distance", world_association_distance_);
+    config.value("min_segment_size_pixels", min_segment_size_pixels_);
+    config.value("segment_depth_threshold", segment_depth_threshold_);
+    config.value("min_cluster_size", min_cluster_size_);
+    config.value("max_cluster_size", max_cluster_size_);
+    config.value("max_gap_size", max_gap_size_);
+
+    if (config.hasError())
         return;
 
     ros::NodeHandle nh;
@@ -86,14 +94,14 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     tf_listener_ = new tf::TransformListener;
 
-    min_segment_size_pixels_ = 10;
-    world_association_distance_ = 0.2;
-    segment_depth_threshold_ = 0.2;
+//    min_segment_size_pixels_ = 10;
+//    world_association_distance_ = 0.2;
+//    segment_depth_threshold_ = 0.2;
 
-    min_cluster_size_ = 0.2;
-    max_cluster_size_ = 1.0;
+//    min_cluster_size_ = 0.2;
+//    max_cluster_size_ = 1.0;
 
-    max_gap_size_ = 10;
+//    max_gap_size_ = 10;
 }
 
 // ----------------------------------------------------------------------------------------------------
