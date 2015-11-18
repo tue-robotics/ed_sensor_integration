@@ -91,11 +91,16 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Check if the update_command is a segmented entity.
     // If so, lookup the corresponding area_description
 
+    bool fit_supporting_entity = true;
+
     std::string area_description;
 
     std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(update_command);
     if (it_area_descr != id_to_area_description_.end())
+    {
         area_description = it_area_descr->second;
+        fit_supporting_entity = false; // We are only interested in the supported entity, so don't fit the supporting entity
+    }
     else
         area_description = update_command;
 
@@ -166,18 +171,26 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // -------------------------------------
     // Update entity position
 
-    FitterData fitter_data;
-    fitter_.processSensorData(*image, sensor_pose, fitter_data);
-
     geo::Pose3D new_pose;
-    if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
+
+    if (fit_supporting_entity)
     {
-        res.update_req.setPose(entity_id, new_pose);
+        FitterData fitter_data;
+        fitter_.processSensorData(*image, sensor_pose, fitter_data);
+
+        if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
+        {
+            res.update_req.setPose(entity_id, new_pose);
+        }
+        else
+        {
+            res.error << "Could not determine pose of '" << entity_id.str() << "'.";
+            return false;
+        }
     }
     else
     {
-        res.error << "Could not determine pose of '" << entity_id.str() << "'.";
-        return false;
+        new_pose = e->pose();
     }
 
     // -------------------------------------
