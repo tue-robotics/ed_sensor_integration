@@ -202,7 +202,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     // Convert to 3D Pose
 
     geo::Pose3D pose_3d;
-    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, 0);
+    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, e->pose().t.z);
     pose_3d.R = geo::Mat3::identity();
     pose_3d.R.xx = best_pose_SENSOR.R.xx;
     pose_3d.R.xy = best_pose_SENSOR.R.xy;
