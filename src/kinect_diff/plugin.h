@@ -51,6 +51,12 @@ private:
 
     ed::UpdateRequest* update_req_;
 
+    // PARAMETERS
+
+    double min_dist_sq_;
+
+    bool clear_entities_;
+
 };
 
 #endif

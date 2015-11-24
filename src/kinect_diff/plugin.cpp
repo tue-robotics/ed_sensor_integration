@@ -156,7 +156,7 @@ KinectPlugin::~KinectPlugin()
 
 // ----------------------------------------------------------------------------------------------------
 
-void KinectPlugin::initialize(ed::InitData& init)
+void KinectPlugin:: initialize(ed::InitData& init)
 {
     tue::Configuration& config = init.config;
 
@@ -165,6 +165,10 @@ void KinectPlugin::initialize(ed::InitData& init)
         std::cout << "[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic_ << "'." << std::endl;
         kinect_client_.intialize(topic_);
     }
+
+    config.value("min_distance_sq", min_dist_sq_);
+    config.value("clear_entities", clear_entities_);
+
 
     tf_listener_ = new tf::TransformListener;
 }
@@ -303,7 +307,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         const Cluster& cluster = clusters[i];
 
         ed::UUID best_id;
-        double min_dist_sq = 1e9;
+        double min_dist_sq = min_dist_sq_;
         for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
         {
             const ed::EntityConstPtr& e = *e_it;
@@ -334,8 +338,12 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
         const Cluster& cluster = clusters[i];
 
         ed::UUID id = associated_ids[i];
-        if (id.str().empty())
+        if (id.str().empty()) {
             id = ed::Entity::generateID();
+            req.addType(id, "suspect");
+            req.setType(id, "suspect");
+
+        }
 
         req.setConvexHullNew(id, cluster.chull, cluster.pose_map, image->getTimestamp());
 
@@ -356,17 +364,21 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear unassociated ids
 
-    for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
-    {
-        const ed::EntityConstPtr& e = *e_it;
-        if (e->shape() || !e->has_pose() || e->convexHull().points.empty())
-            continue;
 
-        if (ids.find(e->id()) == ids.end())
+    if (clear_entities_) {
+        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
         {
-            req.removeEntity(e->id());
+            const ed::EntityConstPtr& e = *e_it;
+            if (e->shape() || !e->has_pose() || e->convexHull().points.empty())
+                continue;
+
+            if (ids.find(e->id()) == ids.end())
+            {
+                req.removeEntity(e->id());
+            }
         }
     }
+
 
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
