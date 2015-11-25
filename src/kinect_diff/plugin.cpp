@@ -364,22 +364,42 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear unassociated ids
 
+    if (clear_entities_)
+    {
+        const cv::Mat& depth = image->getDepthImage();
+        rgbd::View view(*image, depth.cols);
 
-    if (clear_entities_) {
         for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
         {
             const ed::EntityConstPtr& e = *e_it;
+
+            // If the entity has a shape or no pose or convex hull, never delete it
             if (e->shape() || !e->has_pose() || e->convexHull().points.empty())
                 continue;
 
-            if (ids.find(e->id()) == ids.end())
+            // If the entity was associated with a measurement, don't delete it
+            if (ids.find(e->id()) != ids.end())
+                continue;
+
+            // Calculate the entity position in the camera frame
+            geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
+
+            // Project the 3D position to the 2D image
+            cv::Point p_2d = view.getRasterizer().project3Dto2D(p_3d);
+
+            // Check if the 2d position is outside the image. If so, the entity is outside the camera view
+            if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+                continue;
+
+            // Check the depth at the given pixel. If the depth is larger than expected, the entity
+            // is not there and we can remove it.
+            float d = depth.at<float>(p_2d);
+            if (d > 0 && d == d && -p_3d.z < d)
             {
                 req.removeEntity(e->id());
             }
         }
     }
-
-
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Visualize
