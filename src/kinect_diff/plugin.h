@@ -57,6 +57,10 @@ private:
 
     bool clear_entities_;
 
+    double border_x_;
+
+    double border_y_;
+
 };
 
 #endif

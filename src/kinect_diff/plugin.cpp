@@ -168,7 +168,8 @@ void KinectPlugin:: initialize(ed::InitData& init)
 
     config.value("min_distance_sq", min_dist_sq_);
     config.value("clear_entities", clear_entities_);
-
+    config.value("border_x", border_x_);
+    config.value("border_y", border_y_);
 
     tf_listener_ = new tf::TransformListener;
 }
@@ -388,7 +389,8 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
             cv::Point p_2d = view.getRasterizer().project3Dto2D(p_3d);
 
             // Check if the 2d position is outside the image. If so, the entity is outside the camera view
-            if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+            if (p_2d.x - border_x_ < 0 || p_2d.y - border_y_ < 0 ||
+                    p_2d.x + border_x_ >= depth.cols || p_2d.y + border_y_ >= depth.rows)
                 continue;
 
             // Check the depth at the given pixel. If the depth is larger than expected, the entity
