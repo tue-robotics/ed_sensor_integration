@@ -2,39 +2,34 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ed_sensor_integration)
 
 find_package(catkin REQUIRED COMPONENTS
-    ed
-    kdl_parser
-    blackboard
-    cb_planner_msgs_srvs
+  blackboard
+  cb_planner_msgs_srvs
+  ed
+  geometry_msgs
+  kdl_parser
+  message_generation
+  visualization_msgs
 )
-
-# find_package(Boost REQUIRED COMPONENTS system program_options)
-# find_package(PCL REQUIRED)
-# find_package(OpenCV REQUIRED)
 
 # ------------------------------------------------------------------------------------------------
 #                                     ROS MESSAGES AND SERVICES
 # ------------------------------------------------------------------------------------------------
 
-# Generate messages
 add_message_files(
-   FILES
-   ImageBinary.msg
-   GUIAction.msg
+  FILES
+    GUIAction.msg
+    ImageBinary.msg
 )
 
-# Generate services
 add_service_files(
   FILES
-  GetImage.srv
-  Update.srv
+    GetImage.srv
+    Update.srv
 )
 
-# Generate added messages and services with any dependencies listed here
 generate_messages(
-    DEPENDENCIES
+  DEPENDENCIES
     geometry_msgs
-#    ...
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -44,8 +39,8 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
-#  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+  # DEPENDS
+  CATKIN_DEPENDS geometry_msgs message_runtime
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -53,8 +48,8 @@ catkin_package(
 # ------------------------------------------------------------------------------------------------
 
 include_directories(
-    include
-    ${catkin_INCLUDE_DIRS}
+  include
+  ${catkin_INCLUDE_DIRS}
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -62,8 +57,8 @@ include_directories(
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_association
-    src/association_matrix.cpp
-    include/ed_sensor_integration/association_matrix.h
+  src/association_matrix.cpp
+  include/ed_sensor_integration/association_matrix.h
 )
 
 add_library(ed_kinect
@@ -123,4 +118,3 @@ target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
-
