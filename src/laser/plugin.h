@@ -13,6 +13,7 @@
 #include <geolib/sensors/LaserRangeFinder.h>
 
 // Messages
+#include <queue>
 #include <sensor_msgs/LaserScan.h>
 
 // Properties
@@ -41,13 +42,17 @@ private:
 
     ros::Subscriber sub_scan_;
 
-    sensor_msgs::LaserScan::ConstPtr scan_msg_;
+    std::queue<sensor_msgs::LaserScan::ConstPtr> scan_buffer_;
 
     tf::TransformListener* tf_listener_;
 
     geo::LaserRangeFinder lrf_model_;
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+
+    void update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
+                const geo::Pose3D& sensor_pose, ed::UpdateRequest& req);
+
 
 
     // PARAMETERS
