@@ -9,10 +9,14 @@
 
 struct UpdateRequest
 {
-    UpdateRequest() : max_association_distance(0) {}
+    UpdateRequest() : background_padding(0) {}
 
+    // Symbolic description of area to be updated (e.g. "on_top_of cabinet")
     std::string area_description;
-    double max_association_distance;
+
+    // When applying background removal, amount of padding given to the world model (the more padding
+    // the points are 'cut away')
+    double background_padding;
 };
 
 // ----------------------------------------------------------------------------------------------------

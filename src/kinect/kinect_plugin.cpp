@@ -158,8 +158,8 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
     // Perform update
 
     UpdateRequest kinect_update_req;
-    kinect_update_req.area_description = req.update_space_description;
-    kinect_update_req.max_association_distance = req.max_association_distance;
+    kinect_update_req.area_description = req.area_description;
+    kinect_update_req.background_padding = req.background_padding;
 
     UpdateResult kinect_update_res(*update_req_);
     if (!updater_.update(*world_, image, sensor_pose, kinect_update_req, kinect_update_res))

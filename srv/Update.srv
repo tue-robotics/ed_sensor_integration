@@ -7,11 +7,10 @@
 # "table-123"                  Updates table-123's pose
 # ""                           Will update everything in view
 
-string update_space_description
+string area_description
 
-# The maximum association distance used when comparing the sensor data (depth image) with
-# the world model, in meters.
-float32 max_association_distance
+# Padding of the world model when subtracting background for segmentation (in meters)
+float32 background_padding
 
 ---
 string[] new_ids      # ids of new entities

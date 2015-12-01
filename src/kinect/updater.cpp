@@ -265,7 +265,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     ed::WorldModel world_updated = world;
     world_updated.update(res.update_req);
 
-    segmenter_.removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.max_association_distance);
+    segmenter_.removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there

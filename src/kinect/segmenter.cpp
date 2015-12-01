@@ -60,7 +60,7 @@ public:
 // ----------------------------------------------------------------------------------------------------
 
 void Segmenter::removeBackground(cv::Mat& depth_image, const ed::WorldModel& world, const geo::DepthCamera& cam,
-                                 const geo::Pose3D& sensor_pose, double max_association_distance)
+                                 const geo::Pose3D& sensor_pose, double background_padding)
 {
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Render the world model as seen by the depth sensor
@@ -87,7 +87,7 @@ void Segmenter::removeBackground(cv::Mat& depth_image, const ed::WorldModel& wor
     {
         float& ds = depth_image.at<float>(i);
         float dm = depth_model.at<float>(i);
-        if (dm > 0 && ds > 0 && ds > dm - max_association_distance)
+        if (dm > 0 && ds > 0 && ds > dm - background_padding)
             ds = 0;
     }
 }
