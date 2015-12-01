@@ -280,7 +280,10 @@ int main(int argc, char **argv)
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
-        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, snapshot.area_description, res);
+
+        UpdateRequest kinect_update_request;
+        kinect_update_request.area_description = snapshot.area_description;
+        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
 

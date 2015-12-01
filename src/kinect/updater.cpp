@@ -16,6 +16,8 @@
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
 
+#include <opencv2/highgui/highgui.hpp>
+
 // ----------------------------------------------------------------------------------------------------
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
@@ -84,68 +86,191 @@ Updater::~Updater()
 
 // ----------------------------------------------------------------------------------------------------
 
-bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
-                     const std::string& update_command, UpdateResult& res)
+bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose_const,
+                     const UpdateRequest& req, UpdateResult& res)
 {
-    // -------------------------------------
-    // Check if the update_command is a segmented entity.
-    // If so, lookup the corresponding area_description
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Prepare some things
 
-    bool fit_supporting_entity = true;
+    // will contain depth image filtered with given update shape and world model (background) subtraction
+    cv::Mat filtered_depth_image;
 
-    std::string area_description;
+    // sensor pose might be update, so copy (making non-const)
+    geo::Pose3D sensor_pose = sensor_pose_const;
 
-    std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(update_command);
-    if (it_area_descr != id_to_area_description_.end())
+    // depth image
+    const cv::Mat& depth = image->getDepthImage();
+
+    // Determine depth image camera model
+    rgbd::View view(*image, depth.cols);
+    const geo::DepthCamera& cam_model = view.getRasterizer();
+
+    if (!req.area_description.empty())
     {
-        area_description = it_area_descr->second;
-        fit_supporting_entity = false; // We are only interested in the supported entity, so don't fit the supporting entity
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Check if the update_command is a segmented entity.
+        // If so, lookup the corresponding area_description
+
+        bool fit_supporting_entity = true;
+
+        std::string area_description;
+        std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(req.area_description);
+        if (it_area_descr != id_to_area_description_.end())
+        {
+            area_description = it_area_descr->second;
+            fit_supporting_entity = false; // We are only interested in the supported entity, so don't fit the supporting entity
+        }
+        else
+            area_description = req.area_description;
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Parse space description (split on space)
+
+        std::size_t i_space = area_description.find(' ');
+
+        ed::UUID entity_id;
+        std::string area_name;
+
+        if (i_space == std::string::npos)
+        {
+            entity_id = area_description;
+        }
+        else
+        {
+            area_name = area_description.substr(0, i_space);
+            entity_id = area_description.substr(i_space + 1);
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Check for entity
+
+        ed::EntityConstPtr e = world.getEntity(entity_id);
+
+        if (!e)
+        {
+            res.error << "No such entity: '" << entity_id.str() << "'.";
+            return false;
+        }
+        else if (!e->has_pose())
+        {
+            res.error << "Entity: '" << entity_id.str() << "' has no pose.";
+            return false;
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Update entity position
+
+        geo::Pose3D new_pose;
+
+        if (fit_supporting_entity)
+        {
+            FitterData fitter_data;
+            fitter_.processSensorData(*image, sensor_pose, fitter_data);
+
+            if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
+            {
+                res.update_req.setPose(entity_id, new_pose);
+            }
+            else
+            {
+                res.error << "Could not determine pose of '" << entity_id.str() << "'.";
+                return false;
+            }
+        }
+        else
+        {
+            new_pose = e->pose();
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Optimize sensor pose
+
+        if (false)
+        {
+            fitZRP(*e->shape(), new_pose, *image, sensor_pose_const, sensor_pose);
+
+            std::cout << "Old sensor pose: " << sensor_pose_const << std::endl;
+            std::cout << "New sensor pose: " << sensor_pose << std::endl;
+            std::cout << std::endl;
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // Determine segmentation area
+
+        if (!area_name.empty())
+        {
+            // Determine segmentation area (the geometrical shape in which the segmentation should take place)
+
+            geo::Shape shape;
+            bool found = false;
+            tue::config::Reader r(e->data());
+
+            if (r.readArray("areas"))
+            {
+                while(r.nextArrayItem())
+                {
+                    std::string a_name;
+                    if (!r.value("name", a_name) || a_name != area_name)
+                        continue;
+
+                    if (ed::deserialize(r, "shape", shape))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                r.endArray();
+            }
+
+            if (!found)
+            {
+                res.error << "No area '" << area_name << "' for entity '" << entity_id.str() << "'.";
+                return false;
+            }
+            else if (shape.getMesh().getTriangleIs().empty())
+            {
+                res.error << "Could not load shape of area '" << area_name << "' for entity '" << entity_id.str() << "'.";
+                return false;
+            }
+
+            // - - - - - - - - - - - - - - - - - - - - - - - -
+            // Segment
+
+            geo::Pose3D shape_pose = sensor_pose.inverse() * new_pose;
+            segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - -
+        // Remember the area description with which the segments where found
+
+        for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
+        {
+            const EntityUpdate& up = *it;
+            id_to_area_description_[up.id] = area_description;
+        }
     }
     else
-        area_description = update_command;
-
-    // -------------------------------------
-    // Parse space description (split on space)
-
-    std::size_t i_space = area_description.find(' ');
-
-    ed::UUID entity_id;
-    std::string area_name;
-
-    if (i_space == std::string::npos)
     {
-        entity_id = area_description;
-    }
-    else
-    {
-        area_name = area_description.substr(0, i_space);
-        entity_id = area_description.substr(i_space + 1);
+        filtered_depth_image = image->getDepthImage().clone();
     }
 
-    // -------------------------------------
-    // Check for entity and last image existence
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Remove background
 
-    ed::EntityConstPtr e = world.getEntity(entity_id);
+    // The world model may have been updated above, but the changes are only captured in
+    // an update request. Therefore, make a (shallow) copy of the world model and apply
+    // the changes, and use this for the background removal
 
-    if (!e)
-    {
-        res.error << "No such entity: '" << entity_id.str() << "'.";
-        return false;
-    }
-    else if (!e->has_pose())
-    {
-        res.error << "Entity: '" << entity_id.str() << "' has no pose.";
-        return false;
-    }
+    ed::WorldModel world_updated = world;
+    world_updated.update(res.update_req);
 
-    // -------------------------------------
+    segmenter_.removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.max_association_distance);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there
 
-    const cv::Mat& depth = image->getDepthImage();
-    rgbd::View view(*image, depth.cols);
-
     std::vector<ed::EntityConstPtr> associatable_entities;
-
     for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
     {
         const ed::EntityConstPtr& e = *e_it;
@@ -156,7 +281,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
 
-        cv::Point p_2d = view.getRasterizer().project3Dto2D(p_3d);
+        cv::Point p_2d = cam_model.project3Dto2D(p_3d);
         if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
             continue;
 
@@ -168,130 +293,34 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         }
     }
 
-    // -------------------------------------
-    // Update entity position
+//    cv::imshow("depth image", depth / 10);
+//    cv::imshow("segments", filtered_depth_image / 10);
+//    cv::waitKey();
 
-    geo::Pose3D new_pose;
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Cluster
 
-    if (fit_supporting_entity)
+    segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
+    // Then shrink the convex hulls again to get rid of the surface pixels
+
+    for(std::vector<EntityUpdate>::iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
     {
-        FitterData fitter_data;
-        fitter_.processSensorData(*image, sensor_pose, fitter_data);
+        EntityUpdate& up = *it;
 
-        if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
-        {
-            res.update_req.setPose(entity_id, new_pose);
-        }
-        else
-        {
-            res.error << "Could not determine pose of '" << entity_id.str() << "'.";
-            return false;
-        }
-    }
-    else
-    {
-        new_pose = e->pose();
+        up.chull.z_min -= 0.04;
+        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
+
+        up.chull.z_min += 0.01;
+        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
     }
 
-    // -------------------------------------
-    // Optimize sensor pose
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Perform association and update
 
-    geo::Pose3D new_sensor_pose = sensor_pose;
-//    fitZRP(*e->shape(), new_pose, image, sensor_pose, new_sensor_pose);
-
-    std::cout << "Old sensor pose: " << sensor_pose << std::endl;
-    std::cout << "New sensor pose: " << new_sensor_pose << std::endl;
-    std::cout << std::endl;
-
-    // -------------------------------------
-    // Determine segmentation area
-
-    if (!area_name.empty())
-    {
-        // Determine segmentation area (the geometrical shape in which the segmentation should take place)
-
-        geo::Shape shape;
-        bool found = false;
-        tue::config::Reader r(e->data());
-
-        if (r.readArray("areas"))
-        {
-            while(r.nextArrayItem())
-            {
-                std::string a_name;
-                if (!r.value("name", a_name) || a_name != area_name)
-                    continue;
-
-                if (ed::deserialize(r, "shape", shape))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            r.endArray();
-        }
-
-        if (!found)
-        {
-            res.error << "No area '" << area_name << "' for entity '" << entity_id.str() << "'.";
-            return false;
-        }
-        else if (shape.getMesh().getTriangleIs().empty())
-        {
-            res.error << "Could not load shape of area '" << area_name << "' for entity '" << entity_id.str() << "'.";
-            return false;
-        }
-
-        // -------------------------------------
-        // Segment
-
-        geo::Pose3D shape_pose = new_sensor_pose.inverse() * new_pose;
-        cv::Mat filtered_depth_image;
-        segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
-
-//        cv::imshow("segments", filtered_depth_image);
-//        cv::waitKey();
-
-        // -------------------------------------
-        // Cluster
-
-        // Determine camera model
-        rgbd::View view(*image, filtered_depth_image.cols);
-        const geo::DepthCamera& cam_model = view.getRasterizer();
-
-        segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
-
-        // -------------------------------------
-        // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
-        // Then shrink the convex hulls again to get rid of the surface pixels
-
-        for(std::vector<EntityUpdate>::iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
-        {
-            EntityUpdate& up = *it;
-
-            up.chull.z_min -= 0.04;
-            refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
-
-            up.chull.z_min += 0.01;
-            refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
-        }
-
-        // -------------------------------------
-        // Perform association and update
-
-        associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
-
-        // -------------------------------------
-        // Remember the area description with which the segments where found
-
-        for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
-        {
-            const EntityUpdate& up = *it;
-            id_to_area_description_[up.id] = area_description;
-        }
-
-    }
+    associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
 
     return true;
 }

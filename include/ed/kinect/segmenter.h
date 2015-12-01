@@ -31,6 +31,9 @@ public:
 
     ~Segmenter();
 
+    void removeBackground(cv::Mat& depth_image, const ed::WorldModel& world, const geo::DepthCamera& cam,
+                          const geo::Pose3D& sensor_pose, double max_association_distance);
+
     void calculatePointsWithin(const rgbd::Image& image, const geo::Shape& shape,
                                const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image) const;
 

@@ -6,12 +6,91 @@
 #include <rgbd/Image.h>
 #include <rgbd/View.h>
 
+#include <ed/world_model.h>
+#include <ed/entity.h>
+
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
 
 // Visualization
 //#include <opencv2/highgui/highgui.hpp>
+
+// ----------------------------------------------------------------------------------------------------
+
+Segmenter::Segmenter()
+{
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+Segmenter::~Segmenter()
+{
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+namespace
+{
+
+class DepthRenderer : public geo::RenderResult
+{
+
+public:
+
+    DepthRenderer(cv::Mat& z_buffer_)
+        : geo::RenderResult(z_buffer_.cols, z_buffer_.rows), z_buffer(z_buffer_)
+    {
+    }
+
+    void renderPixel(int x, int y, float depth, int i_triangle)
+    {
+        float& old_depth = z_buffer.at<float>(y, x);
+        if (old_depth == 0 || depth < old_depth)
+        {
+            old_depth = depth;
+        }
+    }
+
+    cv::Mat& z_buffer;
+};
+
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void Segmenter::removeBackground(cv::Mat& depth_image, const ed::WorldModel& world, const geo::DepthCamera& cam,
+                                 const geo::Pose3D& sensor_pose, double max_association_distance)
+{
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Render the world model as seen by the depth sensor
+
+    cv::Mat depth_model(depth_image.rows, depth_image.cols, CV_32FC1, 0.0);
+
+    DepthRenderer res(depth_model);
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (!e->shape() || !e->has_pose())
+            continue;
+
+        geo::RenderOptions opt;
+        opt.setMesh(e->shape()->getMesh(), sensor_pose.inverse() * e->pose());
+        cam.render(opt, res);
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Filter all points that can be associated with the rendered depth image
+
+    unsigned int size = depth_image.rows * depth_image.cols;
+    for(unsigned int i = 0; i < size; ++i)
+    {
+        float& ds = depth_image.at<float>(i);
+        float dm = depth_model.at<float>(i);
+        if (dm > 0 && ds > 0 && ds > dm - max_association_distance)
+            ds = 0;
+    }
+}
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -47,18 +126,6 @@ public:
     cv::Mat max_buffer;
 
 };
-
-// ----------------------------------------------------------------------------------------------------
-
-Segmenter::Segmenter()
-{
-}
-
-// ----------------------------------------------------------------------------------------------------
-
-Segmenter::~Segmenter()
-{
-}
 
 // ----------------------------------------------------------------------------------------------------
 

@@ -7,6 +7,16 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+struct UpdateRequest
+{
+    UpdateRequest() : max_association_distance(0) {}
+
+    std::string area_description;
+    double max_association_distance;
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 struct UpdateResult
 {
     UpdateResult(ed::UpdateRequest& update_req_) : update_req(update_req_) {}
@@ -29,7 +39,7 @@ public:
     ~Updater();
 
     bool update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
-                const std::string& update_command, UpdateResult& res);
+                const UpdateRequest& req, UpdateResult& res);
 
 private:
 

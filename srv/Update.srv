@@ -4,9 +4,14 @@
 # Examples:
 # "on_top_of table-123"        Updates table-123's pose and searches for objects on top
 # "in_front_of cabinet-7"      Updates cabinet-7's pose and searches for objects in front
-# "table-123"                   Updates table-123's pose  
+# "table-123"                  Updates table-123's pose
+# ""                           Will update everything in view
 
 string update_space_description
+
+# The maximum association distance used when comparing the sensor data (depth image) with
+# the world model, in meters.
+float32 max_association_distance
 
 ---
 string[] new_ids      # ids of new entities

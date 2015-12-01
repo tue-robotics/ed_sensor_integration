@@ -157,19 +157,23 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform update
 
-    UpdateResult update_result(*update_req_);
-    if (!updater_.update(*world_, image, sensor_pose, req.update_space_description, update_result))
+    UpdateRequest kinect_update_req;
+    kinect_update_req.area_description = req.update_space_description;
+    kinect_update_req.max_association_distance = req.max_association_distance;
+
+    UpdateResult kinect_update_res(*update_req_);
+    if (!updater_.update(*world_, image, sensor_pose, kinect_update_req, kinect_update_res))
     {
-        res.error_msg = update_result.error.str();
+        res.error_msg = kinect_update_res.error.str();
         return true;
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Set result
 
-    for(unsigned int i = 0; i < update_result.entity_updates.size(); ++i)
+    for(unsigned int i = 0; i < kinect_update_res.entity_updates.size(); ++i)
     {
-        EntityUpdate& e_update = update_result.entity_updates[i];
+        EntityUpdate& e_update = kinect_update_res.entity_updates[i];
         if (e_update.is_new)
             res.new_ids.push_back(e_update.id.str());
         else
@@ -179,8 +183,8 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
         update_req_->setFlag(e_update.id, "locked");
     }
 
-    for(unsigned int i = 0; i < update_result.removed_entity_ids.size(); ++i)
-        res.deleted_ids.push_back(update_result.removed_entity_ids[i].str());
+    for(unsigned int i = 0; i < kinect_update_res.removed_entity_ids.size(); ++i)
+        res.deleted_ids.push_back(kinect_update_res.removed_entity_ids[i].str());
 
     return true;
 }
