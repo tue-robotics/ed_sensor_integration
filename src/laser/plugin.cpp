@@ -90,66 +90,83 @@ void LaserPlugin::initialize(ed::InitData& init)
     nh.setCallbackQueue(&cb_queue_);
 
     // Communication
-    sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 10, &LaserPlugin::scanCallback, this);
+    sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 1, &LaserPlugin::scanCallback, this);
 
     tf_listener_ = new tf::TransformListener;
-
-//    min_segment_size_pixels_ = 10;
-//    world_association_distance_ = 0.2;
-//    segment_depth_threshold_ = 0.2;
-
-//    min_cluster_size_ = 0.2;
-//    max_cluster_size_ = 1.0;
-
-//    max_gap_size_ = 10;
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 {
-    scan_msg_.reset();
     cb_queue_.callAvailable();
 
-    if (!scan_msg_)
-        return;
-
-    // - - - - - - - - - - - - - - - - - -
-    // Determine absolute laser pose based on TF
-
-    geo::Pose3D sensor_pose;
-
-    if (!tf_listener_->waitForTransform("map", scan_msg_->header.frame_id, scan_msg_->header.stamp, ros::Duration(0.5)))
+    while(!scan_buffer_.empty())
     {
-        ROS_WARN("[ED LASER PLUGIN] Could not get sensor pose");
-        return;
-    }
+        sensor_msgs::LaserScan::ConstPtr scan = scan_buffer_.front();
 
-    try
-    {
-        tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform("map", scan_msg_->header.frame_id, scan_msg_->header.stamp, t_sensor_pose);
-        geo::convert(t_sensor_pose, sensor_pose);
-    }
-    catch (tf::TransformException& ex)
-    {
-        ROS_WARN("[ED LASER PLUGIN] Could not get sensor pose: %s", ex.what());
-        return;
-    }
+        // - - - - - - - - - - - - - - - - - -
+        // Determine absolute laser pose based on TF
 
+        try
+        {
+            tf::StampedTransform t_sensor_pose;
+            tf_listener_->lookupTransform("map", scan->header.frame_id, scan->header.stamp, t_sensor_pose);
+            scan_buffer_.pop();
+            geo::Pose3D sensor_pose;
+            geo::convert(t_sensor_pose, sensor_pose);
+            update(world, scan, sensor_pose, req);
+        }
+        catch(tf::ExtrapolationException& ex)
+        {
+            try
+            {
+                // Now we have to check if the error was an interpolation or extrapolation error
+                // (i.e., the scan is too old or too new, respectively)
+                tf::StampedTransform latest_transform;
+                tf_listener_->lookupTransform("map", scan->header.frame_id, ros::Time(0), latest_transform);
+
+                if (scan_buffer_.front()->header.stamp > latest_transform.stamp_)
+                {
+                    // Scan is too new
+                    break;
+                }
+                else
+                {
+                    // Otherwise it has to be too old (pop it because we cannot use it anymore)
+                    scan_buffer_.pop();
+                }
+            }
+            catch(tf::TransformException& exc)
+            {
+                scan_buffer_.pop();
+            }
+        }
+        catch(tf::TransformException& exc)
+        {
+            scan_buffer_.pop();
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
+                         const geo::Pose3D& sensor_pose, ed::UpdateRequest& req)
+{
     tue::Timer t_total;
     t_total.start();
 
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
-    std::vector<float> sensor_ranges(scan_msg_->ranges.size());
-    for(unsigned int i = 0; i < scan_msg_->ranges.size(); ++i)
+    std::vector<float> sensor_ranges(scan->ranges.size());
+    for(unsigned int i = 0; i < scan->ranges.size(); ++i)
     {
-        float r = scan_msg_->ranges[i];
-        if (r > scan_msg_->range_max)
+        float r = scan->ranges[i];
+        if (r > scan->range_max)
             sensor_ranges[i] = r;
-        else if (r == r && r > scan_msg_->range_min)
+        else if (r == r && r > scan->range_min)
             sensor_ranges[i] = r;
         else
             sensor_ranges[i] = 0;
@@ -160,7 +177,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
     if (lrf_model_.getNumBeams() != num_beams)
     {
         lrf_model_.setNumBeams(num_beams);
-        lrf_model_.setAngleLimits(scan_msg_->angle_min, scan_msg_->angle_max);
+        lrf_model_.setAngleLimits(scan->angle_min, scan->angle_max);
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -339,11 +356,11 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // --------------------------
         // Temp for RoboCup 2015; todo: remove after
 
-        // Determine the cluster size
-        geo::Vec2f diff = points.back() - points.front();
-        float size_sq = diff.length2();
-        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
-            cluster.flag = "possible_human";
+//        // Determine the cluster size
+//        geo::Vec2f diff = points.back() - points.front();
+//        float size_sq = diff.length2();
+//        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
+//            cluster.flag = "possible_human";
 
         // --------------------------
     }
@@ -425,7 +442,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             // TODO: better prob calculation
             double prob = 1.0 / (1.0 + 100 * dist_sq);
 
-            double dt = scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp();
+            double dt = scan->header.stamp.toSec() - e->lastUpdateTimestamp();
 
             double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
 
@@ -520,7 +537,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         // Set convex hull and pose
         if (!new_chull.points.empty())
         {
-            req.setConvexHullNew(id, new_chull, new_pose, scan_msg_->header.stamp.toSec(), scan_msg_->header.frame_id);
+            req.setConvexHullNew(id, new_chull, new_pose, scan->header.stamp.toSec(), scan->header.frame_id);
 
             // --------------------------
             // Temp for RoboCup 2015; todo: remove after
@@ -532,7 +549,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
 
         // Set timestamp
-        req.setLastUpdateTimestamp(id, scan_msg_->header.stamp.toSec());
+        req.setLastUpdateTimestamp(id, scan->header.stamp.toSec());
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -572,7 +589,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
 void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-    scan_msg_ = msg;
+    scan_buffer_.push(msg);
 }
 
 
