@@ -115,6 +115,7 @@ target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
+add_dependencies(ed_image_saver ${PROJECT_NAME}_gencpp)
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
