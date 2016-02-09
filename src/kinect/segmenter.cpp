@@ -204,7 +204,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
     {
         float d = depth_image.at<float>(i_pixel);
 
-        if (d == 0)
+        if (d == 0 || d != d)
             continue;
 
         // Create cluster
