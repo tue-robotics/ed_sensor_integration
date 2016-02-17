@@ -44,7 +44,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     std::string topic;
     if (config.value("topic", topic))
     {
-        std::cout << "[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'." << std::endl;
+        ROS_INFO_STREAM("[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'.");
         image_buffer_.initialize(topic);
     }
 

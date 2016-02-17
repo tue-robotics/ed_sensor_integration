@@ -75,7 +75,7 @@ bool ImageBuffer::waitForRecentImage(const std::string& root_frame, rgbd::ImageC
     }
     catch(tf::TransformException& ex)
     {
-        ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+        ROS_ERROR("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         return false;
     }
 
@@ -130,7 +130,7 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
             if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
             {
                 image_buffer_.pop();
-                ROS_WARN_STREAM("[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
+                ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
                                 << ros::Time(rgbd_image->getTimestamp()));
             }
 
@@ -138,13 +138,13 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         }
         catch(tf::TransformException& exc)
         {
-            ROS_WARN("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+            ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
             return false;
         }
     }
     catch(tf::TransformException& ex)
     {
-        ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+        ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         return false;
     }
 
