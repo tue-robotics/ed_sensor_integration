@@ -105,6 +105,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     rgbd::View view(*image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
 
+    std::string area_description;
+
     if (!req.area_description.empty())
     {
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -113,7 +115,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         bool fit_supporting_entity = true;
 
-        std::string area_description;
         std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(req.area_description);
         if (it_area_descr != id_to_area_description_.end())
         {
@@ -240,15 +241,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             geo::Pose3D shape_pose = sensor_pose.inverse() * new_pose;
             segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
         }
-
-        // - - - - - - - - - - - - - - - - - - - - - - - -
-        // Remember the area description with which the segments where found
-
-        for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
-        {
-            const EntityUpdate& up = *it;
-            id_to_area_description_[up.id] = area_description;
-        }
     }
     else
     {
@@ -321,6 +313,18 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Perform association and update
 
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Remember the area description with which the segments where found
+
+    if (!area_description.empty())
+    {
+       for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
+        {
+            const EntityUpdate& up = *it;
+            id_to_area_description_[up.id] = area_description;
+        }
+    }
 
     return true;
 }
