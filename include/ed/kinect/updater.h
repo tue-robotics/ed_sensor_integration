@@ -9,7 +9,7 @@
 
 struct UpdateRequest
 {
-    UpdateRequest() : background_padding(0) {}
+    UpdateRequest() : background_padding(0), max_yaw_change(M_PI) {}
 
     // Symbolic description of area to be updated (e.g. "on_top_of cabinet")
     std::string area_description;
@@ -17,6 +17,10 @@ struct UpdateRequest
     // When applying background removal, amount of padding given to the world model (the more padding
     // the points are 'cut away')
     double background_padding;
+
+    // When refitting an entity, this states the maximum change in yaw (in radians), i.e., the fitted
+    // yaw will deviate at most 'max_yaw_change' from the estimated yaw
+    double max_yaw_change;
 };
 
 // ----------------------------------------------------------------------------------------------------

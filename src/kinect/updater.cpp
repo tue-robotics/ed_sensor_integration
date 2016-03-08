@@ -168,7 +168,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             FitterData fitter_data;
             fitter_.processSensorData(*image, sensor_pose, fitter_data);
 
-            if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose))
+            if (fitter_.estimateEntityPose(fitter_data, world, entity_id, e->pose(), new_pose, req.max_yaw_change))
             {
                 res.update_req.setPose(entity_id, new_pose);
             }

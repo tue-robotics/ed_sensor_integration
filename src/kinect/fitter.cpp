@@ -63,7 +63,7 @@ Fitter::~Fitter()
 // ----------------------------------------------------------------------------------------------------
 
 bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
-                                const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose)
+                                const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change)
 {
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
@@ -103,6 +103,18 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
         renderEntity(e, data.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
     }
 
+    geo::Pose3D expected_pose_SENSOR = data.sensor_pose.inverse() * expected_pose;
+    double expected_yaw_SENSOR;
+    {
+        tf::Matrix3x3 m;
+        geo::convert(expected_pose_SENSOR.R, m);
+        double roll, pitch;
+        m.getRPY(roll, pitch, expected_yaw_SENSOR);
+    }
+
+    double min_yaw = expected_yaw_SENSOR - max_yaw_change;
+    double max_yaw = expected_yaw_SENSOR + max_yaw_change;
+
     // -------------------------------------
     // Fit
 
@@ -114,13 +126,13 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
         double l = beam_model_.rays()[i_beam].length();
         geo::Vec2 r = beam_model_.rays()[i_beam] / l;
 
-        for(double alpha = 0; alpha < 2 * 3.1415; alpha += 0.1)
+        for(double yaw = min_yaw; yaw < max_yaw; yaw += 0.1)
         {
             // ----------------
             // Calculate rotation
 
-            double cos_alpha = cos(alpha);
-            double sin_alpha = sin(alpha);
+            double cos_alpha = cos(yaw);
+            double sin_alpha = sin(yaw);
             geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
             geo::Transform2 pose(rot, r * 10);
 

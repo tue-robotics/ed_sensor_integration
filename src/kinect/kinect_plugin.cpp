@@ -161,6 +161,10 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
     kinect_update_req.area_description = req.area_description;
     kinect_update_req.background_padding = req.background_padding;
 
+    // We expect the orientation of the supporting entity to be approximately correct.
+    // Therefore, only allow rotation updates up to 45 degrees (both clock-wise and anti-clock-wise)
+    kinect_update_req.max_yaw_change = 0.25 * M_PI;
+
     UpdateResult kinect_update_res(*update_req_);
     if (!updater_.update(*world_, image, sensor_pose, kinect_update_req, kinect_update_res))
     {
