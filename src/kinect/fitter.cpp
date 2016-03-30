@@ -103,7 +103,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
         renderEntity(e, data.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
     }
 
-    geo::Pose3D expected_pose_SENSOR = data.sensor_pose.inverse() * expected_pose;
+    geo::Pose3D expected_pose_SENSOR = data.sensor_pose_xya.inverse() * expected_pose;
     double expected_yaw_SENSOR;
     {
         tf::Matrix3x3 m;
