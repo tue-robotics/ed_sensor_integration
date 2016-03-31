@@ -354,13 +354,13 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
 
         // --------------------------
-        // Temp for RoboCup 2015; todo: remove after
+        // Temp for RoboCup 2016; todo: remove after
 
-//        // Determine the cluster size
-//        geo::Vec2f diff = points.back() - points.front();
-//        float size_sq = diff.length2();
-//        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
-//            cluster.flag = "possible_human";
+        // Determine the cluster size
+        geo::Vec2f diff = points.back() - points.front();
+        float size_sq = diff.length2();
+        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
+            cluster.flag = "possible_human";
 
         // --------------------------
     }
