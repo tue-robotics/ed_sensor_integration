@@ -163,7 +163,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         geo::Pose3D new_pose;
 
-        if (fit_supporting_entity)
+        if (fit_supporting_entity && entity_id.str() != "kitchencounter") // TODO: remove after RoboCup 2016
         {
             FitterData fitter_data;
             fitter_.processSensorData(*image, sensor_pose, fitter_data);
@@ -174,8 +174,11 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             }
             else
             {
-                res.error << "Could not determine pose of '" << entity_id.str() << "'.";
-                return false;
+//                res.error << "Could not determine pose of '" << entity_id.str() << "'.";
+//                return false;
+
+                // Could not fit entity, so keep the old pose
+                new_pose = e->pose();
             }
         }
         else
