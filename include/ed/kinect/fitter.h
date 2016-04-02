@@ -52,6 +52,8 @@ public:
     bool estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change = M_PI);
 
+    const EntityRepresentation2D* GetOrCreateEntity2D(const ed::EntityConstPtr& e);
+
 private:
 
     // Fitting
@@ -62,8 +64,6 @@ private:
     // 2D Entity shapes
 
     std::map<ed::UUID, EntityRepresentation2D> entity_shapes_;
-
-    const EntityRepresentation2D* GetOrCreateEntity2D(const ed::EntityConstPtr& e);
 
 
     // Models
