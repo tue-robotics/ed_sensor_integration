@@ -74,11 +74,11 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     if (!e->shape())
         return false;
 
-    const EntityRepresentation2D* repr_2d = GetOrCreateEntity2D(e);
-    if (!repr_2d)
+    EntityRepresentation2D repr_2d = GetOrCreateEntity2D(e);
+    if (repr_2d.shape_2d.empty())
         return false;
 
-    const Shape2D& shape2d = repr_2d->shape_2d;
+    const Shape2D& shape2d = repr_2d.shape_2d;
 
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
@@ -268,11 +268,11 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
 
 // ----------------------------------------------------------------------------------------------------
 
-const EntityRepresentation2D* Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e)
+EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e)
 {
     std::map<ed::UUID, EntityRepresentation2D>::const_iterator it_model = entity_shapes_.find(e->id());
     if (it_model != entity_shapes_.end())
-        return &it_model->second;
+        return it_model->second;
 
     // Decompose entity pose into X Y YAW and Z ROLL PITCH
     geo::Pose3D pose_xya;
@@ -282,7 +282,7 @@ const EntityRepresentation2D* Fitter::GetOrCreateEntity2D(const ed::EntityConstP
     EntityRepresentation2D& entity_model = entity_shapes_[e->id()];
     dml::project2D(e->shape()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
 
-    return &entity_model;
+    return entity_model;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -303,11 +303,11 @@ void Fitter::renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor
     geo::Pose3D pose_zrp;
     decomposePose(e->pose(), pose_xya, pose_zrp);
 
-    const EntityRepresentation2D* e2d = GetOrCreateEntity2D(e);
+    EntityRepresentation2D e2d = GetOrCreateEntity2D(e);
 
     geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
 
-    beam_model_.RenderModel(e2d->shape_2d, pose_2d_SENSOR, identifier, model_ranges, identifiers);
+    beam_model_.RenderModel(e2d.shape_2d, pose_2d_SENSOR, identifier, model_ranges, identifiers);
 }
 
 // ----------------------------------------------------------------------------------------------------
