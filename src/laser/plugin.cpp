@@ -36,6 +36,107 @@ struct EntityUpdate
 
 // ----------------------------------------------------------------------------------------------------
 
+double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, const geo::Pose3D& rel_pose,
+                       const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
+                       int& num_model_points)
+{
+    std::vector<double> test_model_ranges = model_ranges;
+
+    // Render the entity with the given relative pose
+    geo::LaserRangeFinder::RenderOptions opt;
+    opt.setMesh(e.shape()->getMesh(), rel_pose);
+
+    geo::LaserRangeFinder::RenderResult res(test_model_ranges);
+    lrf.render(opt, res);
+
+    int n = 0;
+    num_model_points = 0;
+    double total_error = 0;
+    for(unsigned int i = 0; i < test_model_ranges.size(); ++i)
+    {
+        double ds = sensor_ranges[i];
+        double dm = test_model_ranges[i];
+
+        if (ds <= 0)
+            continue;
+
+        ++n;
+
+        if (dm <= 0)
+        {
+            total_error += 0.1;
+            continue;
+        }
+
+        if (dm < model_ranges[i])
+            ++num_model_points;
+
+        double diff = std::abs(ds - dm);
+        if (diff < 0.1)
+            total_error += diff;
+        else
+        {
+            if (ds > dm)
+                total_error += 1;
+            else
+                total_error += 0.1;
+        }
+    }
+
+    return total_error / n;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
+               const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
+               float x_window, float x_step, float y_window, float y_step, float yaw_window, float yaw_step)
+{
+    const geo::Pose3D old_pose = e.pose();
+
+    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
+
+
+    int num_model_points;
+    double min_error = 0.99 * getFittingError(e, lrf, sensor_pose_inv * old_pose, sensor_ranges, model_ranges, num_model_points);
+    geo::Pose3D best_pose = old_pose;
+
+    if (num_model_points < 50)
+        return best_pose;
+
+    for(float dyaw = -yaw_window; dyaw <= yaw_window; dyaw += yaw_step)
+    {
+        geo::Mat3 rot;
+        rot.setRPY(0, 0, dyaw);
+        geo::Pose3D test_pose = old_pose;
+        test_pose.R = old_pose.R * rot;
+
+        for(float dx = -x_window; dx <= x_window; dx += x_step)
+        {
+            test_pose.t.x = old_pose.t.x + dx;
+            for(float dy = -y_window; dy <= y_window; dy += y_step)
+            {
+                test_pose.t.y = old_pose.t.y + dy;
+
+                double error = getFittingError(e, lrf, sensor_pose_inv * test_pose, sensor_ranges, model_ranges, num_model_points);
+
+//                std::cout << "yaw = " << dyaw << ", error = " << error << std::endl;
+
+                if (error < min_error && num_model_points > 50)
+                {
+                    best_pose = test_pose;
+                    min_error = error;
+                }
+            }
+        }
+    }
+
+    return best_pose;
+}
+
+
+// ----------------------------------------------------------------------------------------------------
+
 bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
 {
     int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
@@ -178,6 +279,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         lrf_model_.setNumBeams(num_beams);
         lrf_model_.setAngleLimits(scan->angle_min, scan->angle_max);
+        lrf_model_.setRangeLimits(scan->range_min, scan->range_max);
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -193,7 +295,6 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         }
     }
 
-
     // - - - - - - - - - - - - - - - - - -
     // Render world model as if seen by laser
 
@@ -204,11 +305,33 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose())
+        if (e->shape() && e->has_pose() && !e->hasType("door"))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
+
+            geo::LaserRangeFinder::RenderResult res(model_ranges);
+            lrf_model_.render(opt, res);
+        }
+    }
+
+    // - - - - - - - - - - - - - - - - - -
+    // Fit the doors
+
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (e->shape() && e->has_pose() && e->hasType("door"))
+        {
+            // Try to update the pose
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.5 * M_PI, 0.1);
+            req.setPose(e->id(), new_pose);
+
+            // Render the door with the updated pose
+            geo::LaserRangeFinder::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
 
             geo::LaserRangeFinder::RenderResult res(model_ranges);
             lrf_model_.render(opt, res);
