@@ -90,7 +90,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
 
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
-               float x_window, float x_step, float y_window, float y_step, float yaw_window, float yaw_step)
+               float x_window, float x_step, float y_window, float y_step, float yaw_min, float yam_plus, float yaw_step)
 {
     const geo::Pose3D old_pose = e.pose();
 
@@ -104,7 +104,7 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
     if (num_model_points < 50)
         return best_pose;
 
-    for(float dyaw = -yaw_window; dyaw <= yaw_window; dyaw += yaw_step)
+    for(float dyaw = yaw_min; dyaw <= yaw_plus; dyaw += yaw_step)
     {
         geo::Mat3 rot;
         rot.setRPY(0, 0, dyaw);
@@ -305,7 +305,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose() && !e->hasType("door"))
+        if (e->shape() && e->has_pose() && (!e->hasType("left_door") || !e->hasType("right_door")))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
@@ -323,10 +323,23 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose() && e->hasType("door"))
+        if (e->shape() && e->has_pose() && e->hasType(" left_door"))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.5 * M_PI, 0.1);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 1.0 * M_PI, 0.1);
+            req.setPose(e->id(), new_pose);
+
+            // Render the door with the updated pose
+            geo::LaserRangeFinder::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
+
+            geo::LaserRangeFinder::RenderResult res(model_ranges);
+            lrf_model_.render(opt, res);
+        }
+        else if (e->shape() && e->has_pose() && e->hasType(" right_door"))
+        {
+            // Try to update the pose
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, -1.0 * M_PI, -0.1);
             req.setPose(e->id(), new_pose);
 
             // Render the door with the updated pose
