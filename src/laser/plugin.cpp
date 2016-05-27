@@ -88,11 +88,19 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
 
 // ----------------------------------------------------------------------------------------------------
 
+geo::Pose3D getPoseFromCache(const ed::Entity& e)
+{
+    const geo::Pose3D old_pose = e.pose();
+    return old_pose;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
                float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step)
 {
-    const geo::Pose3D old_pose = e.pose();
+    const geo::Pose3D old_pose = getPoseFromCache(e);
 
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
