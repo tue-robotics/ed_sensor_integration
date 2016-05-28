@@ -64,7 +64,7 @@ private:
     double max_cluster_size_;
 
     int max_gap_size_;
-    std::map<ed::UUID,geo::Pose3D> position_cache;
+    std::unordered_map<ed::UUID,geo::Pose3D> pose_cache;
 
 };
 
