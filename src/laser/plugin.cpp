@@ -88,9 +88,18 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
 
 // ----------------------------------------------------------------------------------------------------
 
-geo::Pose3D getPoseFromCache(const ed::Entity& e)
+geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
-    const geo::Pose3D old_pose = e.pose();
+    const ed::UUID ID = e.id();
+    geo::Pose3D old_pose = e.pose();
+    if (pose_cache.find(ID) == pose_cache.end())
+    {
+        pose_cache[ID] = old_pose;
+    }
+    else
+    {
+        old_pose = pose_cache[ID];
+    }
     return old_pose;
 }
 
@@ -98,9 +107,9 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e)
 
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
-               float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step)
+               float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
-    const geo::Pose3D old_pose = getPoseFromCache(e);
+    const geo::Pose3D old_pose = getPoseFromCache(e, pose_cache);
 
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
@@ -202,6 +211,8 @@ void LaserPlugin::initialize(ed::InitData& init)
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 1, &LaserPlugin::scanCallback, this);
 
     tf_listener_ = new tf::TransformListener;
+
+    //pose_cache.clear();
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -334,7 +345,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         if (e->shape() && e->has_pose() && e->hasType(" left_door"))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 1.0 * M_PI, 0.1);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 1.0 * M_PI, 0.1, pose_cache);
             req.setPose(e->id(), new_pose);
 
             // Render the door with the updated pose
@@ -347,7 +358,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         else if (e->shape() && e->has_pose() && e->hasType(" right_door"))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, -1.0 * M_PI, -0.1);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, -1.0 * M_PI, -0.1, pose_cache);
             req.setPose(e->id(), new_pose);
 
             // Render the door with the updated pose
