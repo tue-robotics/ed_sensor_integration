@@ -19,6 +19,7 @@
 // Properties
 #include "ed/convex_hull.h"
 
+
 // ----------------------------------------------------------------------------------------------------
 
 class LaserPlugin : public ed::Plugin
@@ -64,7 +65,7 @@ private:
     double max_cluster_size_;
 
     int max_gap_size_;
-    std::unordered_map<ed::UUID,geo::Pose3D> pose_cache;
+    std::map<ed::UUID,geo::Pose3D> pose_cache;
 
 };
 
