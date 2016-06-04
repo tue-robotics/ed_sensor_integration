@@ -324,7 +324,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose() && (!e->hasType("left_door") || !e->hasType("right_door")))
+        if (e->shape() && e->has_pose())// && (!e->hasType("left_door") || !e->hasType("right_door") || e->hasType("robotics_testlabs/blue_door_left") || e->hasType("robotics_testlabs/blue_door_right")))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
@@ -341,12 +341,14 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
+        //std::cout << e->type() << std::endl;
 
-        if (e->shape() && e->has_pose() && e->hasType(" left_door"))
+        if (e->shape() && e->has_pose() && (e->hasType("left_door") || e->hasType("robotics_testlabs/blue_door_left")))
         {
             // Try to update the pose
             geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 1.0 * M_PI, 0.1, pose_cache);
             req.setPose(e->id(), new_pose);
+            //std::cout << "left_door" << std::endl;
 
             // Render the door with the updated pose
             geo::LaserRangeFinder::RenderOptions opt;
@@ -355,10 +357,10 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
             geo::LaserRangeFinder::RenderResult res(model_ranges);
             lrf_model_.render(opt, res);
         }
-        else if (e->shape() && e->has_pose() && e->hasType(" right_door"))
+        else if (e->shape() && e->has_pose() && (e->hasType("right_door") || e->hasType("robotics_testlabs/blue_door_right")))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, -1.0 * M_PI, -0.1, pose_cache);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.0 * M_PI, 0.0, 0.1, pose_cache);
             req.setPose(e->id(), new_pose);
 
             // Render the door with the updated pose
