@@ -54,36 +54,39 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
     double total_error = 0;
     for(unsigned int i = 0; i < test_model_ranges.size(); ++i)
     {
-        double ds = sensor_ranges[i];
-        double dm = test_model_ranges[i];
+            double ds = sensor_ranges[i];
+            double dm = test_model_ranges[i];
 
-        if (ds <= 0)
-            continue;
+            if (ds <= 0)
+                continue;
 
-        ++n;
+            ++n;
+            if (dm <= 0 && model_ranges[i]>0)
+            {
+                total_error += 0.3;
+                continue;
+            }
 
-        if (dm <= 0)
-        {
-            total_error += 0.1;
-            continue;
-        }
+            if (dm < model_ranges[i])
+                ++num_model_points;
+            else if(model_ranges[i]<=0 && dm>0 && dm<=3) //when there is no world model behind the door, output of world render without door is zero.
+            {                                              //only taking points with no world behind it, into account when nearby.
+                ++num_model_points;
+            }                                              // giving problems with fitting when door is not good in view
 
-        if (dm < model_ranges[i])
-            ++num_model_points;
-
-        double diff = std::abs(ds - dm);
-        if (diff < 0.1)
-            total_error += diff;
-        else
-        {
-            if (ds > dm)
-                total_error += 1;
+            double diff = std::abs(ds - dm);
+            if (diff < 0.3)
+                total_error += diff;
             else
-                total_error += 0.1;
-        }
+            {
+                if (ds > dm)
+                    total_error += 1;
+                else
+                    total_error += 0.3;
+            }
     }
 
-    return total_error / n;
+    return total_error / (n+1); // to be sure to never divide by zero.
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -115,12 +118,31 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
 
     int num_model_points;
-    double min_error = 0.99 * getFittingError(e, lrf, sensor_pose_inv * old_pose, sensor_ranges, model_ranges, num_model_points);
-    geo::Pose3D best_pose = old_pose;
+    int num_model_points2;
+    double min_error = 0.97 * getFittingError(e, lrf, sensor_pose_inv * e.pose(), sensor_ranges, model_ranges, num_model_points); //last position
+    geo::Pose3D best_pose = e.pose();
 
-    if (num_model_points < 50)
-        return best_pose;
-
+    if (num_model_points < 70)
+    {
+        //std::cout << "not fitting with last position" << std::endl;
+        // check if virtual door in middle of range is visible
+        geo::Mat3 rot90;
+        rot90.setRPY(0, 0, 0.5*(yaw_min+yaw_plus));
+        geo::Pose3D pose90 = old_pose;
+        pose90.R = old_pose.R * rot90;
+        double error90 = 0.97 * getFittingError(e, lrf, sensor_pose_inv * pose90, sensor_ranges, model_ranges, num_model_points2);
+        if (num_model_points2 < 70)
+        {
+            //std::cout<<"not fitting with 90 degrees too" << std::endl;
+            return best_pose;
+        }
+        else
+        {
+            // fitting started after door in middle of range is visible. Be stricter on error.
+            num_model_points=num_model_points2;
+            min_error=0.7*error90;
+        }
+    }
     for(float dyaw = yaw_min; dyaw <= yaw_plus; dyaw += yaw_step)
     {
         geo::Mat3 rot;
@@ -137,9 +159,9 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
                 double error = getFittingError(e, lrf, sensor_pose_inv * test_pose, sensor_ranges, model_ranges, num_model_points);
 
-//                std::cout << "yaw = " << dyaw << ", error = " << error << std::endl;
+                //std::cout << "yaw = " << dyaw << ", error = " << error << ", minerror= " << min_error << ", num_model_points = " << num_model_points << std::endl;
 
-                if (error < min_error && num_model_points > 50)
+                if (error < min_error && num_model_points >= 70)
                 {
                     best_pose = test_pose;
                     min_error = error;
@@ -147,7 +169,8 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
             }
         }
     }
-
+//    if (best_pose != e.pose())
+//        std::cout<<"new_pose"<<std::endl;
     return best_pose;
 }
 
@@ -324,7 +347,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose())// && (!e->hasType("left_door") || !e->hasType("right_door") || e->hasType("robotics_testlabs/blue_door_left") || e->hasType("robotics_testlabs/blue_door_right")))
+        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
@@ -343,10 +366,10 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         const ed::EntityConstPtr& e = *it;
         //std::cout << e->type() << std::endl;
 
-        if (e->shape() && e->has_pose() && (e->hasType("left_door") || e->hasType("robotics_testlabs/blue_door_left")))
+        if (e->shape() && e->has_pose() && (e->hasType("left_door") || e->hasType("door_left")))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 1.0 * M_PI, 0.1, pose_cache);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 3.1, 0.1, pose_cache);
             req.setPose(e->id(), new_pose);
             //std::cout << "left_door" << std::endl;
 
@@ -357,11 +380,12 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
             geo::LaserRangeFinder::RenderResult res(model_ranges);
             lrf_model_.render(opt, res);
         }
-        else if (e->shape() && e->has_pose() && (e->hasType("right_door") || e->hasType("robotics_testlabs/blue_door_right")))
+        else if (e->shape() && e->has_pose() && (e->hasType("right_door") || e->hasType("door_right")))
         {
             // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.0 * M_PI, 0.0, 0.1, pose_cache);
+            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -3.1, 0.0, 0.1, pose_cache);
             req.setPose(e->id(), new_pose);
+            //std::cout << "right_door" << std::endl;
 
             // Render the door with the updated pose
             geo::LaserRangeFinder::RenderOptions opt;
