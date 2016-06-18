@@ -63,6 +63,7 @@ private:
     float segment_depth_threshold_;
     double min_cluster_size_;
     double max_cluster_size_;
+    bool fit_entities_;
 
     int max_gap_size_;
     std::map<ed::UUID,geo::Pose3D> pose_cache;

@@ -54,36 +54,36 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
     double total_error = 0;
     for(unsigned int i = 0; i < test_model_ranges.size(); ++i)
     {
-            double ds = sensor_ranges[i];
-            double dm = test_model_ranges[i];
+        double ds = sensor_ranges[i];
+        double dm = test_model_ranges[i];
 
-            if (ds <= 0)
-                continue;
+        if (ds <= 0)
+            continue;
 
-            ++n;
-            if (dm <= 0 && model_ranges[i]>0)
-            {
-                total_error += 0.3;
-                continue;
-            }
+        ++n;
+        if (dm <= 0 && model_ranges[i]>0)
+        {
+            total_error += 0.3;
+            continue;
+        }
 
-            if (dm < model_ranges[i])
-                ++num_model_points;
-            else if(model_ranges[i]<=0 && dm>0 && dm<=3) //when there is no world model behind the door, output of world render without door is zero.
-            {                                              //only taking points with no world behind it, into account when nearby.
-                ++num_model_points;
-            }                                              // giving problems with fitting when door is not good in view
+        if (dm < model_ranges[i])
+            ++num_model_points;
+        else if(model_ranges[i]<=0 && dm>0 && dm<=3) //when there is no world model behind the door, output of world render without door is zero.
+        {                                              //only taking points with no world behind it, into account when nearby.
+            ++num_model_points;
+        }                                              // giving problems with fitting when door is not good in view
 
-            double diff = std::abs(ds - dm);
-            if (diff < 0.3)
-                total_error += diff;
+        double diff = std::abs(ds - dm);
+        if (diff < 0.3)
+            total_error += diff;
+        else
+        {
+            if (ds > dm)
+                total_error += 1;
             else
-            {
-                if (ds > dm)
-                    total_error += 1;
-                else
-                    total_error += 0.3;
-            }
+                total_error += 0.3;
+        }
     }
 
     return total_error / (n+1); // to be sure to never divide by zero.
@@ -109,8 +109,8 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
 // ----------------------------------------------------------------------------------------------------
 
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
-               const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
-               float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
+                      const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
+                      float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
     const geo::Pose3D old_pose = getPoseFromCache(e, pose_cache);
 
@@ -169,8 +169,8 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
             }
         }
     }
-//    if (best_pose != e.pose())
-//        std::cout<<"new_pose"<<std::endl;
+    //    if (best_pose != e.pose())
+    //        std::cout<<"new_pose"<<std::endl;
     return best_pose;
 }
 
@@ -223,6 +223,10 @@ void LaserPlugin::initialize(ed::InitData& init)
     config.value("min_cluster_size", min_cluster_size_);
     config.value("max_cluster_size", max_cluster_size_);
     config.value("max_gap_size", max_gap_size_);
+
+    int i_fit_entities = 0;
+    config.value("fit_entities", i_fit_entities, tue::OPTIONAL);
+    fit_entities_ = (i_fit_entities != 0);
 
     if (config.hasError())
         return;
@@ -361,38 +365,43 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Fit the doors
 
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    if (fit_entities_)
     {
-        const ed::EntityConstPtr& e = *it;
-        //std::cout << e->type() << std::endl;
+        std::cout << "Fitting!" << std::endl;
 
-        if (e->shape() && e->has_pose() && (e->hasType("left_door") || e->hasType("door_left")))
+        for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
-            // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 3.1, 0.1, pose_cache);
-            req.setPose(e->id(), new_pose);
-            //std::cout << "left_door" << std::endl;
+            const ed::EntityConstPtr& e = *it;
+            //std::cout << e->type() << std::endl;
 
-            // Render the door with the updated pose
-            geo::LaserRangeFinder::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
+            if (e->shape() && e->has_pose() && (e->hasType("left_door") || e->hasType("door_left")))
+            {
+                // Try to update the pose
+                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, 0.0, 3.1, 0.1, pose_cache);
+                req.setPose(e->id(), new_pose);
+                //std::cout << "left_door" << std::endl;
 
-            geo::LaserRangeFinder::RenderResult res(model_ranges);
-            lrf_model_.render(opt, res);
-        }
-        else if (e->shape() && e->has_pose() && (e->hasType("right_door") || e->hasType("door_right")))
-        {
-            // Try to update the pose
-            geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -3.1, 0.0, 0.1, pose_cache);
-            req.setPose(e->id(), new_pose);
-            //std::cout << "right_door" << std::endl;
+                // Render the door with the updated pose
+                geo::LaserRangeFinder::RenderOptions opt;
+                opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
 
-            // Render the door with the updated pose
-            geo::LaserRangeFinder::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
+                geo::LaserRangeFinder::RenderResult res(model_ranges);
+                lrf_model_.render(opt, res);
+            }
+            else if (e->shape() && e->has_pose() && (e->hasType("right_door") || e->hasType("door_right")))
+            {
+                // Try to update the pose
+                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -3.1, 0.0, 0.1, pose_cache);
+                req.setPose(e->id(), new_pose);
+                //std::cout << "right_door" << std::endl;
 
-            geo::LaserRangeFinder::RenderResult res(model_ranges);
-            lrf_model_.render(opt, res);
+                // Render the door with the updated pose
+                geo::LaserRangeFinder::RenderOptions opt;
+                opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
+
+                geo::LaserRangeFinder::RenderResult res(model_ranges);
+                lrf_model_.render(opt, res);
+            }
         }
     }
 
@@ -582,11 +591,11 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
             if (entity_chull.points.empty())
                 continue;
 
-//            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
-//            {
-//                req.removeEntity(e->id());
-//                continue;
-//            }
+            //            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
+            //            {
+            //                req.removeEntity(e->id());
+            //                continue;
+            //            }
 
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
@@ -674,33 +683,33 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
-//            const ed::ConvexHull& entity_chull = e->convexHullNew();
-//            const geo::Pose3D& entity_pose = e->pose();
+            //            const ed::ConvexHull& entity_chull = e->convexHullNew();
+            //            const geo::Pose3D& entity_pose = e->pose();
 
-//            std::vector<geo::Vec2f> new_points_MAP;
+            //            std::vector<geo::Vec2f> new_points_MAP;
 
-//            // Add the points of the cluster
-//            for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
-//                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
+            //            // Add the points of the cluster
+            //            for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
+            //                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
 
-//            // Add the entity points that are still present in the depth map (or out of view)
-//            for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
-//            {
-//                geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
+            //            // Add the entity points that are still present in the depth map (or out of view)
+            //            for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
+            //            {
+            //                geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
 
-//                geo::Vector3 p = sensor_pose.inverse() * geo::Vector3(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
+            //                geo::Vector3 p = sensor_pose.inverse() * geo::Vector3(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
 
-//                if (pointIsPresent(p, lrf_model_, sensor_ranges))
-//                {
-//                    new_points_MAP.push_back(p_chull_MAP);
-//                }
-//            }
+            //                if (pointIsPresent(p, lrf_model_, sensor_ranges))
+            //                {
+            //                    new_points_MAP.push_back(p_chull_MAP);
+            //                }
+            //            }
 
-//            double new_z_min = cluster.chull.z_min;
-//            double new_z_max = cluster.chull.z_max;
+            //            double new_z_min = cluster.chull.z_min;
+            //            double new_z_max = cluster.chull.z_max;
 
-//            // And calculate the convex hull of these points
-//            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
+            //            // And calculate the convex hull of these points
+            //            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
 
             if (!e->hasFlag("locked"))
             {
@@ -736,32 +745,32 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Clear unassociated entities in view
 
-//    for(unsigned int i = 0; i < entities_associated.size(); ++i)
-//    {
-//        const ed::EntityConstPtr& e = entities[i];
+    //    for(unsigned int i = 0; i < entities_associated.size(); ++i)
+    //    {
+    //        const ed::EntityConstPtr& e = entities[i];
 
-//        // If the entity is associated, skip it
-//        if (entities_associated[i] >= 0)
-//            continue;
+    //        // If the entity is associated, skip it
+    //        if (entities_associated[i] >= 0)
+    //            continue;
 
-//        const geo::Pose3D& pose = e->pose();
+    //        const geo::Pose3D& pose = e->pose();
 
-//        // Transform to sensor frame
-//        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+    //        // Transform to sensor frame
+    //        geo::Vector3 p = sensor_pose.inverse() * pose.t;
 
-//        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
-//        {
-//            double p_exist = e->existenceProbability();
-//            if (p_exist < 0.3) // TODO: magic number
-//                req.removeEntity(e->id());
-//            else
-//            {
-//                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
-//            }
-//        }
-//    }
+    //        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
+    //        {
+    //            double p_exist = e->existenceProbability();
+    //            if (p_exist < 0.3) // TODO: magic number
+    //                req.removeEntity(e->id());
+    //            else
+    //            {
+    //                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
+    //            }
+    //        }
+    //    }
 
-//    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    //    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 
 }
 
