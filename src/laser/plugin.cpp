@@ -235,7 +235,7 @@ void LaserPlugin::initialize(ed::InitData& init)
     nh.setCallbackQueue(&cb_queue_);
 
     // Communication
-    sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 1, &LaserPlugin::scanCallback, this);
+    sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
 
     tf_listener_ = new tf::TransformListener;
 
