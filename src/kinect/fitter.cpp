@@ -116,6 +116,39 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     double max_yaw = expected_yaw_SENSOR + max_yaw_change;
 
     // -------------------------------------
+    // Determine center of the shape
+
+    geo::Vec2 shape_min(1e6, 1e6);
+    geo::Vec2 shape_max(-1e6, -1e6);
+
+    for(int i = 0; i < shape2d.size(); ++i)
+    {
+        const std::vector<geo::Vec2>& contour = shape2d[i];
+        for(int j = 0; j < contour.size(); ++j)
+        {
+            const geo::Vec2& p = contour[j];
+            shape_min.x = std::min(shape_min.x, p.x);
+            shape_min.y = std::min(shape_min.y, p.y);
+            shape_max.x = std::max(shape_max.x, p.x);
+            shape_max.y = std::max(shape_max.y, p.y);
+        }
+    }
+
+    geo::Vec2 shape_center = 0.5 * (shape_min + shape_max);
+
+    // -------------------------------------
+    // Transform shape2d such that origin is in the center
+
+    Shape2D shape2d_transformed = shape2d;
+
+    for(int i = 0; i < shape2d_transformed.size(); ++i)
+    {
+        std::vector<geo::Vec2>& contour_transformed = shape2d_transformed[i];
+        for(int j = 0; j < contour_transformed.size(); ++j)
+            contour_transformed[j] -= shape_center;
+    }
+
+    // -------------------------------------
     // Fit
 
     double min_error = 1e9;
@@ -140,7 +173,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
             // Determine initial pose based on measured range
 
             std::vector<double> test_ranges(sensor_ranges.size(), 0);
-            beam_model_.RenderModel(shape2d, pose, 0, test_ranges, dummy_identifiers);
+            beam_model_.RenderModel(shape2d_transformed, pose, 0, test_ranges, dummy_identifiers);
 
             double ds = sensor_ranges[i_beam];
             double dm = test_ranges[i_beam];
@@ -155,7 +188,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 
             test_ranges = model_ranges;
             std::vector<int> identifiers(sensor_ranges.size(), 0);
-            beam_model_.RenderModel(shape2d, pose, 1, test_ranges, identifiers);
+            beam_model_.RenderModel(shape2d_transformed, pose, 1, test_ranges, identifiers);
 
             if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
                 continue;
@@ -208,6 +241,9 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 //        std::cout << "No pose found!" << std::endl;
         return false;
     }
+
+    // Correct for shape transformation
+    best_pose_SENSOR.t += best_pose_SENSOR.R * -shape_center;
 
 //    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
 
