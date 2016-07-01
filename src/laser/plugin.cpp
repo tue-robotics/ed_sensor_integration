@@ -266,6 +266,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
         catch(tf::ExtrapolationException& ex)
         {
+            ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "ED Laserplugin: " << ex.what());
             try
             {
                 // Now we have to check if the error was an interpolation or extrapolation error
@@ -291,6 +292,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
         catch(tf::TransformException& exc)
         {
+            ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "ED Laserplugin: " << exc.what());
             scan_buffer_.pop();
         }
     }
@@ -770,8 +772,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     //        }
     //    }
 
-    //    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
-
+    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -779,6 +780,8 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
 void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
+    std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
+
     scan_buffer_.push(msg);
 }
 
