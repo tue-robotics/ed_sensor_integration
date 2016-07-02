@@ -295,7 +295,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
         catch(tf::ExtrapolationException& ex)
         {
-            ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "ED Laserplugin: " << ex.what());
+            ROS_WARN_STREAM_DELAYED_THROTTLE(10, "ED Laserplugin: " << ex.what());
             try
             {
                 // Now we have to check if the error was an interpolation or extrapolation error
