@@ -100,6 +100,13 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
         if (e->hasFlag("self")) // Skip the robot itself
             continue;
 
+        std::string id_str = e->id().str();
+        if (id_str.size() >= 6 && id_str.substr(0, 6) == "sergio")
+            continue;
+
+        if (id_str.size() >= 5 && id_str.substr(0, 5) == "amigo")
+            continue;
+
         renderEntity(e, data.sensor_pose_xya, -1, model_ranges, dummy_identifiers);
     }
 
