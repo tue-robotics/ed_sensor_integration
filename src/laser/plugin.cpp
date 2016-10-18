@@ -810,7 +810,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     //        }
     //    }
 
-    std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    //std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
