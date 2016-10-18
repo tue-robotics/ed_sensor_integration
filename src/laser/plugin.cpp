@@ -818,7 +818,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
 void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-    std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
+    //std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
 
     scan_buffer_.push(msg);
 }
