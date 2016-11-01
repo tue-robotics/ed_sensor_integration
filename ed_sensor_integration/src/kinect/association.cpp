@@ -39,6 +39,9 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
             const geo::Pose3D& entity_pose = e->pose();
             const ed::ConvexHull& entity_chull = e->convexHull();
+            const ed::TYPE& entity_type = e->type();
+
+            cluster_type =
 
             float dx = entity_pose.t.x - cluster.pose_map.t.x;
             float dy = entity_pose.t.y - cluster.pose_map.t.y;

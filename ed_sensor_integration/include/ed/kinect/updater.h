@@ -4,6 +4,8 @@
 #include "ed/kinect/fitter.h"
 #include "ed/kinect/segmenter.h"
 #include "ed/kinect/entity_update.h"
+#include <ros/node_handle.h>
+#include <ros/service_client.h>
 
 #include <map>
 #include <vector>
@@ -63,6 +65,9 @@ private:
 
     // Stores for each segmented entity with which area description it was found
     std::map<ed::UUID, std::string> id_to_area_description_;
+
+    ros::NodeHandle n_;
+    ros::ServiceClient classification_client_;
 
 };
 
