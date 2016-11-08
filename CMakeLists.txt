@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ed_sensor_integration)
 
 find_package(catkin REQUIRED COMPONENTS
-  blackboard
   cb_planner_msgs_srvs
   ed
   geometry_msgs
