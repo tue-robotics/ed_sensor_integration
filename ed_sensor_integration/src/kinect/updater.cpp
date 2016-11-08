@@ -190,20 +190,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 
 Updater::Updater(): n_("~")
 {
-    classification_client_ = n.serviceClient<image_recognition_msgs::Recognize>("association_classification");
-
-    image_recognition_msgs::Recognition srv;
-//    srv.request.a = atoll(argv[1]);
-//    srv.request.b = atoll(argv[2]);
-//    if (client.call(srv))
-//    {
-//        ROS_INFO("Sum: %ld", (long int)srv.response.sum);
-//    }
-//    else
-//    {
-//        ROS_ERROR("Failed to call service add_two_ints");
-//        return 1;
-//    }
+    classification_client_ = n_.serviceClient<image_recognition_msgs::Recognize>("association_classification");
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -429,14 +416,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
-    // Classify the segments
-
-
-
-
-    // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
-    associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
+    associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req, classification_client_);
 
     // - - - - - - - - - - - - -  - - - - - - - -  - - -
     // Remove entities that are not associated

@@ -18,6 +18,7 @@
   <depend>geolib2</depend>
   <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
+  <depend>image_recognition_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>tue_config</depend>

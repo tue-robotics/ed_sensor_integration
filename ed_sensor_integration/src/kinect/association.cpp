@@ -13,10 +13,84 @@
 
 #include <ros/console.h>
 
+#include <ros/ros.h>
+#include <std_msgs/Header.h>
+#include <image_recognition_msgs/Recognize.h>
+#include <cv_bridge/cv_bridge.h>
+
+// ----------------------------------------------------------------------------------------------------
+
+cv::Mat getClusterImage(const rgbd::ImageConstPtr& image, const EntityUpdate& cluster)
+{
+    const cv::Mat& rgb_image = image->getRGBImage();
+
+    // Create image mask (based on the depth image, because the pixel indices in the cluster are of the depth image)
+    ed::ImageMask mask;
+    mask.setSize(image->getDepthImage().cols, image->getDepthImage().rows);
+
+    // Add the pixel indices to the mask
+    for(std::vector<unsigned int>::const_iterator it = cluster.pixel_indices.begin(); it != cluster.pixel_indices.end(); ++it)
+        mask.addPoint(*it);
+
+    // Now use the mask to get the ROI in the rgb image
+    int min_x, max_x, min_y, max_y;
+
+    for ( ed::ImageMask::const_iterator it = mask.begin(rgb_image.cols); it != mask.end(); ++it )
+    {
+        const cv::Point2i& p_2d = *it;
+
+        // update the boundary coordinates
+        if (min_x > p_2d.x) min_x = p_2d.x;
+        if (max_x < p_2d.x) max_x = p_2d.x;
+        if (min_y > p_2d.y) min_y = p_2d.y;
+        if (max_y < p_2d.y) max_y = p_2d.y;
+    }
+
+    cv::Rect roi(min_x, min_y, max_x - min_x, max_y - min_y);
+    cv::Mat cluster_image = rgb_image(roi);
+
+    return cluster_image;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+ed::TYPE requestClusterType(const cv::Mat& image, ros::ServiceClient& client)
+{
+    image_recognition_msgs::Recognize srv;
+    std_msgs::Header header;
+    cv_bridge::CvImage cv_image(header, "rgb16", image);
+    srv.request.image = *cv_image.toImageMsg();
+    std::cout << "Calling recognition request on image" << std::endl;
+    if ( client.call(srv) )
+    {
+        double highest_prob = 0.0;
+        std::string best_label = "";
+        for ( std::vector<image_recognition_msgs::Recognition>::const_iterator it = srv.response.recognitions.begin(); it != srv.response.recognitions.end(); ++it )
+        {
+            const image_recognition_msgs::Recognition& r = *it;
+            for ( int i = 0; i < r.categorical_distribution.probabilities.size(); i++ )
+            {
+                const image_recognition_msgs::CategoryProbability& p = r.categorical_distribution.probabilities[i];
+
+                if ( highest_prob < p.probability)
+                {
+                    highest_prob = p.probability;
+                    best_label = p.label;
+                }
+            }
+        }
+
+        std::cout << "Recognized this blob as " << best_label << std::endl;
+        return ed::TYPE(best_label);
+    }
+    else
+        return ed::TYPE("");
+}
+
 // ----------------------------------------------------------------------------------------------------
 
 void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
-                        std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
+                        std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req, ros::ServiceClient& classification_client)
 {
     if (clusters.empty())
         return;
@@ -41,7 +115,8 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             const ed::ConvexHull& entity_chull = e->convexHull();
             const ed::TYPE& entity_type = e->type();
 
-            cluster_type =
+            cv::Mat cluster_image = getClusterImage(image, cluster);
+            ed::TYPE cluster_type = requestClusterType(cluster_image, classification_client);
 
             float dx = entity_pose.t.x - cluster.pose_map.t.x;
             float dy = entity_pose.t.y - cluster.pose_map.t.y;
