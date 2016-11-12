@@ -35,6 +35,11 @@ cv::Mat getClusterImage(const rgbd::ImageConstPtr& image, const EntityUpdate& cl
     // Now use the mask to get the ROI in the rgb image
     int min_x, max_x, min_y, max_y;
 
+    max_x = 0;
+    max_y = 0;
+    min_x = rgb_image.cols;
+    min_y = rgb_image.rows;
+
     for ( ed::ImageMask::const_iterator it = mask.begin(rgb_image.cols); it != mask.end(); ++it )
     {
         const cv::Point2i& p_2d = *it;
@@ -47,6 +52,7 @@ cv::Mat getClusterImage(const rgbd::ImageConstPtr& image, const EntityUpdate& cl
     }
 
     cv::Rect roi(min_x, min_y, max_x - min_x, max_y - min_y);
+    ROS_INFO_STREAM("ED Sensor Integration (association): cluster roi " << roi);
     cv::Mat cluster_image = rgb_image(roi);
 
     return cluster_image;
@@ -60,7 +66,8 @@ ed::TYPE requestClusterType(const cv::Mat& image, ros::ServiceClient& client)
     std_msgs::Header header;
     cv_bridge::CvImage cv_image(header, "rgb16", image);
     srv.request.image = *cv_image.toImageMsg();
-    std::cout << "Calling recognition request on image" << std::endl;
+
+    ROS_INFO_STREAM("ED Sensor Integration (association): Calling recogntion request on cluster img");
     if ( client.call(srv) )
     {
         double highest_prob = 0.0;
@@ -80,7 +87,7 @@ ed::TYPE requestClusterType(const cv::Mat& image, ros::ServiceClient& client)
             }
         }
 
-        std::cout << "Recognized this blob as " << best_label << std::endl;
+        ROS_INFO_STREAM("ED Sensor Integration (association): Recognized this blob as " << best_label);
         return ed::TYPE(best_label);
     }
     else
@@ -107,6 +114,10 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
     {
         const EntityUpdate& cluster = clusters[i_cluster];
 
+        // Try to classify the cluster
+        cv::Mat cluster_image = getClusterImage(image, cluster);
+        ed::TYPE cluster_type = requestClusterType(cluster_image, classification_client);
+
         for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
         {
             const ed::EntityConstPtr& e = entities[i_entity];
@@ -115,8 +126,15 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             const ed::ConvexHull& entity_chull = e->convexHull();
             const ed::TYPE& entity_type = e->type();
 
-            cv::Mat cluster_image = getClusterImage(image, cluster);
-            ed::TYPE cluster_type = requestClusterType(cluster_image, classification_client);
+            double prob = 1.0;
+
+            if ( !cluster_type.empty() )
+            {
+                if ( cluster_type != entity_type )
+                {
+                    prob *= 0.1; // TODO: magic number
+                }
+            }
 
             float dx = entity_pose.t.x - cluster.pose_map.t.x;
             float dy = entity_pose.t.y - cluster.pose_map.t.y;
@@ -131,7 +149,7 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
 
             // TODO: better prob calculation
-            double prob = 1.0 / (1.0 + 100 * dist_sq);
+            prob *= 1.0 / (1.0 + 100 * dist_sq);
 
             double e_max_dist = 0.2;
 
