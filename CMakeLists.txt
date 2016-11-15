@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
 )
 
+set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}") # C++ 11
+
 # ------------------------------------------------------------------------------------------------
 #                                     ROS MESSAGES AND SERVICES
 # ------------------------------------------------------------------------------------------------
@@ -48,8 +50,16 @@ catkin_package(
 
 include_directories(
   include
+  third_party
   ${catkin_INCLUDE_DIRS}
 )
+
+# ------------------------------------------------------------------------------------------------
+#                                         Third party
+# ------------------------------------------------------------------------------------------------
+
+#file(GLOB_RECURSE MUNKRES_FILES "third_party/munkres/*.cpp" "third_party/munkres/*.h")
+#add_library(munkres ${MUNKRES_FILES})
 
 # ------------------------------------------------------------------------------------------------
 #                                         LIBRARIES
@@ -58,7 +68,9 @@ include_directories(
 add_library(ed_association
   src/association_matrix.cpp
   include/ed_sensor_integration/association_matrix.h
+  include/ed_sensor_integration/hungarian_method_association_matrix.h
 )
+target_link_libraries(ed_association /usr/local/lib/libmunkres.a)
 
 add_library(ed_kinect
     src/kinect/image_buffer.cpp

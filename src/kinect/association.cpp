@@ -2,6 +2,7 @@
 #include "ed/kinect/entity_update.h"
 
 #include "ed_sensor_integration/association_matrix.h"
+#include "ed_sensor_integration/hungarian_method_association_matrix.h"
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
@@ -27,6 +28,7 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
     std::vector<int> entities_associated;
 
     // Create association matrix
+    ed_sensor_integration::HungarianMethodAssociationMatrix hung_assoc_matrix(clusters.size(), entities.size(), 0.4, 0.0, 0.1);
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
@@ -55,6 +57,8 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             double prob = 1.0 / (1.0 + 100 * dist_sq);
 
             double e_max_dist = 0.2;
+
+            hung_assoc_matrix.setEntry(i_cluster, i_entity, prob);
 
             if (dist_sq > e_max_dist * e_max_dist)
                 prob = 0;
