@@ -11,6 +11,8 @@
 #include <rgbd/Image.h>
 #include <rgbd/View.h>
 
+#include <ros/console.h>
+
 // ----------------------------------------------------------------------------------------------------
 
 void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
@@ -22,11 +24,10 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
     const cv::Mat& depth = image->getDepthImage();
     rgbd::View view(*image, depth.cols);
 
-    float max_dist = 0.3;
-
     std::vector<int> entities_associated;
 
     // Create association matrix
+    ROS_INFO_STREAM("Nr clusters: " << clusters.size() << ", nr_entities: " << entities.size());
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
@@ -57,7 +58,13 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             double e_max_dist = 0.2;
 
             if (dist_sq > e_max_dist * e_max_dist)
+            {
                 prob = 0;
+            }
+            else
+            {
+                ROS_ERROR_STREAM("dist: " << sqrt(dist_sq));
+            }
 
             //                if (entity_chull.complete)
             //                {
@@ -73,9 +80,13 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             //                }
 
             if (prob > 0)
+            {
+                ROS_INFO("Entity added to association matrix: %s", e->id().c_str());
                 assoc_matrix.setEntry(i_cluster, i_entity, prob);
+            }
         }
     }
+    ROS_ERROR_STREAM(' ');
 
     ed_sensor_integration::Assignment assig;
     if (!assoc_matrix.calculateBestAssignment(assig))

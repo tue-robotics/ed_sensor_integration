@@ -18,6 +18,8 @@
 
 #include <opencv2/highgui/highgui.hpp>
 
+#include <ros/console.h>
+
 // ----------------------------------------------------------------------------------------------------
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
@@ -273,19 +275,20 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             continue;
 
         associatable_entities.push_back(e);
-
+        /*
         geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
 
         cv::Point p_2d = cam_model.project3Dto2D(p_3d);
         if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
             continue;
-
-        float d = depth.at<float>(p_2d);
+        */
+        /*float d = depth.at<float>(p_2d);
         if (d > 0 && d == d && -p_3d.z < d)
         {
+            ROS_INFO("Request to remove entity %s", e->id().c_str());
             res.update_req.removeEntity(e->id());
             associatable_entities.pop_back();
-        }
+        }*/
     }
 
 //    cv::imshow("depth image", depth / 10);
@@ -316,6 +319,27 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Perform association and update
 
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
+    
+    // - - - - - - - - - - - - -  - - - - - - - -  - - -
+    // Remove entities that are not associated
+    for (std::vector<ed::EntityConstPtr>::const_iterator it = associatable_entities.begin(); it != associatable_entities.end(); ++it)
+    {
+        ed::EntityConstPtr e = *it;
+        
+        // Check if entity is in frustum 
+        geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
+        cv::Point p_2d = cam_model.project3Dto2D(p_3d);
+        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+            continue;
+
+        // If the entity is not updated, remove it
+        if (res.update_req.updated_entities.find(e->id()) == res.update_req.updated_entities.end())
+        {
+            ROS_INFO("Entity not associated and not found in frustum, removing entity %s", e->id().c_str());
+            res.update_req.removeEntity(e->id());
+        }
+        
+    }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Remember the area description with which the segments where found
