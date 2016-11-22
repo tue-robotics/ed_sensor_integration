@@ -14,29 +14,35 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose,
-                        std::vector<EntityUpdate>& clusters, ed::UpdateRequest& req)
+const double COST_NOT_OBSERVED = 1;
+const double COST_FALSE_DETECTION = 1;
+
+ed_sensor_integration::Assignment associate(const std::vector<ed::EntityConstPtr>& entities,
+                                            const std::vector<EntityUpdate>& clusters)
 {
-    if (clusters.empty())
-        return;
+    double max_dist = 0.2;
+    double max_dist_sq = max_dist*max_dist;
 
-    const cv::Mat& depth = image->getDepthImage();
-    rgbd::View view(*image, depth.cols);
-
-    float max_dist = 0.3;
-
-    std::vector<int> entities_associated;
+    ed_sensor_integration::Assignment assignment(entities.size(), -1);
 
     // Create association matrix
-    ed_sensor_integration::HungarianMethodAssociationMatrix hung_assoc_matrix(clusters.size(), entities.size(), 0.4, 0.0, 0.1);
-    ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
+    ed_sensor_integration::HungarianMethodAssociationMatrix hung_assoc_matrix(clusters.size(),
+                                                                              entities.size(),
+                                                                              COST_NOT_OBSERVED,
+                                                                              2*max_dist_sq,
+                                                                              max_dist_sq);
+
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
         const EntityUpdate& cluster = clusters[i_cluster];
+        if ( cluster.chull.points.empty() )
+        {
+            ROS_ERROR("ed_sensor_integration: association: Skipping empty cluster in association. This should not be happening");
+        }
 
         for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
         {
-            const ed::EntityConstPtr& e = entities[i_entity];
+            ed::EntityConstPtr e = entities[i_entity];
 
             const geo::Pose3D& entity_pose = e->pose();
             const ed::ConvexHull& entity_chull = e->convexHull();
@@ -50,52 +56,49 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
                 // The convex hulls are non-overlapping in z
                 dz = entity_pose.t.z - cluster.pose_map.t.z;
 
-            float dist_sq = (dx * dx + dy * dy + dz * dz);
+            float dist_sq = (dx * dx + dy * dy + dz * dz); // todo: better cost calculation?
 
+            hung_assoc_matrix.setEntry(i_cluster, i_entity, dist_sq);
 
-            // TODO: better prob calculation
-            double prob = 1.0 / (1.0 + 100 * dist_sq);
+            if (dist_sq > max_dist_sq)
+                dist_sq = 1e9; // set to a high value to avoid this association
 
-            double e_max_dist = 0.2;
-
-            hung_assoc_matrix.setEntry(i_cluster, i_entity, prob);
-
-            if (dist_sq > e_max_dist * e_max_dist)
-                prob = 0;
-
-            //                if (entity_chull.complete)
-            //                {
-            //                    // The idea: if the entity chull is complete, and the cluster chull is significantly taller,
-            //                    // the cluster can not be this entity
-            //                    if (cluster.chull.height() > 1.5 * entity_chull.height()) // TODO magic number
-            //                        prob = 0;
-            //                }
-            //                if (cluster.chull.complete)
-            //                {
-            //                    if (entity_chull.height() > 1.5 * cluster.chull.height()) // TODO magic number
-            //                        prob = 0;
-            //                }
-
-            if (prob > 0)
-                assoc_matrix.setEntry(i_cluster, i_entity, prob);
+            if (dist_sq > 0)
+                hung_assoc_matrix.setEntry(i_cluster, i_entity, dist_sq);
         }
     }
 
-    ed_sensor_integration::Assignment assig;
-    if (!assoc_matrix.calculateBestAssignment(assig))
+    assignment = hung_assoc_matrix.solve();
+
+    std::stringstream ss;
+
+    for ( size_t i = 0; i < assignment.size(); ++i )
     {
-        std::cout << "WARNING: Association failed!" << std::endl;
-        return;
+        if ( assignment[i] != -1 )
+        {
+            ed::EntityConstPtr e = entities[assignment[i]];
+            ss << " - " << e->id() << "\n";
+        }
     }
 
-    entities_associated.resize(entities.size(), -1);
+    ROS_DEBUG_STREAM("Associated entities:\n " << ss);
 
+    return assignment;
+}
+
+void update(const std::vector<ed::EntityConstPtr>& entities,
+            const rgbd::ImageConstPtr& image,
+            const geo::Pose3D& sensor_pose,
+            const ed_sensor_integration::Assignment& assignment,
+            std::vector<EntityUpdate>& clusters,
+            ed::UpdateRequest& req)
+{
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
         EntityUpdate& cluster = clusters[i_cluster];
 
         // Get the assignment for this cluster
-        int i_entity = assig[i_cluster];
+        int i_entity = assignment[i_cluster];
 
         ed::UUID id;
         ed::ConvexHull new_chull;
@@ -104,100 +107,28 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
         if (i_entity == -1)
         {
             // No assignment, so add as new cluster
-            new_chull = cluster.chull;
-            new_pose = cluster.pose_map;
 
             // Generate unique ID
             id = ed::Entity::generateID();
-
+            new_chull = cluster.chull;
+            new_pose = cluster.pose_map;
             cluster.is_new = true;
 
             // Update existence probability
-            req.setExistenceProbability(id, 1.0); // TODO magic number
+            req.setExistenceProbability(cluster.id, 1.0); // TODO magic number
+
+            ROS_DEBUG_STREAM("update: Adding new entity " << id);
         }
         else
         {
-            cluster.is_new = false;
-
-//            // Mark the entity as being associated
-//            entities_associated[i_entity] = i_cluster;
-
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
-            const ed::ConvexHull& entity_chull = e->convexHull();
 
             id = e->id();
-
-//            if (e->hasFlag("locked"))
-//            {
-//                // Entity is locked, so don't update
-//            }
-//            else if (cluster.chull.complete)
-//            {
-                // Update the entity with the cluster convex hull (completely overriding the previous entity convex hull)
-                new_chull = cluster.chull;
-                new_pose = cluster.pose_map;
-//            }
-//            //                else if (entity_chull.complete)
-//            //                {
-//            //                    // Only update pose
-//            //                    new_chull = entity_chull;
-//            //                    new_pose = cluster.pose;
-//            //                }
-//            else
-//            {
-//                const geo::Pose3D& entity_pose = e->pose();
-
-//                // Calculate the combined z_min and z_max
-//                double new_z_min = std::min(cluster.pose.t.z + cluster.chull.z_min, entity_pose.t.z + entity_chull.z_min);
-//                double new_z_max = std::max(cluster.pose.t.z + cluster.chull.z_max, entity_pose.t.z + entity_chull.z_max);
-
-//                // Create list of new convex hull points, in MAP frame
-//                std::vector<geo::Vec2f> new_points_MAP;
-
-//                // Add the points of the cluster
-//                for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
-//                    new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
-
-//                // Add the entity points that are still present in the depth map (or out of view)
-//                for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
-//                {
-//                    geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
-
-//                    // Calculate the 3d coordinate of entity chull points in absolute frame, in the middle of the rib
-//                    geo::Vector3 p_rib(p_chull_MAP.x, p_chull_MAP.y, (new_z_min + new_z_max) / 2);
-
-//                    // Transform to the sensor frame
-//                    geo::Vector3 p_rib_cam = sensor_pose.inverse() * p_rib;
-
-//                    // Project to image frame
-//                    cv::Point2d p_2d = view.getRasterizer().project3Dto2D(p_rib_cam);
-
-//                    // Check if the point is in view, and is not occluded by sensor points
-//                    if (p_2d.x > 0 && p_2d.y > 0 && p_2d.x < view.getWidth() && p_2d.y < view.getHeight())
-//                    {
-//                        // Only add old entity chull point if depth from sensor is now zero, entity point is out of range or depth from sensor is smaller than depth of entity point
-//                        float dp = -p_rib_cam.z;
-//                        float ds = depth.at<float>(p_2d);
-//                        if (ds == 0 || dp > max_sensor_range || dp > ds)
-//                            new_points_MAP.push_back(p_chull_MAP);
-//                    }
-//                    else
-//                    {
-//                        new_points_MAP.push_back(p_chull_MAP);
-//                    }
-//                }
-
-//                // And calculate the convex hull of these points
-//                ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
-
-//                if (cluster.chull.complete)
-//                    new_chull.complete = true;
-//            }
-
-//            // Update existence probability
-//            double p_exist = e->existenceProbability();
-//            req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
+            new_chull = cluster.chull;
+            new_pose = cluster.pose_map;
+            cluster.is_new = false;
+            ROS_DEBUG_STREAM("update: updating entity " << id);
         }
 
         // Set convex hull and pose
@@ -207,7 +138,11 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             cluster.chull = new_chull;
             cluster.pose_map = new_pose;
 
-            req.setConvexHullNew(id, new_chull, new_pose, image->getTimestamp(), image->getFrameId());
+            req.setConvexHullNew(cluster.id, new_chull, new_pose, image->getTimestamp(), image->getFrameId());
+        }
+        else
+        {
+            ROS_ERROR("ed_sensor_integration: association: Skipping empty cluster in update. Again, this should not be happening");
         }
 
         // Create and add measurement
@@ -221,8 +156,22 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
         // Set timestamp
         req.setLastUpdateTimestamp(id, image->getTimestamp());
-
-        // Add measurement
-//        req.addMeasurement(id, ed::MeasurementPtr(new ed::Measurement(image, cluster.image_mask, sensor_pose)));
     }
+}
+
+void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities,
+                        const rgbd::ImageConstPtr& image,
+                        const geo::Pose3D& sensor_pose,
+                        std::vector<EntityUpdate>& clusters,
+                        ed::UpdateRequest& req)
+{
+    // If there are no clusters, there's no reason to do anything
+    if (clusters.empty())
+        return;
+
+    // Try to associate clusters with entities
+    ed_sensor_integration::Assignment assignment(entities.size(), -1);
+    assignment = associate(entities, clusters);
+
+    update(entities, image, sensor_pose, assignment, clusters, req);
 }
