@@ -12,6 +12,8 @@
 #include <rgbd/Image.h>
 #include <rgbd/View.h>
 
+#include <ros/console.h>
+
 // ----------------------------------------------------------------------------------------------------
 
 const double COST_NOT_OBSERVED = 1;
@@ -61,7 +63,7 @@ ed_sensor_integration::Assignment associate(const std::vector<ed::EntityConstPtr
             hung_assoc_matrix.setEntry(i_cluster, i_entity, dist_sq);
 
             if (dist_sq > max_dist_sq)
-                dist_sq = 1e9; // set to a high value to avoid this association
+                dist_sq = 1e9; // set to a high value to avoid this association TODO: magic number
 
             if (dist_sq > 0)
                 hung_assoc_matrix.setEntry(i_cluster, i_entity, dist_sq);
@@ -69,7 +71,6 @@ ed_sensor_integration::Assignment associate(const std::vector<ed::EntityConstPtr
     }
 
     assignment = hung_assoc_matrix.solve();
-
     std::stringstream ss;
 
     for ( size_t i = 0; i < assignment.size(); ++i )
@@ -80,6 +81,7 @@ ed_sensor_integration::Assignment associate(const std::vector<ed::EntityConstPtr
             ss << " - " << e->id() << "\n";
         }
     }
+    ROS_ERROR_STREAM(' ');
 
     ROS_DEBUG_STREAM("Associated entities:\n " << ss);
 

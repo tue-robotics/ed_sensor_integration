@@ -109,6 +109,7 @@ add_library(ed_kinect
 )
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
 
+
 # ------------------------------------------------------------------------------------------------
 #                                          PLUGINS
 # ------------------------------------------------------------------------------------------------
@@ -118,7 +119,7 @@ add_library(ed_kinect_plugin
     src/kinect/kinect_plugin.h
 )
 target_link_libraries(ed_kinect_plugin ed_kinect ${catkin_LIBRARIES})
-add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp)
+add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
 
