@@ -58,8 +58,24 @@ include_directories(
 #                                         Third party
 # ------------------------------------------------------------------------------------------------
 
-#file(GLOB_RECURSE MUNKRES_FILES "third_party/munkres/*.cpp" "third_party/munkres/*.h")
-#add_library(munkres ${MUNKRES_FILES})
+##########     munkres          ##########
+# Sources.
+set (
+    MunkresCppLib_SOURCES
+    third_party/munkres/munkres.cpp
+)
+# Headers.
+set (
+    MunkresCppLib_HEADERS
+    third_party/munkres/matrix.h
+    third_party/munkres/matrix.cpp
+    third_party/munkres/munkres.h
+)
+# Library.
+add_library (
+    munkres_cpp STATIC
+    ${MunkresCppLib_SOURCES}
+)
 
 # ------------------------------------------------------------------------------------------------
 #                                         LIBRARIES
@@ -70,7 +86,7 @@ add_library(ed_association
   include/ed_sensor_integration/association_matrix.h
   include/ed_sensor_integration/hungarian_method_association_matrix.h
 )
-target_link_libraries(ed_association /usr/local/lib/libmunkres.a)
+target_link_libraries(ed_association munkres_cpp)
 
 add_library(ed_kinect
     src/kinect/image_buffer.cpp
