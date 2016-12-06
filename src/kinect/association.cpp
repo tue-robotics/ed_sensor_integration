@@ -81,8 +81,6 @@ ed_sensor_integration::Assignment associate(const std::vector<ed::EntityConstPtr
             ss << " - " << e->id() << "\n";
         }
     }
-    ROS_ERROR_STREAM(' ');
-
     ROS_DEBUG_STREAM("Associated entities:\n " << ss);
 
     return assignment;
