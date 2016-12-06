@@ -335,8 +335,14 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         // If the entity is not updated, remove it
         if (res.update_req.updated_entities.find(e->id()) == res.update_req.updated_entities.end())
         {
-            ROS_INFO("Entity not associated and not found in frustum, removing entity %s", e->id().c_str());
-            res.update_req.removeEntity(e->id());
+            ROS_INFO("Entity not associated and not found in frustum");
+
+            float d = depth.at<float>(p_2d);
+            if (d > 0 && d == d && -p_3d.z < d)
+            {
+                ROS_INFO("We can shoot a ray through the center, removing entity %s", e->id().c_str());
+                res.update_req.removeEntity(e->id());
+            }
         }
         
     }
