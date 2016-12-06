@@ -61,10 +61,6 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
             {
                 prob = 0;
             }
-            else
-            {
-                ROS_ERROR_STREAM("dist: " << sqrt(dist_sq));
-            }
 
             //                if (entity_chull.complete)
             //                {
@@ -85,13 +81,12 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
                 assoc_matrix.setEntry(i_cluster, i_entity, prob);
             }
         }
-    }
-    ROS_ERROR_STREAM(' ');
+    } 
 
     ed_sensor_integration::Assignment assig;
     if (!assoc_matrix.calculateBestAssignment(assig))
     {
-        std::cout << "WARNING: Association failed!" << std::endl;
+        ROS_WARN("Association failed!");
         return;
     }
 
