@@ -4,6 +4,8 @@
 #include <ed/entity.h>
 #include <ed/update_request.h>
 
+#include <ed/helpers/depth_data_processing.h>
+
 #include <rgbd/View.h>
 
 #include <tue/config/reader.h>
@@ -15,6 +17,8 @@
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
+
+#include "ed/convex_hull_calc.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -72,6 +76,65 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
     up.pose_map.t.z = (z_max + z_min) / 2;
     up.chull.z_min = -h / 2;
     up.chull.z_max =  h / 2;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+// Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
+// and updates the convex hull height based on the points found
+std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
+                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
+{
+  // Updated convex hulls
+  std::vector<EntityUpdate> new_updates;
+
+  // Keep track of indices that did collide, skip them in i
+  std::vector<int> collided_indices;
+  std::map<int, std::vector<int> > collission_map;
+
+  for (int i = 0; i < updates.size(); ++i)
+  {
+    const EntityUpdate& u1 = updates[i];
+
+    // If index already collided, it will be merged to another one
+    if (std::find(collided_indices.begin(), collided_indices.end(), i) != collided_indices.end())
+    {
+      continue;
+    }
+
+    for (int j = 0; j < updates.size(); ++j)
+    {
+    // skip self
+        if (i == j)
+            continue;
+
+      const EntityUpdate& u2 = updates[j];
+
+      // If we collide, update the i convex hull
+      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))
+      {
+        collission_map[i].push_back(j);
+        collided_indices.push_back(j);
+      }
+    }
+  }
+
+  // Now again loop over the updates and only push back in the new updates if it did not collide
+  for (int i = 0; i < updates.size(); ++i)
+  {
+    const EntityUpdate& u = updates[i];
+
+    // If index already collided, it will be merged to another one
+    if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
+    {
+      // Only push back if not in collided entity
+
+      // TODO: merge the collided entity with this one; but how to merge, so much methods here .. forest and the trees
+      new_updates.push_back(u);
+    }
+  }
+
+  return new_updates;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -314,6 +377,10 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         up.chull.z_min += 0.01;
         refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
     }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Merge the detected clusters if they overlap in XY
+    res.entity_updates = mergeOverlappingXYConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
