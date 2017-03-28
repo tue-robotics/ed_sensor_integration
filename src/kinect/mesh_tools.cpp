@@ -4,6 +4,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 //#include <opencv2/highgui/highgui.hpp>
+#include <ros/console.h>
 
 namespace dml
 {
@@ -42,7 +43,19 @@ void findContours(const cv::Mat& image, const geo::Vec2i& p, int d_start, std::v
 
         for(int i = -1; i < 3; ++i)
         {
-            if (image.at<unsigned char>(y2 + dy[d], x2 + dx[d]) == v)
+            int idx_x = x2 + dx[d];
+            int idx_y = y2 + dy[d];
+
+            // Clip the indices
+            idx_x = std::min(image.cols - 1, std::max(0, idx_x));
+            idx_y = std::min(image.rows - 1, std::max(0, idx_y));
+
+            if (idx_y < 0 || idx_y >= image.rows || idx_x < 0 || idx_x >= image.cols)
+            {
+                ROS_ERROR("This should not happen! Image going out of bound, findContours. [%d, %d] and image size is [%d,%d]", idx_y, idx_x, image.rows, image.cols);
+                return;
+            }
+            if (image.at<unsigned char>(idx_y, idx_x) == v)
             {
                 found = true;
                 break;
@@ -121,6 +134,11 @@ void findContours(const cv::Mat& image, const geo::Vec2i& p, int d_start, std::v
         if ((d_current == 3 && d != 2) || (d == 3 && d != 0)) // up
             line_starts.push_back(p_current);
 
+        if (p_current.y < 0 || p_current.y >= contour_map.rows || p_current.x < 0 || p_current.x >= contour_map.cols)
+        {
+            ROS_ERROR("This should not happen! Contour map going out of bound, findContours.");
+            return;
+        }
         contour_map.at<unsigned char>(p_current.y, p_current.x) = 1;
 
         ++n_uninterrupted;
