@@ -1,0 +1,4 @@
+geometry_msgs/PoseStamped raytrace_pose
+---
+geometry_msgs/PointStamped intersection_point
+string entity_id

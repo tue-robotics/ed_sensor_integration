@@ -24,6 +24,7 @@ add_service_files(
   FILES
     GetImage.srv
     Update.srv
+    RayTrace.srv
 )
 
 generate_messages(

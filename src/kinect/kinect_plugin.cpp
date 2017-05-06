@@ -56,6 +56,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
     srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
     srv_update_ = nh.advertiseService("kinect/update", &KinectPlugin::srvUpdate, this);
+    srv_ray_trace_ = nh.advertiseService("ray_trace", &KinectPlugin::srvRayTrace, this);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -191,6 +192,13 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
         res.deleted_ids.push_back(kinect_update_res.removed_entity_ids[i].str());
 
     return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res)
+{
+  return true;
 }
 
 // ----------------------------------------------------------------------------------------------------
