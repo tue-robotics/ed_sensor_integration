@@ -61,6 +61,8 @@ void KinectPlugin::initialize(ed::InitData& init)
     srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
     srv_update_ = nh.advertiseService("kinect/update", &KinectPlugin::srvUpdate, this);
     srv_ray_trace_ = nh.advertiseService("ray_trace", &KinectPlugin::srvRayTrace, this);
+
+    ray_trace_visualization_publisher_ = nh.advertise<visualization_msgs::Marker>("ray_trace_visualization", 10);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -223,6 +225,33 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed
   geo::convert(ray_trace_result.intersection_point_, res.intersection_point.point);
   res.intersection_point.header.stamp = ros::Time::now();
   res.intersection_point.header.frame_id = "map";
+
+  visualization_msgs::Marker marker_msg;
+  marker_msg.header.frame_id = "map";
+  marker_msg.header.stamp = ros::Time::now();
+  marker_msg.action = visualization_msgs::Marker::ADD;
+  marker_msg.color.a = 0.5;
+  marker_msg.lifetime = ros::Duration(10.0);
+  marker_msg.scale.x = 0.05;
+
+  static int iter = 0;
+  if ( ++iter % 2 == 0)
+  {
+    marker_msg.color.b = marker_msg.color.r = 1;
+  }
+  else
+  {
+    marker_msg.color.b = marker_msg.color.g = 1;
+  }
+  marker_msg.type = visualization_msgs::Marker::LINE_STRIP;
+
+  marker_msg.points.push_back(req.raytrace_pose.pose.position);
+  marker_msg.points.push_back(res.intersection_point.point);
+  ray_trace_visualization_publisher_.publish(marker_msg);
+  marker_msg.color.a = marker_msg.color.r = marker_msg.color.g = marker_msg.color.b = 1;
+  marker_msg.scale.x = 0.02;
+  marker_msg.id = 1;
+  ray_trace_visualization_publisher_.publish(marker_msg);
 
   return true;
 }
