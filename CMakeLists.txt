@@ -90,6 +90,8 @@ add_dependencies(ed_kinect ${PROJECT_NAME}_gencpp ${${PROJECT_NAME}_EXPORTED_TAR
 add_library(ed_kinect_plugin
     src/kinect/kinect_plugin.cpp
     src/kinect/kinect_plugin.h
+    src/kinect/ray_tracer.cpp
+    src/kinect/ray_tracer.h
 )
 target_link_libraries(ed_kinect_plugin ed_kinect ${catkin_LIBRARIES})
 add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp ${${PROJECT_NAME}_EXPORTED_TARGETS})

@@ -21,7 +21,11 @@
 #include <ed/io/json_writer.h>
 #include <ed/serialization/serialization.h>
 
+#include <geolib/ros/msg_conversions.h>
+
 //#include <opencv2/highgui/highgui.hpp>
+
+#include "ray_tracer.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -198,6 +202,28 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
 
 bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res)
 {
+  if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
+  {
+    ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in /map frame");
+    return false;
+  }
+
+  geo::Pose3D ray_trace_pose;
+  geo::convert(req.raytrace_pose.pose, ray_trace_pose);
+
+  ed_ray_tracer::RayTraceResult ray_trace_result = ed_ray_tracer::ray_trace(*world_, ray_trace_pose);
+
+  if (!ray_trace_result.succes_)
+  {
+    ROS_ERROR("ed_ray_tracer::RayTrace failed!");
+    return false;
+  }
+
+  res.entity_id = ray_trace_result.entity_id_;
+  geo::convert(ray_trace_result.intersection_point_, res.intersection_point.point);
+  res.intersection_point.header.stamp = ros::Time::now();
+  res.intersection_point.header.frame_id = "map";
+
   return true;
 }
 
