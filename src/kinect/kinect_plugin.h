@@ -11,6 +11,11 @@
 #include <ros/service_server.h>
 #include <ed_sensor_integration/GetImage.h>
 #include <ed_sensor_integration/Update.h>
+#include <ed_sensor_integration/RayTrace.h>
+
+// Visualization
+#include <ros/publisher.h>
+#include <visualization_msgs/Marker.h>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -60,6 +65,12 @@ private:
     ros::ServiceServer srv_update_;
 
     bool srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res);
+
+    ros::ServiceServer srv_ray_trace_;
+
+    bool srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res);
+
+    ros::Publisher ray_trace_visualization_publisher_;
 
 
 
