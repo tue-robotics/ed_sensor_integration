@@ -84,7 +84,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 // and updates the convex hull height based on the points found
 //std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
 //                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
-std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const std::vector<EntityUpdate>& updates)
+std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<EntityUpdate>& updates)
 {
   // Updated convex hulls
   std::vector<EntityUpdate> new_updates;
@@ -381,7 +381,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY
-    res.entity_updates = mergeOverlappingXYConvexHulls(*image, sensor_pose, res.entity_updates);
+    res.entity_updates = mergeOverlappingXYConvexHulls(res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
