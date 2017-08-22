@@ -228,7 +228,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         geo::Pose3D new_pose;
 
-        if (fit_supporting_entity && entity_id != "kitchen_counter") // This is a robocup hack :)
+        if (fit_supporting_entity)
         {
             FitterData fitter_data;
             fitter_.processSensorData(*image, sensor_pose, fitter_data);
