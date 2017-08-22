@@ -86,6 +86,9 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 //                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
 std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<EntityUpdate>& updates)
 {
+
+  ROS_INFO("mergoverlapping chulls: nr of updates: %lu", updates.size());
+
   // Updated convex hulls
   std::vector<EntityUpdate> new_updates;
 
@@ -112,8 +115,12 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       const EntityUpdate& u2 = updates[j];
 
       // If we collide, update the i convex hull
-      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))
+      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))  // This should prevent multiple entities above each other
+//      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
       {
+        ROS_INFO("Collition item %i with %i", i, j);
+        ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
+        ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", j, u2.pose_map.t.getX(), u2.pose_map.t.getY(), u2.pose_map.t.getZ(), u2.chull.z_min, u2.chull.z_max);
         collission_map[i].push_back(j);
         collided_indices.push_back(j);
       }
@@ -131,11 +138,26 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       // Only push back if not in collided entity
 
       // TODO: merge the collided entity with this one; but how to merge, so much methods here .. forest and the trees
+      // ToDo: by not implementing this properly, the result is kind of random?! (indices ending up in the collision_map and collided_indices are not sorted?
+        // stuff is not merged but just skipped...
       new_updates.push_back(u);
+      ROS_INFO("Adding update %i", i);
+    }
+    else
+    {
+        ROS_INFO("Skipping update %i because of collision", i);
     }
   }
 
   return new_updates;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+// Checks if any of the convex hulls is overlapping in xy and close in z. If so, these are merged
+std::vector<EntityUpdate> mergeCloseZConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const std::vector<EntityUpdate>& updates)
+{
+
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -361,7 +383,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-
+    ROS_INFO("Segmenter -> cluster");
     segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
@@ -385,7 +407,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
-
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
 
     // - - - - - - - - - - - - -  - - - - - - - -  - - -
