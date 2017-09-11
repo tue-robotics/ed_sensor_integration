@@ -386,14 +386,14 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Perform association and update
 
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
-
+    
     // - - - - - - - - - - - - -  - - - - - - - -  - - -
     // Remove entities that are not associated
     for (std::vector<ed::EntityConstPtr>::const_iterator it = associatable_entities.begin(); it != associatable_entities.end(); ++it)
     {
         ed::EntityConstPtr e = *it;
-
-        // Check if entity is in frustum
+        
+        // Check if entity is in frustum 
         geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
         cv::Point p_2d = cam_model.project3Dto2D(p_3d);
         if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
@@ -411,7 +411,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
                 res.update_req.removeEntity(e->id());
             }
         }
-
+        
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -

@@ -26,7 +26,7 @@ void ImageBuffer::initialize(const std::string& topic)
     if (!kinect_client_)
         kinect_client_ = new rgbd::Client;
 
-    kinect_client_->intialize(topic);
+    kinect_client_->initialize(topic);
 
     if (!tf_listener_)
         tf_listener_ = new tf::TransformListener;
