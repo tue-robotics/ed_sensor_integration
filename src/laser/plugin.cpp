@@ -710,8 +710,8 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
             new_chull = cluster.chull;
             new_pose = cluster.pose;
 
-            // Generate unique ID
-            id = ed::Entity::generateID().str() + "-laser";
+            // Generate unique ID	    
+            id = ed::Entity::generateID().str() + "-laser";	  
 
             // Update existence probability
             req.setExistenceProbability(id, 1.0); // TODO magic number
@@ -810,7 +810,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     //        }
     //    }
 
-    //std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+    // std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
