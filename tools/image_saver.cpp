@@ -1,7 +1,6 @@
 #include <ros/ros.h>
 
 // Services
-#include <ed/Query.h>
 #include <ed_sensor_integration/GetImage.h>
 
 // Write to file
