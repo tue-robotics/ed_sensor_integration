@@ -18,6 +18,7 @@ add_message_files(
   FILES
     GUIAction.msg
     ImageBinary.msg
+    doorDetection.msg
 )
 
 add_service_files(

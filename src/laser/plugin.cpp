@@ -252,10 +252,15 @@ void LaserPlugin::initialize(ed::InitData& init)
     config.value("min_cluster_size", min_cluster_size_);
     config.value("max_cluster_size", max_cluster_size_);
     config.value("max_gap_size", max_gap_size_);
+    
 
     int i_fit_entities = 0;
     config.value("fit_entities", i_fit_entities, tue::OPTIONAL);
     fit_entities_ = (i_fit_entities != 0);
+    
+    int i_check_door_status = 0;
+    config.value("check_door_status", i_check_door_status, tue::OPTIONAL);
+    check_door_status_ = (i_check_door_status != 0);
 
     if (config.hasError())
         return;
@@ -265,6 +270,7 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
+    door_pub_ = nh.advertise<ed_sensor_integration::doorDetection>("door", 3);
 
     tf_listener_ = new tf::TransformListener;
 
@@ -382,7 +388,9 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
+	//std::cout << "BLA0 = " << e->hasType("hospital_test/door") << "type = " << e->type() << std::endl;
+
+        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right" ) || e->hasFlag("non-localizable")))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
@@ -390,7 +398,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
             geo::LaserRangeFinder::RenderResult res(model_ranges);
             lrf_model_.render(opt, res);
-        }
+        }        
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -445,6 +453,71 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         }
     }
 
+    if ( check_door_status_ ) {
+        /* Points associated to door */
+        std::vector<double> model_ranges_door ( num_beams, 0 );
+        bool firstDoorFound = false;
+        ed::UUID id;
+        for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it ) {
+            const ed::EntityConstPtr& e = *it;
+
+            //std::cout << "BLA0 = " << e->hasType("hospital_test/door") << "type = " << e->type() << std::endl;
+
+            if ( e->hasType ( "hospital_test/door" ) && !firstDoorFound ) {
+                id = e->id();
+                //  std::cout << "id = " << e->id() << std::endl;
+
+                firstDoorFound = true;
+                // Set render options
+                geo::LaserRangeFinder::RenderOptions opt;
+                opt.setMesh ( e->shape()->getMesh(), sensor_pose_inv * e->pose() );
+
+                geo::LaserRangeFinder::RenderResult res ( model_ranges_door );
+                lrf_model_.render ( opt, res ); /* so all data > 0 belong to door! */
+            }
+        }
+
+        double sum = 0;
+        unsigned int counter = 0;
+        // std:: cout << "Difference = " << std::endl;
+        for ( unsigned int i = 0; i < num_beams; ++i ) {
+            if ( model_ranges_door[i] > 0 ) {
+                sum += ( sensor_ranges[i] - model_ranges_door[i] );
+                counter++;
+            }
+
+        }
+
+        // std::cout << std::endl;
+
+        double avg_dist = sum/counter;
+        // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
+        double bound = 0.2;
+
+        ed_sensor_integration::doorDetection msg;
+
+        msg.id = id.str();
+        msg.type = "hospital_test/door";
+        msg.open = 0;
+        msg.closed = 0;
+        msg.undetectable = 0;
+
+        //std::cout << "avg_dist = " << avg_dist << std::endl;
+        if ( avg_dist >= bound ) {
+            //std::cout << "Door open" << std::endl;
+            msg.open = 1;
+        } else if ( avg_dist <= -bound || avg_dist != avg_dist ) {
+            //std::cout << "Door not detecable" << std::endl;
+            msg.undetectable = 1;
+        } else {
+            //std::cout << "Door closed" << std::endl;
+            msg.closed = 1;
+        }
+
+        msg.header.stamp = ros::Time::now();
+
+        door_pub_.publish ( msg );
+    }
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
@@ -690,6 +763,8 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         std::cout << "WARNING: Association failed!" << std::endl;
         return;
     }
+
+    //std::cout << "Test detected " << std::endl;
 
     std::vector<int> entities_associated(entities.size(), -1);
 

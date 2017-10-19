@@ -15,6 +15,7 @@
 // Messages
 #include <queue>
 #include <sensor_msgs/LaserScan.h>
+#include <ed_sensor_integration/doorDetection.h>
 
 // Properties
 #include "ed/convex_hull.h"
@@ -42,6 +43,8 @@ private:
     ros::CallbackQueue cb_queue_;
 
     ros::Subscriber sub_scan_;
+    
+    ros::Publisher door_pub_;
 
     std::queue<sensor_msgs::LaserScan::ConstPtr> scan_buffer_;
 
@@ -64,6 +67,7 @@ private:
     double min_cluster_size_;
     double max_cluster_size_;
     bool fit_entities_;
+    bool check_door_status_;
 
     int max_gap_size_;
     std::map<ed::UUID,geo::Pose3D> pose_cache;
