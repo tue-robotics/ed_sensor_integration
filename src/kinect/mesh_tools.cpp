@@ -136,7 +136,7 @@ void findContours(const cv::Mat& image, const geo::Vec2i& p, int d_start, std::v
 
         if (p_current.y < 0 || p_current.y >= contour_map.rows || p_current.x < 0 || p_current.x >= contour_map.cols)
         {
-            ROS_ERROR("This should not happen! Contour map going out of bound, findContours.");
+            ROS_ERROR("This should not happen! Contour map going out of bound, findContours. [%d, %d] and contour map size is [%d,%d]", p_current.y, p_current.x, contour_map.rows, contour_map.cols);
             return;
         }
         contour_map.at<unsigned char>(p_current.y, p_current.x) = 1;
