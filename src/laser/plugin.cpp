@@ -455,68 +455,82 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
     if ( check_door_status_ ) {
         /* Points associated to door */
-        std::vector<double> model_ranges_door ( num_beams, 0 );
-        bool firstDoorFound = false;
+       
         ed::UUID id;
         for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it ) {
             const ed::EntityConstPtr& e = *it;
 
-            //std::cout << "BLA0 = " << e->hasType("hospital_test/door") << "type = " << e->type() << std::endl;
-
-            if ( e->hasType ( "hospital_test/door" ) && !firstDoorFound ) {
+            if ( e->hasType ( "elevatordoor" ) ) {
                 id = e->id();
                 //  std::cout << "id = " << e->id() << std::endl;
 
-                firstDoorFound = true;
                 // Set render options
+		std::vector<double> model_ranges_door ( num_beams, 0 );
                 geo::LaserRangeFinder::RenderOptions opt;
                 opt.setMesh ( e->shape()->getMesh(), sensor_pose_inv * e->pose() );
 
                 geo::LaserRangeFinder::RenderResult res ( model_ranges_door );
                 lrf_model_.render ( opt, res ); /* so all data > 0 belong to door! */
+
+                double sum = 0;
+                unsigned int counter = 0;
+                // std:: cout << "Difference = " << std::endl;
+                for ( unsigned int i = 0; i < num_beams; ++i ) {
+                    if ( model_ranges_door[i] > 0 ) {
+                        sum += ( sensor_ranges[i] - model_ranges_door[i] );
+                        counter++;
+                    }
+
+                }
+
+                // std::cout << std::endl;
+
+                double avg_dist = sum/counter;
+                // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
+                double bound = 0.2;
+
+                ropod_demo_dec_2017::doorDetection msg;
+
+                msg.id = id.str();
+                msg.type = "elevatordoor";
+                msg.open = 0;
+                msg.closed = 0;
+                msg.undetectable = 0;
+
+                //std::cout << "avg_dist = " << avg_dist << std::endl;
+                if ( avg_dist >= bound ) {
+                    std::cout << "Door open" << std::endl;
+                    msg.open = 1;
+                    req.setFlag ( e->id(), "localizable" );
+
+                    if ( e->hasFlag ( "non-localizable" ) ) {
+                        req.removeFlag ( e->id(),"non-localizable" );
+                    }
+
+                } else if ( avg_dist <= -bound || avg_dist != avg_dist || avg_dist > scan->range_max ) {
+                    std::cout << "Door not detecable" << std::endl;
+                    msg.undetectable = 1;
+                    req.setFlag ( e->id(), "non-localizable" );
+
+                    if ( e->hasFlag ( "localizable" ) ) {
+                        req.removeFlag ( e->id(),"localizable" );
+                    }
+                } else {
+                    //std::cout << "Door closed" << std::endl;
+                    msg.closed = 1;
+                    req.setFlag ( e->id(), "localizable" );
+
+                    if ( e->hasFlag ( "non-localizable" ) ) {
+                        req.removeFlag ( e->id(),"non-localizable" );
+                    }
+                }
+                
+                //e->printFlags();
+                msg.header.stamp = ros::Time::now();
+
+                door_pub_.publish ( msg );
             }
         }
-
-        double sum = 0;
-        unsigned int counter = 0;
-        // std:: cout << "Difference = " << std::endl;
-        for ( unsigned int i = 0; i < num_beams; ++i ) {
-            if ( model_ranges_door[i] > 0 ) {
-                sum += ( sensor_ranges[i] - model_ranges_door[i] );
-                counter++;
-            }
-
-        }
-
-        // std::cout << std::endl;
-
-        double avg_dist = sum/counter;
-        // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
-        double bound = 0.2;
-
-        ropod_demo_dec_2017::doorDetection msg;
-
-        msg.id = id.str();
-        msg.type = "hospital_test/door";
-        msg.open = 0;
-        msg.closed = 0;
-        msg.undetectable = 0;
-
-        //std::cout << "avg_dist = " << avg_dist << std::endl;
-        if ( avg_dist >= bound ) {
-            //std::cout << "Door open" << std::endl;
-            msg.open = 1;
-        } else if ( avg_dist <= -bound || avg_dist != avg_dist ) {
-            //std::cout << "Door not detecable" << std::endl;
-            msg.undetectable = 1;
-        } else {
-            //std::cout << "Door closed" << std::endl;
-            msg.closed = 1;
-        }
-
-        msg.header.stamp = ros::Time::now();
-
-        door_pub_.publish ( msg );
     }
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
