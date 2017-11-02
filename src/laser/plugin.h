@@ -15,7 +15,7 @@
 // Messages
 #include <queue>
 #include <sensor_msgs/LaserScan.h>
-#include <ed_sensor_integration/doorDetection.h>
+#include <ropod_demo_dec_2017/doorDetection.h>
 
 // Properties
 #include "ed/convex_hull.h"

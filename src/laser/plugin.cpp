@@ -270,7 +270,7 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
-    door_pub_ = nh.advertise<ed_sensor_integration::doorDetection>("door", 3);
+    door_pub_ = nh.advertise<ropod_demo_dec_2017::doorDetection>("door", 3);
 
     tf_listener_ = new tf::TransformListener;
 
@@ -494,7 +494,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
         double bound = 0.2;
 
-        ed_sensor_integration::doorDetection msg;
+        ropod_demo_dec_2017::doorDetection msg;
 
         msg.id = id.str();
         msg.type = "hospital_test/door";
