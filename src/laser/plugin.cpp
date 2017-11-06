@@ -501,19 +501,19 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
                 if ( avg_dist >= bound ) {
                     std::cout << "Door open" << std::endl;
                     msg.open = 1;
-                    req.setFlag ( e->id(), "localizable" );
+                    req.setFlag ( e->id(), "non-localizable" );
 
-                    if ( e->hasFlag ( "non-localizable" ) ) {
-                        req.removeFlag ( e->id(),"non-localizable" );
+                    if ( e->hasFlag ( "localizable" ) ) {
+                        req.removeFlag ( e->id(),"localizable" );
                     }
 
                 } else if ( avg_dist <= -bound || avg_dist != avg_dist || avg_dist > scan->range_max ) {
                     std::cout << "Door not detecable" << std::endl;
                     msg.undetectable = 1;
-                    req.setFlag ( e->id(), "non-localizable" );
+                    req.setFlag ( e->id(), "localizable" );
 
-                    if ( e->hasFlag ( "localizable" ) ) {
-                        req.removeFlag ( e->id(),"localizable" );
+                    if ( e->hasFlag ( "non-localizable" ) ) {
+                        req.removeFlag ( e->id(),"non-localizable" );
                     }
                 } else {
                     //std::cout << "Door closed" << std::endl;
