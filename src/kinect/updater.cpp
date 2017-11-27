@@ -115,9 +115,9 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       const EntityUpdate& u2 = updates[j];
 
       // If we collide, update the i convex hull
-//      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e2))  // This should prevent multiple entities above each other
+      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e2))  // This should prevent multiple entities above each other
 //      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
-      if (true)
+//      if (true)
       {
         ROS_INFO("Collition item %i with %i", i, j);
         ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
@@ -158,9 +158,16 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
           ROS_INFO("Merging entity %i and %i", i, *it);
           std::vector<geo::Vec2f> points(u1.chull.points.size()+u2.chull.points.size());
           for (unsigned int p = 0; p < u1.chull.points.size(); ++p)
-            points[p] = geo::Vec2f(u1.chull.points[p].x, u1.chull.points[p].y);
-          for (unsigned int p = u1.chull.points.size(); p < points.size(); ++p)
-            points[p] = geo::Vec2f(u2.chull.points[p].x, u2.chull.points[p].y);
+          {
+              geo::Vector3 p_map = u1.pose_map * geo::Vec3(u1.chull.points[p].x, u1.chull.points[p].y, 0);
+              points[p] = geo::Vec2f(p_map.x, p_map.y);
+          }
+          unsigned int offset = u1.chull.points.size();
+          for (unsigned int p = 0; p < u2.chull.points.size(); ++p)
+          {
+              geo::Vector3 p_map = u2.pose_map * geo::Vec3(u2.chull.points[p].x, u2.chull.points[p].y, 0);
+              points[p + offset] = geo::Vec2f(p_map.x, p_map.y);
+          }
           ROS_INFO("Merging entity %i and %i", i, *it);
           ed::convex_hull::create(points, z_min, z_max, u1.chull, u1.pose_map);
           ROS_INFO("Merging entity %i and %i", i, *it);
