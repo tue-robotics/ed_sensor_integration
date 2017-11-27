@@ -79,6 +79,39 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 }
 
 // ----------------------------------------------------------------------------------------------------
+/**
+ * @brief mergeConvexHulls
+ * @param u1 EntityUpdate used as starting point
+ * @param u2 Merge points into u1
+ * @return new EntityUpdate including new convexHull and points of both inputs.
+ */
+EntityUpdate mergeConvexHulls(const EntityUpdate& u1, const EntityUpdate& u2)
+{
+    EntityUpdate new_u = u1;
+    double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
+    double z_min = std::min(u1.pose_map.t.getZ()+u1.chull.z_min,u2.pose_map.t.getZ()+u2.chull.z_min);
+
+    std::vector<geo::Vec2f> points(u1.chull.points.size()+u2.chull.points.size());
+    for (unsigned int p = 0; p < u1.chull.points.size(); ++p)
+    {
+        geo::Vec3 p_map = u1.pose_map * geo::Vec3(u1.chull.points[p].x, u1.chull.points[p].y, 0);
+        points[p] = geo::Vec2f(p_map.x, p_map.y);
+    }
+    unsigned int offset = u1.chull.points.size();
+    for (unsigned int p = 0; p < u2.chull.points.size(); ++p)
+    {
+        geo::Vector3 p_map = u2.pose_map * geo::Vec3(u2.chull.points[p].x, u2.chull.points[p].y, 0);
+        points[p + offset] = geo::Vec2f(p_map.x, p_map.y);
+    }
+    ed::convex_hull::create(points, z_min, z_max, new_u.chull, new_u.pose_map);
+    for (std::vector<geo::Vec3>::const_iterator p_it= u2.points.begin(); p_it != u2.points.end(); ++p_it)
+    {
+        new_u.points.push_back(*p_it);
+    }
+    return new_u;
+}
+
+// ----------------------------------------------------------------------------------------------------
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
@@ -151,26 +184,8 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       {
           ROS_INFO("Merging entity %i and %i", i, *it);
           const EntityUpdate u2 = updates[*it];
-          double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
-          double z_min = std::min(u1.pose_map.t.getZ()+u1.chull.z_min,u2.pose_map.t.getZ()+u2.chull.z_min);
-//          u1.pose_map.t.z = (z_max + z_min)/2;
+          u1 = mergeConvexHulls(u1, u2);
 
-          ROS_INFO("Merging entity %i and %i", i, *it);
-          std::vector<geo::Vec2f> points(u1.chull.points.size()+u2.chull.points.size());
-          for (unsigned int p = 0; p < u1.chull.points.size(); ++p)
-          {
-              geo::Vector3 p_map = u1.pose_map * geo::Vec3(u1.chull.points[p].x, u1.chull.points[p].y, 0);
-              points[p] = geo::Vec2f(p_map.x, p_map.y);
-          }
-          unsigned int offset = u1.chull.points.size();
-          for (unsigned int p = 0; p < u2.chull.points.size(); ++p)
-          {
-              geo::Vector3 p_map = u2.pose_map * geo::Vec3(u2.chull.points[p].x, u2.chull.points[p].y, 0);
-              points[p + offset] = geo::Vec2f(p_map.x, p_map.y);
-          }
-          ROS_INFO("Merging entity %i and %i", i, *it);
-          ed::convex_hull::create(points, z_min, z_max, u1.chull, u1.pose_map);
-          ROS_INFO("Merging entity %i and %i", i, *it);
       }
       new_updates.push_back(u1);
       ROS_INFO("Adding update %i", i);
