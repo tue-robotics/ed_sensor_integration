@@ -115,8 +115,9 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       const EntityUpdate& u2 = updates[j];
 
       // If we collide, update the i convex hull
-      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))  // This should prevent multiple entities above each other
+//      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e2))  // This should prevent multiple entities above each other
 //      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
+      if (true)
       {
         ROS_INFO("Collition item %i with %i", i, j);
         ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
@@ -130,7 +131,10 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
   // Now again loop over the updates and only push back in the new updates if it did not collide
   for (int i = 0; i < updates.size(); ++i)
   {
-    const EntityUpdate& u = updates[i];
+//    const EntityUpdate& u = updates[i];
+    ROS_INFO("Entity: %i", i);
+    for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
+        ROS_INFO_STREAM(*it);
 
     // If index already collided, it will be merged to another one
     if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
@@ -139,8 +143,29 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
 
       // TODO: merge the collided entity with this one; but how to merge, so much methods here .. forest and the trees
       // ToDo: by not implementing this properly, the result is kind of random?! (indices ending up in the collision_map and collided_indices are not sorted?
-        // stuff is not merged but just skipped...
-      new_updates.push_back(u);
+      // stuff is not merged but just skipped...
+
+      ROS_INFO("Merging entity %i and xx", i);
+      EntityUpdate u1 = updates[i];
+      for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
+      {
+          ROS_INFO("Merging entity %i and %i", i, *it);
+          const EntityUpdate u2 = updates[*it];
+          double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
+          double z_min = std::min(u1.pose_map.t.getZ()+u1.chull.z_min,u2.pose_map.t.getZ()+u2.chull.z_min);
+//          u1.pose_map.t.z = (z_max + z_min)/2;
+
+          ROS_INFO("Merging entity %i and %i", i, *it);
+          std::vector<geo::Vec2f> points(u1.chull.points.size()+u2.chull.points.size());
+          for (unsigned int p = 0; p < u1.chull.points.size(); ++p)
+            points[p] = geo::Vec2f(u1.chull.points[p].x, u1.chull.points[p].y);
+          for (unsigned int p = u1.chull.points.size(); p < points.size(); ++p)
+            points[p] = geo::Vec2f(u2.chull.points[p].x, u2.chull.points[p].y);
+          ROS_INFO("Merging entity %i and %i", i, *it);
+          ed::convex_hull::create(points, z_min, z_max, u1.chull, u1.pose_map);
+          ROS_INFO("Merging entity %i and %i", i, *it);
+      }
+      new_updates.push_back(u1);
       ROS_INFO("Adding update %i", i);
     }
     else
