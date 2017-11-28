@@ -106,7 +106,8 @@ EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& senso
     }
     ed::convex_hull::create(points, z_min, z_max, new_u.chull, new_u.pose_map);
     ROS_INFO_STREAM("New height: " << new_u.chull.height());
-//    refitConvexHull(image, sensor_pose, cam_model, segmenter_, new_u);
+    refitConvexHull(image, sensor_pose, cam_model, segmenter_, new_u);
+    ROS_INFO_STREAM("New height2: " << new_u.chull.height());
 //    for (std::vector<geo::Vec3>::const_iterator p_it= u2.points.begin(); p_it != u2.points.end(); ++p_it)
 //    {
 //        new_u.points.push_back(*p_it);
