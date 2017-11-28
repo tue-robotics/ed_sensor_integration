@@ -85,7 +85,8 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
  * @param u2 Merge points into u1
  * @return new EntityUpdate including new convexHull and points of both inputs.
  */
-EntityUpdate mergeConvexHulls(const EntityUpdate& u1, const EntityUpdate& u2)
+EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
+                              const Segmenter& segmenter_, const EntityUpdate& u1, const EntityUpdate& u2)
 {
     EntityUpdate new_u = u1;
     double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
@@ -104,10 +105,12 @@ EntityUpdate mergeConvexHulls(const EntityUpdate& u1, const EntityUpdate& u2)
         points[p + offset] = geo::Vec2f(p_map.x, p_map.y);
     }
     ed::convex_hull::create(points, z_min, z_max, new_u.chull, new_u.pose_map);
-    for (std::vector<geo::Vec3>::const_iterator p_it= u2.points.begin(); p_it != u2.points.end(); ++p_it)
-    {
-        new_u.points.push_back(*p_it);
-    }
+    ROS_INFO_STREAM("New height: " << new_u.chull.height());
+//    refitConvexHull(image, sensor_pose, cam_model, segmenter_, new_u);
+//    for (std::vector<geo::Vec3>::const_iterator p_it= u2.points.begin(); p_it != u2.points.end(); ++p_it)
+//    {
+//        new_u.points.push_back(*p_it);
+//    }
     return new_u;
 }
 
@@ -115,9 +118,9 @@ EntityUpdate mergeConvexHulls(const EntityUpdate& u1, const EntityUpdate& u2)
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
-//std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-//                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
-std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<EntityUpdate>& updates)
+std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
+                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
+//std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<EntityUpdate>& updates)
 {
 
   ROS_INFO("mergoverlapping chulls: nr of updates: %lu", updates.size());
@@ -148,7 +151,7 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       const EntityUpdate& u2 = updates[j];
 
       // If we collide, update the i convex hull
-      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e2))  // This should prevent multiple entities above each other
+      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))  // This should prevent multiple entities above each other
 //      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
 //      if (true)
       {
@@ -184,7 +187,7 @@ std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<Entity
       {
           ROS_INFO("Merging entity %i and %i", i, *it);
           const EntityUpdate u2 = updates[*it];
-          u1 = mergeConvexHulls(u1, u2);
+          u1 = mergeConvexHulls(image, sensor_pose, cam_model, segmenter_, u1, u2);
 
       }
       new_updates.push_back(u1);
@@ -450,7 +453,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY
-    res.entity_updates = mergeOverlappingXYConvexHulls(res.entity_updates);
+    res.entity_updates = mergeOverlappingXYConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update

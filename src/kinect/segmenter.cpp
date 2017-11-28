@@ -249,7 +249,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
         }
 
         // Check if cluster has enough points. If not, remove it from the list
-        if (cluster.pixel_indices.size() < 100) // TODO: magic number
+        if (cluster.pixel_indices.size() < 75) // TODO: magic number
         {
             clusters.pop_back();
             continue;
