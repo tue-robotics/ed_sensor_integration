@@ -21,6 +21,9 @@
 #include "ed_sensor_integration/association_matrix.h"
 
 #include <tue/profiling/timer.h>
+#include <numeric>
+#include <cmath>
+#include <iterator>
 
 namespace
 {
@@ -390,8 +393,11 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
 	//std::cout << "BLA0 = " << e->hasType("hospital_test/door") << "type = " << e->type() << std::endl;
 
+	std::cout << "Localization plugin: id = " << e->id() << ". shape = " << e->shape() << std::endl;
+	
         if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right" ) || e->hasFlag("non-localizable")))
         {
+	  std::cout << "Shape after = " << e->shape() << std::endl;
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
@@ -453,85 +459,219 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         }
     }
 
-    if ( check_door_status_ ) {
-        /* Points associated to door */
-       
-        ed::UUID id;
-        for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it ) {
-            const ed::EntityConstPtr& e = *it;
-
-            if ( e->hasType ( "elevatordoor" ) ) {
-                id = e->id();
-                //  std::cout << "id = " << e->id() << std::endl;
-
-                // Set render options
-		std::vector<double> model_ranges_door ( num_beams, 0 );
-                geo::LaserRangeFinder::RenderOptions opt;
-                opt.setMesh ( e->shape()->getMesh(), sensor_pose_inv * e->pose() );
-
-                geo::LaserRangeFinder::RenderResult res ( model_ranges_door );
-                lrf_model_.render ( opt, res ); /* so all data > 0 belong to door! */
-
-                double sum = 0;
-                unsigned int counter = 0;
-                // std:: cout << "Difference = " << std::endl;
-                for ( unsigned int i = 0; i < num_beams; ++i ) {
-                    if ( model_ranges_door[i] > 0 ) {
-                        sum += ( sensor_ranges[i] - model_ranges_door[i] );
-                        counter++;
-                    }
-
-                }
-
-                // std::cout << std::endl;
-
-                double avg_dist = sum/counter;
-                // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
-                double bound = 0.2;
-
-                ropod_demo_dec_2017::doorDetection msg;
-
-                msg.id = id.str();
-                msg.type = "elevatordoor";
-                msg.open = 0;
-                msg.closed = 0;
-                msg.undetectable = 0;
-
-                //std::cout << "avg_dist = " << avg_dist << std::endl;
-                if ( avg_dist >= bound ) {
-                    std::cout << "Door open" << std::endl;
-                    msg.open = 1;
-                    req.setFlag ( e->id(), "non-localizable" );
-
-                    if ( e->hasFlag ( "localizable" ) ) {
-                        req.removeFlag ( e->id(),"localizable" );
-                    }
-
-                } else if ( avg_dist <= -bound || avg_dist != avg_dist || avg_dist > scan->range_max ) {
-                    std::cout << "Door not detecable" << std::endl;
-                    msg.undetectable = 1;
-                    req.setFlag ( e->id(), "localizable" );
-
-                    if ( e->hasFlag ( "non-localizable" ) ) {
-                        req.removeFlag ( e->id(),"non-localizable" );
-                    }
-                } else {
-                    //std::cout << "Door closed" << std::endl;
-                    msg.closed = 1;
-                    req.setFlag ( e->id(), "localizable" );
-
-                    if ( e->hasFlag ( "non-localizable" ) ) {
-                        req.removeFlag ( e->id(),"non-localizable" );
-                    }
-                }
-                
-                //e->printFlags();
-                msg.header.stamp = ros::Time::now();
-
-                door_pub_.publish ( msg );
-            }
-        }
-    }
+//    if ( check_door_status_ ) {
+//         /* Points associated to door */
+//        
+//         ed::UUID id;
+//         for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it ) {
+//             const ed::EntityConstPtr& e = *it;
+// 
+//             if ( e->hasType ( "elevatordoor" ) ) {
+// 	      
+// 	      // assume elevatordoor to be square
+// 	      const ed::ConvexHull& entity_chull = e->convexHull();
+// 	      
+// 	      //std::cout << entity_chull.edges << std::endl;
+// 	      
+// 	      std::cout << "New door: "<< std::endl;
+// 	      std::vector<float> x_coordinates(entity_chull.points.size());
+// 	      std::vector<float> y_coordinates(entity_chull.points.size());
+// 	      std::vector<float> dist2(entity_chull.points.size());
+// 	      
+// 	      for(int ii = 0; ii < entity_chull.points.size(); ii++)
+// 	      {
+// 		x_coordinates[ii] = entity_chull.points[ii].x + e->pose().getOrigin().getX();
+// 		y_coordinates[ii] = entity_chull.points[ii].y + e->pose().getOrigin().getY();
+// 		
+// 		std::cout << "Edges = " << entity_chull.edges[ii] << " Point = (" << x_coordinates[ii] << ", " << y_coordinates[ii] << ")" << std::endl;
+// 		
+// 		dist2[ii] =  pow(x_coordinates[ii] - sensor_pose.getOrigin().getX(), 2.0) + pow(y_coordinates[ii] - sensor_pose.getOrigin().getY(), 2.0);
+// 		
+// 	      }
+// 	            
+// 	      // Get length at right side of the door
+// 	       std::vector<float>::iterator closestPoint = min_element(dist2.begin(), dist2.end());
+// 	       std::vector<float>::iterator previousPoint;
+// 	       std::vector<float>::iterator nextPoint;
+// 	       if(closestPoint == dist2.begin())
+// 	       {
+// 		 previousPoint = dist2.end();
+// 		 nextPoint += 1;
+// 	       }
+// 	       else if(closestPoint == dist2.end())
+// 	       {
+// 		 previousPoint -= 1;
+// 		 nextPoint = dist2.begin();
+// 	       }
+// 	       else
+// 	       {
+// 		 previousPoint -= 1;
+// 		 nextPoint += 1;
+// 	       }
+// 	       
+// 	       float Edge_length = entity_chull.edges[*closestPoint].length2();
+// 	       float Prev_Edge_length = entity_chull.edges[*closestPoint].length2();
+// 	       float doorlength;
+// 	       
+// 	       std::vector<geo::Vec2f> doorFront(2); // Vector with the 2 points forming the front side of the door
+// 	       doorFront[0] = entity_chull.points[*closestPoint];
+// 	       if(Prev_Edge_length > Edge_length)
+// 	       {
+// 		 doorFront[1] = entity_chull.points[*previousPoint];
+// 		 doorlength = sqrt(Prev_Edge_length);
+// 	       }
+// 	       else
+// 	       {
+// 		 doorFront[1] = entity_chull.points[*nextPoint];
+// 		 doorlength = sqrt(Edge_length);
+// 	       }
+// 	     
+// 	      
+// 	      
+// 	    /*  float inf = std::numeric_limits<float>::infinity();
+// 	     *  //https://gamedev.stackexchange.com/questions/44483/how-do-i-calculate-distance-between-a-point-and-an-axis-aligned-rectangle/50722
+// 	      float max_angle = -inf;
+// 	      float min_angle = inf;
+// 	      
+// 	      for(int ii = 0; ii < entity_chull.points.size(); ii++)
+// 	      {
+// 		x_coordinates[ii] = entity_chull.points[ii].x;
+// 		y_coordinates[ii] = entity_chull.points[ii].y;
+// 		
+// 		float angle_coordinate = atan2(y_coordinates[ii]-sensor_pose.point.y, x_coordinates[ii]-sensor_pose.point.x);
+// 		float angle_to_sensor = angle_coordinate-sensor_pose.getYaw();
+// 		float wrapped_angle = angle_to_sensor -2*M_PIl*floor(angle_to_sensor/2*M_PIl);
+// 		
+// 		if(wrapped_angle > max_angle)
+// 		  max_angle = wrapped_angle;
+// 		
+// 		if(wrapped_angle < min_angle)
+// 		  min_angle = wrapped_angle;
+// 
+// 		//std::cout << "x-coordinate = " << entity_chull.points[ii].x << " y-coordinate " << entity_chull.points[ii].y << std::endl;
+// 	      }
+// 	      
+// 	      float center_x = std::accumulate(x_coordinates.begin(), x_coordinates.end(), 0.0) / entity_chull.points.size() + e->pose().getOrigin().getX();
+// 	      
+// 	      float center_y = std::accumulate(y_coordinates.begin(), y_coordinates.end(), 0.0) / entity_chull.points.size()+  e->pose().getOrigin().getY();
+// 	      
+// 	      float length_x = *max_element(x_coordinates.begin(), x_coordinates.end())-*min_element(x_coordinates.begin(), x_coordinates.end());
+// 	      float length_y = *max_element(y_coordinates.begin(), y_coordinates.end())-*min_element(y_coordinates.begin(), y_coordinates.end());
+// 	      
+// 	      float dx = std::max(std::abs(sensor_pose.getOrigin().getX() - center_x) - 0.5*length_x, 0.0);
+// 	      float dy = std::max(std::abs(sensor_pose.getOrigin().getY() - center_y) - 0.5*length_y, 0.0);
+// 	      
+// 	      float length2 = dx * dx + dy * dy;
+// 	      
+// 	      std::cout << "Dist to door = " << length2 << std::endl;
+// 	      //std::cout << "x-sensor = " << sensor_pose.getOrigin().getX() << " center_x = " << center_x << " length_x = " << length_x  << std::endl;
+// 	      //std::cout << "y-sensor = " << sensor_pose.getOrigin().getY() << " center_y = " << center_y << " length_y = " << length_y  << std::endl;
+// 	      
+// 	      bool sensibility;
+// 	      if(length2 < (scan->range_max * scan->range_max) && max_angle < scan->angle_max && min_angle > scan->angle_min)
+// 	      {
+// 		sensibility = true;
+// 	      } 
+// 	      else
+// 	      {
+// 		sensibility = false;
+// 	      }
+// 	      */
+// 	      
+// 	     // sum_x/entity_chull.points.size();
+// 	     // float center_y = sum_y/entity_chull.points.size();
+// 	      
+// 	      //std::cout << std::endl;
+// 	     
+// 	      
+// 	     // ;
+// 	      
+//                 id = e->id();
+//                 //  std::cout << "id = " << e->id() << std::endl;
+// 
+//                 // Set render options
+// 		std::vector<double> model_ranges_door ( num_beams, 0 );
+//                 geo::LaserRangeFinder::RenderOptions opt;
+//                 opt.setMesh ( e->shape()->getMesh(), sensor_pose_inv * e->pose() );
+// 
+//                 geo::LaserRangeFinder::RenderResult res ( model_ranges_door );
+//                 lrf_model_.render ( opt, res ); /* so all data > 0 belong to door! */
+// 
+// 		
+// 		int firstPoint;
+// 		bool firstPointFound = false;
+// 		int lastPoint = 0;
+// 		unsigned int lengthDoorCounter = 0;
+// 		double sum = 0;
+//                 unsigned int counterSum = 0;
+// 		
+// 		for ( unsigned int i = 0; i < num_beams; ++i ) {
+//                     if ( model_ranges_door[i] > 0 ) {
+// 		      if(!firstPointFound)
+// 		      {
+// 			firstPoint = i;
+// 		      }
+// 		      
+// 		      lastPoint = i;
+// 		      lengthDoorCounter++;
+// 		      sum += ( sensor_ranges[i] - model_ranges_door[i] );
+//                       counterSum++;
+//                     }
+//                 }
+// 	      
+// 	      
+// 	      // Assumption: small side of the foor not taken into consideration -> can be neglected
+// 		float coverage = (model_ranges_door[lastPoint] - model_ranges_door[firstPoint])/doorlength;
+// 
+//                 // std::cout << std::endl;
+// 
+//                 double avg_dist = sum/counter;
+//                 // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
+//                 double bound = 0.2;
+// 
+//                 ropod_demo_dec_2017::doorDetection msg;
+// 
+//                 msg.id = id.str();
+//                 msg.type = "elevatordoor";
+//                 msg.open = 0;
+//                 msg.closed = 0;
+//                 msg.undetectable = 0;
+// 
+//                 //std::cout << "avg_dist = " << avg_dist << std::endl;
+//                 if ( avg_dist >= bound ) {
+//                     std::cout << "Door open" << std::endl;
+//                     msg.open = 1;
+//                     req.setFlag ( e->id(), "non-localizable" );
+// 
+//                     if ( e->hasFlag ( "localizable" ) ) {
+//                         req.removeFlag ( e->id(),"localizable" );
+//                     }
+// 
+//                 } else if ( avg_dist <= -bound || avg_dist != avg_dist || avg_dist > scan->range_max ) {
+//                     std::cout << "Door not detecable" << std::endl;
+//                     msg.undetectable = 1;
+//                     req.setFlag ( e->id(), "localizable" );
+// 
+//                     if ( e->hasFlag ( "non-localizable" ) ) {
+//                         req.removeFlag ( e->id(),"non-localizable" );
+//                     }
+//                 } else {
+//                     //std::cout << "Door closed" << std::endl;
+//                     msg.closed = 1;
+//                     req.setFlag ( e->id(), "localizable" );
+// 
+//                     if ( e->hasFlag ( "non-localizable" ) ) {
+//                         req.removeFlag ( e->id(),"non-localizable" );
+//                     }
+//                 }
+//                 
+//                 //e->printFlags();
+//                 msg.header.stamp = ros::Time::now();
+// 
+//                 door_pub_.publish ( msg );
+//             }
+//         }
+//     }
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
