@@ -315,9 +315,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         {
             fitZRP(*e->shape(), new_pose, *image, sensor_pose_const, sensor_pose);
 
-            std::cout << "Old sensor pose: " << sensor_pose_const << std::endl;
-            std::cout << "New sensor pose: " << sensor_pose << std::endl;
-            std::cout << std::endl;
+            ROS_INFO_STREAM("Old sensor pose: " << sensor_pose_const);
+            ROS_INFO_STREAM("New sensor pose: " << sensor_pose);
         }
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -417,7 +416,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-    ROS_INFO("Segmenter -> cluster");
     segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -

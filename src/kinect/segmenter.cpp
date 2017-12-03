@@ -13,8 +13,6 @@
 #include <queue>
 #include <ed/convex_hull_calc.h>
 
-#include <ros/console.h>
-
 // Visualization
 //#include <opencv2/highgui/highgui.hpp>
 
@@ -177,7 +175,6 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const
 {
-    ROS_INFO("Clustering...");
     int width = depth_image.cols;
     int height = depth_image.rows;
 
@@ -274,8 +271,6 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             z_max = std::max<float>(z_max, p_map.z);
         }
 
-        ROS_INFO("Creating convex hull");
-        std::cout << "Creating convex hull" << std::endl;
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
     }
