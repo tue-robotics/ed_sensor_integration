@@ -160,18 +160,15 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
     }
   }
 
-  // Now again loop over the updates and only push back in the new updates if it did not collide
+  // Now again loop over the updates and only push back in the new updates if it will not be merged into an other entity
   for (int i = 0; i < updates.size(); ++i)
   {
     for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
-    // If index already collided, it will be merged to another one
+    // If index in collided_indices, it will be merged to another one
     if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
     {
-      // Only push back if not in collided entity
-
-      // TODO: merge the collided entity with this one; but how to merge, so much methods here .. forest and the trees
-      // ToDo: by not implementing this properly, the result is kind of random?! (indices ending up in the collision_map and collided_indices are not sorted?
-      // Merging is done by creating a new convexHull. Multiple objects can be merged into one. No sorting is done.
+      // Merging is done by creating a new convexHull. Multiple objects can be merged into one.
+      // No sorting is done. So depending on which entity was taken first, that one is used as basis for merging. But that shouldn't matter, only for UUID.
 
       EntityUpdate u1 = updates[i];
       for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
