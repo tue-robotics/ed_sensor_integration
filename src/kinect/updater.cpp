@@ -161,7 +161,6 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
   // Now again loop over the updates and only push back in the new updates if it will not be merged into an other entity
   for (int i = 0; i < updates.size(); ++i)
   {
-    for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
     // If index in collided_indices, it will be merged to another one
     if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
     {
