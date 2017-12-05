@@ -151,9 +151,9 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
       if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))  // This should prevent multiple entities above each other;1e6 is ok, because objects in other areas are ignored.
 //      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
       {
-        ROS_INFO("Collition item %i with %i", i, j);
-        ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
-        ROS_INFO("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", j, u2.pose_map.t.getX(), u2.pose_map.t.getY(), u2.pose_map.t.getZ(), u2.chull.z_min, u2.chull.z_max);
+        ROS_DEBUG("Collition item %i with %i", i, j);
+        ROS_DEBUG("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
+        ROS_DEBUG("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", j, u2.pose_map.t.getX(), u2.pose_map.t.getY(), u2.pose_map.t.getZ(), u2.chull.z_min, u2.chull.z_max);
         collission_map[i].push_back(j);
         collided_indices.push_back(j);
       }
@@ -168,7 +168,9 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
     if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
     {
       // Merging is done by creating a new convexHull. Multiple objects can be merged into one.
-      // No sorting is done. So depending on which entity was taken first, that one is used as basis for merging. But that shouldn't matter, only for UUID.
+      // No sorting is done. So depending on which entity was taken first, that one is used as basis for merging.
+      // But that shouldn't matter, only for UUID. Although the entities are re-associatied afterwards.
+      // Which match new measurments to old entities.
 
       EntityUpdate u1 = updates[i];
       for (std::vector<int>::iterator it = collission_map[i].begin(); it != collission_map[i].end(); ++it)
@@ -312,8 +314,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         {
             fitZRP(*e->shape(), new_pose, *image, sensor_pose_const, sensor_pose);
 
-            ROS_INFO_STREAM("Old sensor pose: " << sensor_pose_const);
-            ROS_INFO_STREAM("New sensor pose: " << sensor_pose);
+            ROS_DEBUG_STREAM("Old sensor pose: " << sensor_pose_const);
+            ROS_DEBUG_STREAM("New sensor pose: " << sensor_pose);
         }
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
