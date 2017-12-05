@@ -117,7 +117,6 @@ EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& senso
 // and updates the convex hull height based on the points found
 std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
                                                          const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
-//std::vector<EntityUpdate> mergeOverlappingXYConvexHulls(const std::vector<EntityUpdate>& updates)
 {
 
   ROS_INFO("mergoverlapping chulls: nr of updates: %lu", updates.size());
@@ -149,7 +148,6 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 
       // If we collide, update the i convex hull
       if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 1e6))  // This should prevent multiple entities above each other;1e6 is ok, because objects in other areas are ignored.
-//      if (ed::convex_hull::collide(u1.chull, u1.pose_map.t, u2.chull, u2.pose_map.t, 0, 0.0))  // This way, we get multiple entities above each other
       {
         ROS_DEBUG("Collition item %i with %i", i, j);
         ROS_DEBUG("Item %i: xyz: %.2f, %.2f, %.2f, z_min: %.2f, z_max: %.2f", i, u1.pose_map.t.getX(), u1.pose_map.t.getY(), u1.pose_map.t.getZ(), u1.chull.z_min, u1.chull.z_max);
