@@ -18,6 +18,7 @@ add_message_files(
   FILES
     GUIAction.msg
     ImageBinary.msg
+    doorDetection.msg
 )
 
 add_service_files(
@@ -40,7 +41,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
   # DEPENDS
-  CATKIN_DEPENDS geometry_msgs message_runtime ropod_demo_dec_2017
+  CATKIN_DEPENDS geometry_msgs message_runtime
 )
 
 # ------------------------------------------------------------------------------------------------
