@@ -105,6 +105,12 @@ add_library(ed_laser_plugin
 )
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 
+add_library(ed_laser_plugin_tracking
+    src/laser/plugin_tracking.cpp
+    src/laser/plugin_tracking.h
+)
+target_link_libraries(ed_laser_plugin_tracking ed_association ${catkin_LIBRARIES})
+
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_clearer_plugin
