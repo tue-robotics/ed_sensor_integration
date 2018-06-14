@@ -20,6 +20,11 @@
 // Properties
 #include "ed/convex_hull.h"
 
+#define MOBIDIK_WIDTH 0.72
+#define MOBIDIK_LENGTH 0.81
+#define MOBIDIK_MARGIN 0.1
+
+#define INF 10000
 
 // ----------------------------------------------------------------------------------------------------
 

@@ -39,17 +39,27 @@ struct EntityUpdate
     std::string flag; // Temp for RoboCup 2015; todo: remove after
 };
 
-void publishFeatures ( ed::tracking::FeatureProperties& featureProp, int ID, ros::Publisher& pub ) // TODO move to ed_rviz_plugins?
+void publishFeatures ( ed::tracking::FeatureProperties& featureProp, int ID, ros::Publisher& pub, bool possiblyMobidik ) // TODO move to ed_rviz_plugins?
 {
     visualization_msgs::Marker marker;
     std_msgs::ColorRGBA color;
-
-    color.r = 0; 
-    color.g = 1;
-    color.b = 0;
-    color.a = ( float ) 0.5;
     
-    if ( featureProp.getFeatureProbabilities().get_pCircle() > featureProp.getFeatureProbabilities().get_pRectangle() ) {
+    if( possiblyMobidik)
+    {
+            color.r = 0; 
+            color.g = 0;
+            color.b = 1;
+            color.a = ( float ) 0.5;
+    } else 
+    {
+            color.r = 0; 
+            color.g = 1;
+            color.b = 0;
+            color.a = ( float ) 0.5;
+    }
+    
+    if ( featureProp.getFeatureProbabilities().get_pCircle() > featureProp.getFeatureProbabilities().get_pRectangle() ) 
+    {
         ed::tracking::Circle circle = featureProp.getCircle();
         circle.setMarker ( marker , ID, color );
     } else {
@@ -166,33 +176,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
-//    int num_model_points;
-//    int num_model_points2;
-//    double min_error = 0.97 * getFittingError(e, lrf, sensor_pose_inv * e.pose(), sensor_ranges, model_ranges, num_model_points); //last position
-//    geo::Pose3D best_pose = e.pose();
-
-//    if (num_model_points < 70)
-//    {
-//        ROS_ERROR_STREAM("not fitting with last position (" << num_model_points << ")");
-//        // check if virtual door in middle of range is visible
-//        geo::Mat3 rot90;
-//        rot90.setRPY(0, 0, 0.5*(yaw_min+yaw_plus));
-//        geo::Pose3D pose90 = old_pose;
-//        pose90.R = old_pose.R * rot90;
-//        double error90 = 0.97 * getFittingError(e, lrf, sensor_pose_inv * pose90, sensor_ranges, model_ranges, num_model_points2);
-//        if (num_model_points2 < 70)
-//        {
-//            //std::cout<<"not fitting with 90 degrees too" << std::endl;
-//            return best_pose;
-//        }
-//        else
-//        {
-//            // fitting started after door in middle of range is visible. Be stricter on error.
-//            num_model_points=num_model_points2;
-//            min_error=0.7*error90;
-//        }
-//    }
-
 
     double min_error = 1e6;
     geo::Pose3D best_pose = e.pose();
@@ -251,6 +234,105 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
 }
 
 }
+
+// ----------------------------------------------------------------------------------------------------
+
+// Strongly inspired by https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
+template<typename T>
+// Given three colinear points p, q, r, the function checks if
+// point q lies on line segment 'pr'
+bool onSegment( T& p, T& q, T& r)
+{
+    if (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) &&
+            q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y))
+        return true;
+    return false;
+}
+ 
+ template<typename T>
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+int orientation( T& p, T& q, T& r)
+{
+    int val = (q.y - p.y) * (r.x - q.x) -
+              (q.x - p.x) * (r.y - q.y);
+ 
+    if (val == 0) return 0;  // colinear
+    return (val > 0)? 1: 2; // clock or counterclock wise
+}
+ 
+ template<typename T>
+// The function that returns true if line segment 'p1q1'
+// and 'p2q2' intersect.
+bool doIntersect( T& p1, T& q1, T& p2, T& q2)
+{
+    // Find the four orientations needed for general and
+    // special cases
+    int o1 = orientation(p1, q1, p2);
+    int o2 = orientation(p1, q1, q2);
+    int o3 = orientation(p2, q2, p1);
+    int o4 = orientation(p2, q2, q1);
+ 
+    // General case
+    if (o1 != o2 && o3 != o4)
+        return true;
+ 
+    // Special Cases
+    // p1, q1 and p2 are colinear and p2 lies on segment p1q1
+    if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+ 
+    // p1, q1 and p2 are colinear and q2 lies on segment p1q1
+    if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+ 
+    // p2, q2 and p1 are colinear and p1 lies on segment p2q2
+    if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+ 
+     // p2, q2 and q1 are colinear and q1 lies on segment p2q2
+    if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+ 
+    return false; // Doesn't fall in any of the above cases
+}
+ 
+ template<typename T>
+// Returns true if the point p lies inside the polygon[] with n vertices
+bool isInside(std::vector<T> Points, T& p)
+{
+     int n = Points.size();   
+        
+    // There must be at least 3 vertices in polygon[]
+    if (n < 3)  return false;
+    
+    // Create a point for line segment from p to infinite
+    T extreme;
+    extreme.x = INF;
+    extreme.y = p.y;
+ 
+    // Count intersections of the above line with sides of polygon
+    int count = 0, i = 0;
+    do
+    {
+        int next = (i+1)%n;
+ 
+        // Check if the line segment from 'p' to 'extreme' intersects
+        // with the line segment from 'polygon[i]' to 'polygon[next]'
+        if (doIntersect(Points[i], Points[next], p, extreme))
+        {
+            // If the point 'p' is colinear with line segment 'i-next',
+            // then check if it lies on segment. If it lies, return true,
+            // otherwise false
+            if (orientation(Points[i], p, Points[next]) == 0)
+               return onSegment(Points[i], p, Points[next]);
+            count++;
+        }
+        i = next;
+    } while (i != 0);
+    // Return true if count is odd, false otherwise
+    return count&1;  // Same as (count%2 == 1)
+}
+
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -485,219 +567,6 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
         }
     }
 
-//    if ( check_door_status_ ) {
-//         /* Points associated to door */
-//        
-//         ed::UUID id;
-//         for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it ) {
-//             const ed::EntityConstPtr& e = *it;
-// 
-//             if ( e->hasType ( "elevatordoor" ) ) {
-// 	      
-// 	      // assume elevatordoor to be square
-// 	      const ed::ConvexHull& entity_chull = e->convexHull();
-// 	      
-// 	      //std::cout << entity_chull.edges << std::endl;
-// 	      
-// 	      std::cout << "New door: "<< std::endl;
-// 	      std::vector<float> x_coordinates(entity_chull.points.size());
-// 	      std::vector<float> y_coordinates(entity_chull.points.size());
-// 	      std::vector<float> dist2(entity_chull.points.size());
-// 	      
-// 	      for(int ii = 0; ii < entity_chull.points.size(); ii++)
-// 	      {
-// 		x_coordinates[ii] = entity_chull.points[ii].x + e->pose().getOrigin().getX();
-// 		y_coordinates[ii] = entity_chull.points[ii].y + e->pose().getOrigin().getY();
-// 		
-// 		std::cout << "Edges = " << entity_chull.edges[ii] << " Point = (" << x_coordinates[ii] << ", " << y_coordinates[ii] << ")" << std::endl;
-// 		
-// 		dist2[ii] =  pow(x_coordinates[ii] - sensor_pose.getOrigin().getX(), 2.0) + pow(y_coordinates[ii] - sensor_pose.getOrigin().getY(), 2.0);
-// 		
-// 	      }
-// 	            
-// 	      // Get length at right side of the door
-// 	       std::vector<float>::iterator closestPoint = min_element(dist2.begin(), dist2.end());
-// 	       std::vector<float>::iterator previousPoint;
-// 	       std::vector<float>::iterator nextPoint;
-// 	       if(closestPoint == dist2.begin())
-// 	       {
-// 		 previousPoint = dist2.end();
-// 		 nextPoint += 1;
-// 	       }
-// 	       else if(closestPoint == dist2.end())
-// 	       {
-// 		 previousPoint -= 1;
-// 		 nextPoint = dist2.begin();
-// 	       }
-// 	       else
-// 	       {
-// 		 previousPoint -= 1;
-// 		 nextPoint += 1;
-// 	       }
-// 	       
-// 	       float Edge_length = entity_chull.edges[*closestPoint].length2();
-// 	       float Prev_Edge_length = entity_chull.edges[*closestPoint].length2();
-// 	       float doorlength;
-// 	       
-// 	       std::vector<geo::Vec2f> doorFront(2); // Vector with the 2 points forming the front side of the door
-// 	       doorFront[0] = entity_chull.points[*closestPoint];
-// 	       if(Prev_Edge_length > Edge_length)
-// 	       {
-// 		 doorFront[1] = entity_chull.points[*previousPoint];
-// 		 doorlength = sqrt(Prev_Edge_length);
-// 	       }
-// 	       else
-// 	       {
-// 		 doorFront[1] = entity_chull.points[*nextPoint];
-// 		 doorlength = sqrt(Edge_length);
-// 	       }
-// 	     
-// 	      
-// 	      
-// 	    /*  float inf = std::numeric_limits<float>::infinity();
-// 	     *  //https://gamedev.stackexchange.com/questions/44483/how-do-i-calculate-distance-between-a-point-and-an-axis-aligned-rectangle/50722
-// 	      float max_angle = -inf;
-// 	      float min_angle = inf;
-// 	      
-// 	      for(int ii = 0; ii < entity_chull.points.size(); ii++)
-// 	      {
-// 		x_coordinates[ii] = entity_chull.points[ii].x;
-// 		y_coordinates[ii] = entity_chull.points[ii].y;
-// 		
-// 		float angle_coordinate = atan2(y_coordinates[ii]-sensor_pose.point.y, x_coordinates[ii]-sensor_pose.point.x);
-// 		float angle_to_sensor = angle_coordinate-sensor_pose.getYaw();
-// 		float wrapped_angle = angle_to_sensor -2*M_PIl*floor(angle_to_sensor/2*M_PIl);
-// 		
-// 		if(wrapped_angle > max_angle)
-// 		  max_angle = wrapped_angle;
-// 		
-// 		if(wrapped_angle < min_angle)
-// 		  min_angle = wrapped_angle;
-// 
-// 		//std::cout << "x-coordinate = " << entity_chull.points[ii].x << " y-coordinate " << entity_chull.points[ii].y << std::endl;
-// 	      }
-// 	      
-// 	      float center_x = std::accumulate(x_coordinates.begin(), x_coordinates.end(), 0.0) / entity_chull.points.size() + e->pose().getOrigin().getX();
-// 	      
-// 	      float center_y = std::accumulate(y_coordinates.begin(), y_coordinates.end(), 0.0) / entity_chull.points.size()+  e->pose().getOrigin().getY();
-// 	      
-// 	      float length_x = *max_element(x_coordinates.begin(), x_coordinates.end())-*min_element(x_coordinates.begin(), x_coordinates.end());
-// 	      float length_y = *max_element(y_coordinates.begin(), y_coordinates.end())-*min_element(y_coordinates.begin(), y_coordinates.end());
-// 	      
-// 	      float dx = std::max(std::abs(sensor_pose.getOrigin().getX() - center_x) - 0.5*length_x, 0.0);
-// 	      float dy = std::max(std::abs(sensor_pose.getOrigin().getY() - center_y) - 0.5*length_y, 0.0);
-// 	      
-// 	      float length2 = dx * dx + dy * dy;
-// 	      
-// 	      std::cout << "Dist to door = " << length2 << std::endl;
-// 	      //std::cout << "x-sensor = " << sensor_pose.getOrigin().getX() << " center_x = " << center_x << " length_x = " << length_x  << std::endl;
-// 	      //std::cout << "y-sensor = " << sensor_pose.getOrigin().getY() << " center_y = " << center_y << " length_y = " << length_y  << std::endl;
-// 	      
-// 	      bool sensibility;
-// 	      if(length2 < (scan->range_max * scan->range_max) && max_angle < scan->angle_max && min_angle > scan->angle_min)
-// 	      {
-// 		sensibility = true;
-// 	      } 
-// 	      else
-// 	      {
-// 		sensibility = false;
-// 	      }
-// 	      */
-// 	      
-// 	     // sum_x/entity_chull.points.size();
-// 	     // float center_y = sum_y/entity_chull.points.size();
-// 	      
-// 	      //std::cout << std::endl;
-// 	     
-// 	      
-// 	     // ;
-// 	      
-//                 id = e->id();
-//                 //  std::cout << "id = " << e->id() << std::endl;
-// 
-//                 // Set render options
-// 		std::vector<double> model_ranges_door ( num_beams, 0 );
-//                 geo::LaserRangeFinder::RenderOptions opt;
-//                 opt.setMesh ( e->shape()->getMesh(), sensor_pose_inv * e->pose() );
-// 
-//                 geo::LaserRangeFinder::RenderResult res ( model_ranges_door );
-//                 lrf_model_.render ( opt, res ); /* so all data > 0 belong to door! */
-// 
-// 		
-// 		int firstPoint;
-// 		bool firstPointFound = false;
-// 		int lastPoint = 0;
-// 		unsigned int lengthDoorCounter = 0;
-// 		double sum = 0;
-//                 unsigned int counterSum = 0;
-// 		
-// 		for ( unsigned int i = 0; i < num_beams; ++i ) {
-//                     if ( model_ranges_door[i] > 0 ) {
-// 		      if(!firstPointFound)
-// 		      {
-// 			firstPoint = i;
-// 		      }
-// 		      
-// 		      lastPoint = i;
-// 		      lengthDoorCounter++;
-// 		      sum += ( sensor_ranges[i] - model_ranges_door[i] );
-//                       counterSum++;
-//                     }
-//                 }
-// 	      
-// 	      
-// 	      // Assumption: small side of the foor not taken into consideration -> can be neglected
-// 		float coverage = (model_ranges_door[lastPoint] - model_ranges_door[firstPoint])/doorlength;
-// 
-//                 // std::cout << std::endl;
-// 
-//                 double avg_dist = sum/counter;
-//                 // std::cout << "sum = " << sum << "counter = " << counter << std::endl;
-//                 double bound = 0.2;
-// 
-//                 ed_sensor_integration::doorDetection msg;
-// 
-//                 msg.id = id.str();
-//                 msg.type = "elevatordoor";
-//                 msg.open = 0;
-//                 msg.closed = 0;
-//                 msg.undetectable = 0;
-// 
-//                 //std::cout << "avg_dist = " << avg_dist << std::endl;
-//                 if ( avg_dist >= bound ) {
-//                     std::cout << "Door open" << std::endl;
-//                     msg.open = 1;
-//                     req.setFlag ( e->id(), "non-localizable" );
-// 
-//                     if ( e->hasFlag ( "localizable" ) ) {
-//                         req.removeFlag ( e->id(),"localizable" );
-//                     }
-// 
-//                 } else if ( avg_dist <= -bound || avg_dist != avg_dist || avg_dist > scan->range_max ) {
-//                     std::cout << "Door not detecable" << std::endl;
-//                     msg.undetectable = 1;
-//                     req.setFlag ( e->id(), "localizable" );
-// 
-//                     if ( e->hasFlag ( "non-localizable" ) ) {
-//                         req.removeFlag ( e->id(),"non-localizable" );
-//                     }
-//                 } else {
-//                     //std::cout << "Door closed" << std::endl;
-//                     msg.closed = 1;
-//                     req.setFlag ( e->id(), "localizable" );
-// 
-//                     if ( e->hasFlag ( "non-localizable" ) ) {
-//                         req.removeFlag ( e->id(),"non-localizable" );
-//                     }
-//                 }
-//                 
-//                 //e->printFlags();
-//                 msg.header.stamp = ros::Time::now();
-// 
-//                 door_pub_.publish ( msg );
-//             }
-//         }
-//     }
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
@@ -795,8 +664,6 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
 
     std::vector<EntityUpdate> clusters;
     std::vector<ed::tracking::FeatureProperties> measuredProperties;
-    
-    std::cout << "nClusters = " << segments.size() << std::endl;
 
     for ( std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it )
     {
@@ -847,295 +714,55 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
         measuredProperties.push_back ( properties );        
     }
 
-    std::cout << "measuredProperties size = " << measuredProperties.size() << std::endl;
-    for (int ii = 0; ii < measuredProperties.size(); ii++)
+    // Publish the fitted segments on the ObjectMarkers_pub_ -topic.
+    for ( int ii = 0; ii < measuredProperties.size(); ii++ )
     {
-            
-            ed::tracking::FeatureProperties property = measuredProperties[ii];
-            publishFeatures(property, ii, ObjectMarkers_pub_);
+        ed::tracking::FeatureProperties property = measuredProperties[ii];
+        bool possiblyMobidik = false;
+        if ( property.getFeatureProbabilities().get_pRectangle() > property.getFeatureProbabilities().get_pCircle() && // Dimension check
+                property.rectangle_.get_d() < MOBIDIK_WIDTH + MOBIDIK_MARGIN &&
+                property.rectangle_.get_w() < MOBIDIK_WIDTH + MOBIDIK_MARGIN &&
+                ( property.rectangle_.get_d() > MOBIDIK_WIDTH - MOBIDIK_MARGIN ||
+                  property.rectangle_.get_w() > MOBIDIK_WIDTH - MOBIDIK_MARGIN ) )
+        {
+            for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it )
+            {
+                const ed::EntityConstPtr& e = *it;
+
+                std::string MobiDikWaitingAreaID = "MobiDikWaitingArea";
+
+                if ( e->id().str().length() < MobiDikWaitingAreaID.length() )
+                {
+                    continue;
+                }
+
+                if ( e->id().str().substr ( 0, MobiDikWaitingAreaID.length() ) == MobiDikWaitingAreaID )
+                {
+                        // It is assumed here that there is a navigation task, so only points on the ground are taken into consideration
+                        
+                        std::vector<geo::Vector3> points = e.get()->shape().get()->getMesh().getPoints();
+                        std::vector<geo::Vector3> groundPoints;
+                        const geo::Vec3T<double> pose = e.get()->pose().getOrigin();
+                        
+                        for(unsigned int iPoints = 0; iPoints < points.size(); iPoints++)
+                        {
+                                if(points[iPoints].getZ() == 0)
+                                {
+                                        groundPoints.push_back( points[iPoints] + pose );
+                                }
+                        }        
+                       geo::Vector3 mobidikPoint( property.getRectangle().get_x(), property.getRectangle().get_y(), property.getRectangle().get_z() );
+                       
+                    if( isInside( groundPoints, mobidikPoint) )
+                    {
+                        possiblyMobidik = true;
+                    }
+                }   
+            }
+        }
+        publishFeatures ( property, ii, ObjectMarkers_pub_, possiblyMobidik );
     }
-    
 }
-
-        
-
-/*
-    // - - - - - - - - - - - - - - - - - -
-    // Convert the segments to convex hulls, and check for collisions with other convex hulls
-
-    std::vector<EntityUpdate> clusters;
-
-    for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
-    {
-        const ScanSegment& segment = *it;
-        unsigned int segment_size = segment.size();
-
-        std::vector<geo::Vec2f> points(segment_size);
-
-        float z_min, z_max;
-        for(unsigned int i = 0; i < segment_size; ++i)
-        {
-            unsigned int j = segment[i];
-
-            // Calculate the cartesian coordinate of the point in the segment (in sensor frame)
-            geo::Vector3 p_sensor = lrf_model_.rayDirections()[j] * sensor_ranges[j];
-
-            // Transform to world frame
-            geo::Vector3 p = sensor_pose * p_sensor;
-
-            // Add to cv array
-            points[i] = geo::Vec2f(p.x, p.y);
-
-            if (i == 0)
-            {
-                z_min = p.z;
-                z_max = p.z;
-            }
-            else
-            {
-                z_min = std::min<float>(z_min, p.z);
-                z_max = std::max<float>(z_max, p.z);
-            }
-        }
-
-        clusters.push_back(EntityUpdate());
-        EntityUpdate& cluster = clusters.back();
-
-        cluster.pose = geo::Pose3D::identity();
-        ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
-
-        // --------------------------
-        // Temp for RoboCup 2016; todo: remove after
-
-        // Determine the cluster size
-        geo::Vec2f diff = points.back() - points.front();
-        float size_sq = diff.length2();
-        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
-            cluster.flag = "possible_human";
-
-        // --------------------------
-    }
-
-    // Create selection of world model entities that could associate
-
-    float max_dist = 0.3;
-
-    std::vector<ed::EntityConstPtr> entities;
-
-    if (!clusters.empty())
-    {
-        geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        for (std::vector<EntityUpdate>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
-        {
-            const EntityUpdate& cluster = *it;
-
-            area_min.x = std::min(area_min.x, cluster.pose.t.x);
-            area_min.y = std::min(area_min.y, cluster.pose.t.y);
-
-            area_max.x = std::max(area_max.x, cluster.pose.t.x);
-            area_max.y = std::max(area_max.y, cluster.pose.t.y);
-        }
-
-        area_min -= geo::Vec2(max_dist, max_dist);
-        area_max += geo::Vec2(max_dist, max_dist);
-
-        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
-        {
-            const ed::EntityConstPtr& e = *e_it;
-            if (e->shape() || !e->has_pose())
-                continue;
-
-            const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHull();
-
-            if (entity_chull.points.empty())
-                continue;
-
-            //            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
-            //            {
-            //                req.removeEntity(e->id());
-            //                continue;
-            //            }
-
-            if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
-                    || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
-                continue;
-
-            entities.push_back(e);
-        }
-    }
-
-    // Create association matrix
-    ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
-    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
-    {
-        const EntityUpdate& cluster = clusters[i_cluster];
-
-        for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
-        {
-            const ed::EntityConstPtr& e = entities[i_entity];
-
-            const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHull();
-
-            float dx = entity_pose.t.x - cluster.pose.t.x;
-            float dy = entity_pose.t.y - cluster.pose.t.y;
-            float dz = 0;
-
-            if (entity_chull.z_max + entity_pose.t.z < cluster.chull.z_min + cluster.pose.t.z
-                    || cluster.chull.z_max + cluster.pose.t.z < entity_chull.z_min + entity_pose.t.z)
-                // The convex hulls are non-overlapping in z
-                dz = entity_pose.t.z - cluster.pose.t.z;
-
-            float dist_sq = (dx * dx + dy * dy + dz * dz);
-
-            // TODO: better prob calculation
-            double prob = 1.0 / (1.0 + 100 * dist_sq);
-
-            double dt = scan->header.stamp.toSec() - e->lastUpdateTimestamp();
-
-            double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
-
-            if (dist_sq > e_max_dist * e_max_dist)
-                prob = 0;
-
-            if (prob > 0)
-                assoc_matrix.setEntry(i_cluster, i_entity, prob);
-        }
-    }
-
-    ed_sensor_integration::Assignment assig;
-    if (!assoc_matrix.calculateBestAssignment(assig))
-    {
-        std::cout << "WARNING: Association failed!" << std::endl;
-        return;
-    }
-
-    //std::cout << "Test detected " << std::endl;
-
-    std::vector<int> entities_associated(entities.size(), -1);
-
-    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
-    {
-        const EntityUpdate& cluster = clusters[i_cluster];
-
-        // Get the assignment for this cluster
-        int i_entity = assig[i_cluster];
-
-        ed::UUID id;
-        ed::ConvexHull new_chull;
-        geo::Pose3D new_pose;
-
-        if (i_entity == -1)
-        {
-            // No assignment, so add as new cluster
-            new_chull = cluster.chull;
-            new_pose = cluster.pose;
-
-            // Generate unique ID	    
-            id = ed::Entity::generateID().str() + "-laser";	  
-
-            // Update existence probability
-            req.setExistenceProbability(id, 1.0); // TODO magic number
-        }
-        else
-        {
-            // Mark the entity as being associated
-            entities_associated[i_entity] = i_cluster;
-
-            // Update the entity
-            const ed::EntityConstPtr& e = entities[i_entity];
-            //            const ed::ConvexHull& entity_chull = e->convexHullNew();
-            //            const geo::Pose3D& entity_pose = e->pose();
-
-            //            std::vector<geo::Vec2f> new_points_MAP;
-
-            //            // Add the points of the cluster
-            //            for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
-            //                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
-
-            //            // Add the entity points that are still present in the depth map (or out of view)
-            //            for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
-            //            {
-            //                geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
-
-            //                geo::Vector3 p = sensor_pose.inverse() * geo::Vector3(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
-
-            //                if (pointIsPresent(p, lrf_model_, sensor_ranges))
-            //                {
-            //                    new_points_MAP.push_back(p_chull_MAP);
-            //                }
-            //            }
-
-            //            double new_z_min = cluster.chull.z_min;
-            //            double new_z_max = cluster.chull.z_max;
-
-            //            // And calculate the convex hull of these points
-            //            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
-
-            if (!e->hasFlag("locked"))
-            {
-                new_chull = cluster.chull;
-                new_pose = cluster.pose;
-            }
-
-            // Update existence probability
-            double p_exist = e->existenceProbability();
-            req.setExistenceProbability(e->id(), std::min(1.0, p_exist + 0.1)); // TODO: very ugly prob update
-
-            id = e->id();
-        }
-
-        // Set convex hull and pose
-        if (!new_chull.points.empty())
-        {
-            req.setConvexHullNew(id, new_chull, new_pose, scan->header.stamp.toSec(), scan->header.frame_id);
-
-            // --------------------------
-            // Temp for RoboCup 2015; todo: remove after
-
-            if (!cluster.flag.empty())
-                req.setFlag(id, cluster.flag);
-
-            // --------------------------
-        }
-
-        // Set timestamp
-        req.setLastUpdateTimestamp(id, scan->header.stamp.toSec());
-    }
-
-    // - - - - - - - - - - - - - - - - - -
-    // Clear unassociated entities in view
-
-    //    for(unsigned int i = 0; i < entities_associated.size(); ++i)
-    //    {
-    //        const ed::EntityConstPtr& e = entities[i];
-
-    //        // If the entity is associated, skip it
-    //        if (entities_associated[i] >= 0)
-    //            continue;
-
-    //        const geo::Pose3D& pose = e->pose();
-
-    //        // Transform to sensor frame
-    //        geo::Vector3 p = sensor_pose.inverse() * pose.t;
-
-    //        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
-    //        {
-    //            double p_exist = e->existenceProbability();
-    //            if (p_exist < 0.3) // TODO: magic number
-    //                req.removeEntity(e->id());
-    //            else
-    //            {
-    //                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
-    //            }
-    //        }
-    //    }
-
-    // std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
-}
-*/
 
 // ----------------------------------------------------------------------------------------------------
 
