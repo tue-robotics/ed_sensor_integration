@@ -39,35 +39,41 @@ struct EntityUpdate
     std::string flag; // Temp for RoboCup 2015; todo: remove after
 };
 
-void publishFeatures ( ed::tracking::FeatureProperties& featureProp, int ID, ros::Publisher& pub, bool possiblyMobidik ) // TODO move to ed_rviz_plugins?
+visualization_msgs::Marker getMarker ( ed::tracking::FeatureProperties& featureProp, int ID, bool possiblyMobidik ) // TODO move to ed_rviz_plugins?
 {
     visualization_msgs::Marker marker;
     std_msgs::ColorRGBA color;
-    
-    if( possiblyMobidik)
-    {
-            color.r = 0; 
-            color.g = 0;
-            color.b = 1;
-            color.a = ( float ) 0.5;
-    } else 
-    {
-            color.r = 0; 
-            color.g = 1;
-            color.b = 0;
-            color.a = ( float ) 0.5;
-    }
-    
-    if ( featureProp.getFeatureProbabilities().get_pCircle() > featureProp.getFeatureProbabilities().get_pRectangle() ) 
-    {
-        ed::tracking::Circle circle = featureProp.getCircle();
-        circle.setMarker ( marker , ID, color );
-    } else {
-        ed::tracking::Rectangle rectangle = featureProp.getRectangle();
-        rectangle.setMarker ( marker , ID, color );
-    }
 
-    pub.publish ( marker );
+    if ( possiblyMobidik )
+    {
+        color.r = 0;
+        color.g = 0;
+        color.b = 1;
+        color.a = ( float ) 0.5;
+        
+        ed::tracking::Rectangle rectangle = featureProp.getRectangle();
+        rectangle.setMarker ( marker , ID, color, "MobiDik" );
+    }
+    else
+    {
+        color.r = 0;
+        color.g = 1;
+        color.b = 0;
+        color.a = ( float ) 0.5;
+
+        if ( featureProp.getFeatureProbabilities().get_pCircle() > featureProp.getFeatureProbabilities().get_pRectangle() )
+        {
+            ed::tracking::Circle circle = featureProp.getCircle();
+            circle.setMarker ( marker , ID, color );
+        }
+        else
+        {
+            ed::tracking::Rectangle rectangle = featureProp.getRectangle();
+            rectangle.setMarker ( marker , ID, color );
+        }
+    }
+    
+    return marker;
 }
 
 
@@ -381,7 +387,7 @@ void LaserPluginTracking::initialize(ed::InitData& init)
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPluginTracking::scanCallback, this);
     door_pub_ = nh.advertise<ed_sensor_integration::doorDetection>("door", 3);
-    ObjectMarkers_pub_ = nh.advertise<visualization_msgs::Marker> ( "ed/gui/objectMarkers", 3 );
+    ObjectMarkers_pub_ = nh.advertise<visualization_msgs::MarkerArray> ( "ed/gui/objectMarkers", 3 );
 
     tf_listener_ = new tf::TransformListener;
 
@@ -713,7 +719,9 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
 
         measuredProperties.push_back ( properties );        
     }
-
+            
+    visualization_msgs::MarkerArray markerArray;
+    
     // Publish the fitted segments on the ObjectMarkers_pub_ -topic.
     for ( int ii = 0; ii < measuredProperties.size(); ii++ )
     {
@@ -725,6 +733,7 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
                 ( property.rectangle_.get_d() > MOBIDIK_WIDTH - MOBIDIK_MARGIN ||
                   property.rectangle_.get_w() > MOBIDIK_WIDTH - MOBIDIK_MARGIN ) )
         {
+
             for ( ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it )
             {
                 const ed::EntityConstPtr& e = *it;
@@ -752,6 +761,7 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
                                 }
                         }        
                        geo::Vector3 mobidikPoint( property.getRectangle().get_x(), property.getRectangle().get_y(), property.getRectangle().get_z() );
+                       std::cout << "mobidikPoint = " << mobidikPoint.getX() << ", " << mobidikPoint.getY() << ", " << mobidikPoint.getZ() << std::endl;
                        
                     if( isInside( groundPoints, mobidikPoint) )
                     {
@@ -760,8 +770,11 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
                 }   
             }
         }
-        publishFeatures ( property, ii, ObjectMarkers_pub_, possiblyMobidik );
+        
+        visualization_msgs::Marker marker = getMarker ( property, ii, possiblyMobidik ); // TODO make an entity within ED of the object (correct data-association!!) and do a query via a plugin if objects of a certain type are required
+        markerArray.markers.push_back( marker );
     }
+    ObjectMarkers_pub_.publish( markerArray );
 }
 
 // ----------------------------------------------------------------------------------------------------

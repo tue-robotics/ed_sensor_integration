@@ -16,6 +16,7 @@
 #include <queue>
 #include <sensor_msgs/LaserScan.h>
 #include <ed_sensor_integration/doorDetection.h>
+#include <visualization_msgs/MarkerArray.h>
 
 // Properties
 #include "ed/convex_hull.h"
