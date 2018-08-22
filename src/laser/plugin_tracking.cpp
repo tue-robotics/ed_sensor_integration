@@ -52,7 +52,7 @@ visualization_msgs::Marker getMarker ( ed::tracking::FeatureProperties& featureP
         color.a = ( float ) 0.5;
         
         ed::tracking::Rectangle rectangle = featureProp.getRectangle();
-        rectangle.setMarker ( marker , ID, color, "MobiDik" );
+        rectangle.setMarker ( marker , ID, color, "Mobidik" );
     }
     else
     {
@@ -69,7 +69,7 @@ visualization_msgs::Marker getMarker ( ed::tracking::FeatureProperties& featureP
         else
         {
             ed::tracking::Rectangle rectangle = featureProp.getRectangle();
-            rectangle.setMarker ( marker , ID, color );
+            //rectangle.setMarker ( marker , ID, color );
         }
     }
     
@@ -504,14 +504,10 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
-
-	//std::cout << "BLA0 = " << e->hasType("hospital_test/door") << "type = " << e->type() << std::endl;
-
-	std::cout << "Localization plugin: id = " << e->id() << ". shape = " << e->shape() << std::endl;
 	
         if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right" ) || e->hasFlag("non-localizable")))
         {
-	  std::cout << "Shape after = " << e->shape() << std::endl;
+	//  std::cout << "Shape after = " << e->shape() << std::endl;
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
             opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
@@ -526,12 +522,10 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
 
     if (fit_entities_)
     {
-        std::cout << "Fitting!" << std::endl;
 
         for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
             const ed::EntityConstPtr& e = *it;
-            //std::cout << e->type() << std::endl;
 
             if (!e->shape() || !e->has_pose())
                 continue;
@@ -605,7 +599,6 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
 
     if (current_segment.empty())
     {
-        //std::cout << "No residual point cloud!" << std::endl;
         return;
     }
 
@@ -738,7 +731,7 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
             {
                 const ed::EntityConstPtr& e = *it;
 
-                std::string MobiDikWaitingAreaID = "MobiDikWaitingArea";
+                std::string MobiDikWaitingAreaID = "MobidikArea";
 
                 if ( e->id().str().length() < MobiDikWaitingAreaID.length() )
                 {
@@ -761,7 +754,6 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
                                 }
                         }        
                        geo::Vector3 mobidikPoint( property.getRectangle().get_x(), property.getRectangle().get_y(), property.getRectangle().get_z() );
-                       std::cout << "mobidikPoint = " << mobidikPoint.getX() << ", " << mobidikPoint.getY() << ", " << mobidikPoint.getZ() << std::endl;
                        
                     if( isInside( groundPoints, mobidikPoint) )
                     {
@@ -773,6 +765,7 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
         
         visualization_msgs::Marker marker = getMarker ( property, ii, possiblyMobidik ); // TODO make an entity within ED of the object (correct data-association!!) and do a query via a plugin if objects of a certain type are required
         markerArray.markers.push_back( marker );
+        
     }
     ObjectMarkers_pub_.publish( markerArray );
 }
@@ -782,7 +775,6 @@ void LaserPluginTracking::update(const ed::WorldModel& world, const sensor_msgs:
 
 void LaserPluginTracking::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-    //std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
 
     scan_buffer_.push(msg);
 }
