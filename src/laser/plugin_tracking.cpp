@@ -69,7 +69,7 @@ visualization_msgs::Marker getMarker ( ed::tracking::FeatureProperties& featureP
         else
         {
             ed::tracking::Rectangle rectangle = featureProp.getRectangle();
-            //rectangle.setMarker ( marker , ID, color );
+            rectangle.setMarker ( marker , ID, color );
         }
     }
     
