@@ -16,21 +16,27 @@
 #include <queue>
 #include <sensor_msgs/LaserScan.h>
 #include <ed_sensor_integration/doorDetection.h>
+#include <visualization_msgs/MarkerArray.h>
 
 // Properties
 #include "ed/convex_hull.h"
 
+#define MOBIDIK_WIDTH 0.72
+#define MOBIDIK_LENGTH 0.81
+#define MOBIDIK_MARGIN 0.1
+
+#define INF 10000
 
 // ----------------------------------------------------------------------------------------------------
 
-class LaserPlugin : public ed::Plugin
+class LaserPluginTracking : public ed::Plugin
 {
 
 public:
 
-    LaserPlugin();
+    LaserPluginTracking();
 
-    virtual ~LaserPlugin();
+    virtual ~LaserPluginTracking();
 
     void initialize(ed::InitData& init);
 
@@ -68,9 +74,12 @@ private:
     double max_cluster_size_;
     bool fit_entities_;
     bool check_door_status_;
+    float nominal_corridor_width_;
 
     int max_gap_size_;
     std::map<ed::UUID,geo::Pose3D> pose_cache;
+    
+    ros::Publisher ObjectMarkers_pub_; 
 
 };
 
