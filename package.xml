@@ -10,18 +10,18 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>cb_planner_msgs_srvs</build_depend>
   <build_depend>ed</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>kdl_parser</build_depend>
   <build_depend>message_generation</build_depend>
+  <build_depend>tue_filesystem</build_depend>
   <build_depend>visualization_msgs</build_depend>
 
-  <run_depend>cb_planner_msgs_srvs</run_depend> <!-- TODO: get rid of this dep -->
   <run_depend>ed</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>kdl_parser</run_depend>
   <run_depend>message_runtime</run_depend>
+  <run_depend>tue_filesystem</run_depend>
   <run_depend>visualization_msgs</run_depend>
 
 </package>
