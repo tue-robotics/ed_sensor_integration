@@ -84,7 +84,7 @@ add_library(ed_kinect
     include/ed/kinect/renderer.h
 )
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
-add_dependencies(ed_kinect ${PROJECT_NAME}_gencpp ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(ed_kinect ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
 #                                          PLUGINS
@@ -97,13 +97,13 @@ add_library(ed_kinect_plugin
     src/kinect/ray_tracer.h
 )
 target_link_libraries(ed_kinect_plugin ed_kinect ${catkin_LIBRARIES})
-add_dependencies(ed_kinect_plugin ${PROJECT_NAME}_gencpp ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(ed_kinect_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_laser_plugin
-    src/laser/plugin.cpp
-    src/laser/plugin.h
+    src/laser/laser_plugin.cpp
+    src/laser/laser_plugin.h
 )
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 
@@ -121,7 +121,7 @@ target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
-add_dependencies(ed_image_saver ${PROJECT_NAME}_gencpp)
+add_dependencies(ed_image_saver ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)

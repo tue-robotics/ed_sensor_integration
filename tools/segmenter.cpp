@@ -18,6 +18,7 @@
 
 #include <tue/config/read.h>
 #include <tue/config/reader.h>
+#include <tue/config/data_pointer.h>
 
 #include <ed/entity.h>
 
@@ -101,29 +102,13 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
 
             std::stringstream error;
             ed::UUID id = "support";
-            if (model_loader.create(id, type, req, error))
+            if (model_loader.create(id, type, req, error, true))
             {
-                // Check if this model has an 'on_top_of' area defined
-                bool on_top_of_found = false;
-                if (!req.datas.empty())
-                {
-                    tue::config::Reader r(req.datas.begin()->second);
-
-                    if (r.readArray("areas"))
-                    {
-                        while(r.nextArrayItem())
-                        {
-                            std::string a_name;
-                            if (r.value("name", a_name) && a_name == "on_top_of")
-                            {
-                                on_top_of_found = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!on_top_of_found)
+                // Check if this model has an 'on_top_of' volume defined
+                std::map<ed::UUID, std::map<std::string, geo::ShapeConstPtr> >::const_iterator it = req.volumes_added.find(id);
+                if (it == req.volumes_added.end())
+                    continue;
+                if (it->second.find("on_top_of") == it->second.end())
                     continue;
 
                 int x = px * image->getDepthImage().cols;
