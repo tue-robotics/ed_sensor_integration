@@ -1,4 +1,4 @@
-#include "plugin.h"
+#include "laser_plugin.h"
 
 #include <iostream>
 

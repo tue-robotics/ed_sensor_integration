@@ -102,8 +102,8 @@ add_dependencies(ed_kinect_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS})
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_laser_plugin
-    src/laser/plugin.cpp
-    src/laser/plugin.h
+    src/laser/laser_plugin.cpp
+    src/laser/laser_plugin.h
 )
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 
