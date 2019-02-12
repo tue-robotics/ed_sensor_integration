@@ -8,12 +8,8 @@
 
 #include <rgbd/View.h>
 
-#include <tue/config/reader.h>
-
 #include <geolib/Shape.h>
 #include <geolib/shapes.h>
-
-#include <ed/serialization/serialization.h>
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
@@ -322,35 +318,16 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         {
             // Determine segmentation area (the geometrical shape in which the segmentation should take place)
 
-            geo::Shape shape;
-            bool found = false;
-            tue::config::Reader r(e->data());
-
-            if (r.readArray("areas"))
-            {
-                while(r.nextArrayItem())
-                {
-                    std::string a_name;
-                    if (!r.value("name", a_name) || a_name != area_name)
-                        continue;
-
-                    if (ed::deserialize(r, "shape", shape))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                r.endArray();
-            }
-
-            if (!found)
+            std::map<std::string, geo::ShapeConstPtr>::const_iterator it = e->volumes().find(area_name);
+            if (it == e->volumes().end())
             {
                 res.error << "No area '" << area_name << "' for entity '" << entity_id.str() << "'.";
                 return false;
             }
-            else if (shape.getMesh().getTriangleIs().empty())
+            geo::Shape shape = *(it->second);
+            if (shape.getMesh().empty())
             {
+                // Empty shapes shouldn't be stored at all, but check for robustness
                 res.error << "Could not load shape of area '" << area_name << "' for entity '" << entity_id.str() << "'.";
                 return false;
             }
