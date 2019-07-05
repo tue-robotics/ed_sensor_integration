@@ -45,7 +45,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
 
   geo::LaserRangeFinder lrf;
   lrf.setAngleLimits(-1e-3, 1e-3);
-  lrf.setNumBeams(1);
+  lrf.setNumBeams(2); // Because of Matthijs geolib refactor
   lrf.setRangeLimits(0, 10);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
