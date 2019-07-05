@@ -4,8 +4,11 @@
 #include <ed/entity.h>
 
 #include <geolib/Shape.h>
+#include <geolib/Box.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
+
+#include <ros/console.h>
 
 namespace ed_ray_tracer
 {
@@ -58,8 +61,24 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     if (!e->shape() || !e->has_pose())
       continue;
 
+    for (const auto& volume : e->volumes())
+    {
+      std::string name = volume.first;
+      geo::ShapeConstPtr shape = volume.second;
+      if (name == "on_top_of")
+      {
+        ROS_INFO("Raytrace on_top_of array of %s included", e->id().c_str());
+        geo::LaserRangeFinder::RenderOptions opt;
+        opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
+
+        res.active_entity_ = e->id().str();
+        lrf.render(opt, res);
+      }
+    }
+
     geo::LaserRangeFinder::RenderOptions opt;
-    opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose());
+//    opt.setMesh(e->shape()->getBoundingBox().getMesh(), raytrace_pose.inverse() * e->pose()); // Use bbx
+    opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
     res.active_entity_ = e->id().str();
     lrf.render(opt, res);
