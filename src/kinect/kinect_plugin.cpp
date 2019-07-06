@@ -253,6 +253,27 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed
   marker_msg.id = 1;
   ray_trace_visualization_publisher_.publish(marker_msg);
 
+  //
+  for(ed::WorldModel::const_iterator it = world_->begin(); it != world_->end(); ++it)
+  {
+    const ed::EntityConstPtr& e = *it;
+    update_req_->removeFlag(e->id(), "highlighted");
+  }
+  //
+
+  ed::EntityConstPtr hightlighted_e = world_->getEntity(res.entity_id);
+  if (hightlighted_e) {
+    std::vector<std::string> v = {"kitchen_cabinet", "kitchen_table", "island", "sink", "dishwasher", "desk", "coffee_table", "couch", "armchair", "display_cabinet", "sideboard"};
+    ROS_INFO("Hit on %s", res.entity_id.c_str());
+    if(std::find(v.begin(), v.end(), res.entity_id) != v.end())
+    {
+      update_req_->setFlag(res.entity_id, "highlighted");
+      ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
+    } else {
+      // do nothing
+    }
+  }
+
   return true;
 }
 
