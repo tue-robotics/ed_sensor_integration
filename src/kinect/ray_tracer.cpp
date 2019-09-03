@@ -77,7 +77,6 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     }
 
     geo::LaserRangeFinder::RenderOptions opt;
-//    opt.setMesh(e->shape()->getBoundingBox().getMesh(), raytrace_pose.inverse() * e->pose()); // Use bbx
     opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
     lrf.render(opt, res);
