@@ -235,7 +235,7 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed
     marker_msg.scale.x = 0.05;
 
     static int iter = 0;
-    if ( ++iter % 2 == 0)
+    if (++iter % 2 == 0)
     {
         marker_msg.color.b = marker_msg.color.r = 1;
     }
