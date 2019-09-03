@@ -257,7 +257,8 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed
   for(ed::WorldModel::const_iterator it = world_->begin(); it != world_->end(); ++it)
   {
     const ed::EntityConstPtr& e = *it;
-    update_req_->removeFlag(e->id(), "highlighted");
+    if (e->hasFlag("highlighted"))
+        update_req_->removeFlag(e->id(), "highlighted");
   }
   //
 
