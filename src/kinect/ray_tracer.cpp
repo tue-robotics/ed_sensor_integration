@@ -63,6 +63,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
 
     for (const auto& volume : e->volumes())
     {
+      res.active_entity_ = e->id().str();
       std::string name = volume.first;
       geo::ShapeConstPtr shape = volume.second;
       if (name == "on_top_of")
@@ -71,7 +72,6 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         geo::LaserRangeFinder::RenderOptions opt;
         opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
 
-        res.active_entity_ = e->id().str();
         lrf.render(opt, res);
       }
     }
@@ -80,7 +80,6 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
 //    opt.setMesh(e->shape()->getBoundingBox().getMesh(), raytrace_pose.inverse() * e->pose()); // Use bbx
     opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
-    res.active_entity_ = e->id().str();
     lrf.render(opt, res);
   }
 
