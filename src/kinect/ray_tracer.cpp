@@ -58,7 +58,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         const ed::EntityConstPtr& e = *it;
 
         if (!e->shape() || !e->has_pose())
-        continue;
+            continue;
 
         for (const auto& volume : e->volumes())
         {
