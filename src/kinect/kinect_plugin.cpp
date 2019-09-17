@@ -266,18 +266,9 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed
     ed::EntityConstPtr hightlighted_e = world_->getEntity(res.entity_id);
     if (hightlighted_e)
     {
-        // ToDo: RoboCup hack
-        std::vector<std::string> v = {"kitchen_cabinet", "kitchen_table", "island", "sink", "dishwasher", "desk", "coffee_table", "couch", "armchair", "display_cabinet", "sideboard"};
         ROS_INFO("Hit on %s", res.entity_id.c_str());
-        if(std::find(v.begin(), v.end(), res.entity_id) != v.end())
-        {
-            update_req_->setFlag(res.entity_id, "highlighted");
-            ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
-        }
-        else
-        {
-            // do nothing
-        }
+        update_req_->setFlag(res.entity_id, "highlighted");
+        ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
     }
 
     return true;
