@@ -4,7 +4,6 @@
 #include <ed/entity.h>
 
 #include <geolib/Shape.h>
-#include <geolib/Box.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
 
