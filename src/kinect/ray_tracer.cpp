@@ -7,6 +7,8 @@
 
 #include <geolib/sensors/LaserRangeFinder.h>
 
+#include <ros/console.h>
+
 namespace ed_ray_tracer
 {
 
@@ -17,62 +19,75 @@ class PointRenderResult : public geo::LaserRangeFinder::RenderResult
 
 public:
 
-  PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_) {}
+    PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_) {}
 
-  void renderPoint(int index, float depth)
-  {
-    float old_depth = depth_;
-    if (old_depth == 0 || depth < old_depth)
+    void renderPoint(int index, float depth)
     {
-      depth_ = depth;
-      entity_ = active_entity_;
+        float old_depth = depth_;
+        if (old_depth == 0 || depth < old_depth)
+        {
+            depth_ = depth;
+            entity_ = active_entity_;
+        }
     }
-  }
 
-  std::vector<double> dummy_ranges_;
+    std::vector<double> dummy_ranges_;
 
-  std::string active_entity_;
+    std::string active_entity_;
 
-  double depth_;
-  std::string entity_;
-
+    double depth_;
+    std::string entity_;
 
 };
 
 RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrace_pose)
 {
-  PointRenderResult res;
+    PointRenderResult res;
 
-  geo::LaserRangeFinder lrf;
-  lrf.setAngleLimits(-1e-3, 1e-3);
-  lrf.setNumBeams(1);
-  lrf.setRangeLimits(0, 10);
+    geo::LaserRangeFinder lrf;
+    lrf.setAngleLimits(-1e-3, 1e-3);
+    lrf.setNumBeams(1);
+    lrf.setRangeLimits(0, 10);
 
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  // Raytrace for each entity in the wm
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Raytrace for each entity in the wm
 
-  for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-  {
-    const ed::EntityConstPtr& e = *it;
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
 
-    if (!e->shape() || !e->has_pose())
-      continue;
+        if (!e->shape() || !e->has_pose())
+            continue;
 
-    geo::LaserRangeFinder::RenderOptions opt;
-    opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose());
+        for (const auto& volume : e->volumes())
+        {
+            res.active_entity_ = e->id().str();
+            std::string name = volume.first;
+            geo::ShapeConstPtr shape = volume.second;
+            if (name == "on_top_of")
+            {
+                ROS_INFO("Raytrace on_top_of array of %s included", e->id().c_str());
+                geo::LaserRangeFinder::RenderOptions opt;
+                opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
 
-    res.active_entity_ = e->id().str();
-    lrf.render(opt, res);
-  }
+                lrf.render(opt, res);
+            }
+        }
 
-  geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
+        geo::LaserRangeFinder::RenderOptions opt;
+        opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
-  RayTraceResult result;
-  result.entity_id_ = res.entity_;
-  result.intersection_point_ = raytrace_pose * point_sensor_frame;
-  result.succes_ = true;
+        lrf.render(opt, res);
+    }
 
-  return result;
+    geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
+
+    RayTraceResult result;
+    result.entity_id_ = res.entity_;
+    result.intersection_point_ = raytrace_pose * point_sensor_frame;
+    result.succes_ = true;
+
+    return result;
 }
 
 }

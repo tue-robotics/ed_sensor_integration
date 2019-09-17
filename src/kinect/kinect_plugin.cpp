@@ -204,56 +204,74 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
 
 bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res)
 {
-  if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
-  {
-    ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in /map frame");
-    return false;
-  }
+    if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
+    {
+        ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in /map frame");
+        return false;
+    }
 
-  geo::Pose3D ray_trace_pose;
-  geo::convert(req.raytrace_pose.pose, ray_trace_pose);
+    geo::Pose3D ray_trace_pose;
+    geo::convert(req.raytrace_pose.pose, ray_trace_pose);
 
-  ed_ray_tracer::RayTraceResult ray_trace_result = ed_ray_tracer::ray_trace(*world_, ray_trace_pose);
+    ed_ray_tracer::RayTraceResult ray_trace_result = ed_ray_tracer::ray_trace(*world_, ray_trace_pose);
 
-  if (!ray_trace_result.succes_)
-  {
-    ROS_ERROR("ed_ray_tracer::RayTrace failed!");
-    return false;
-  }
+    if (!ray_trace_result.succes_)
+    {
+        ROS_ERROR("ed_ray_tracer::RayTrace failed!");
+        return false;
+    }
 
-  res.entity_id = ray_trace_result.entity_id_;
-  geo::convert(ray_trace_result.intersection_point_, res.intersection_point.point);
-  res.intersection_point.header.stamp = ros::Time::now();
-  res.intersection_point.header.frame_id = "map";
+    res.entity_id = ray_trace_result.entity_id_;
+    geo::convert(ray_trace_result.intersection_point_, res.intersection_point.point);
+    res.intersection_point.header.stamp = ros::Time::now();
+    res.intersection_point.header.frame_id = "map";
 
-  visualization_msgs::Marker marker_msg;
-  marker_msg.header.frame_id = "map";
-  marker_msg.header.stamp = ros::Time::now();
-  marker_msg.action = visualization_msgs::Marker::ADD;
-  marker_msg.color.a = 0.5;
-  marker_msg.lifetime = ros::Duration(10.0);
-  marker_msg.scale.x = 0.05;
+    visualization_msgs::Marker marker_msg;
+    marker_msg.header.frame_id = "map";
+    marker_msg.header.stamp = ros::Time::now();
+    marker_msg.action = visualization_msgs::Marker::ADD;
+    marker_msg.color.a = 0.5;
+    marker_msg.lifetime = ros::Duration(10.0);
+    marker_msg.scale.x = 0.05;
 
-  static int iter = 0;
-  if ( ++iter % 2 == 0)
-  {
-    marker_msg.color.b = marker_msg.color.r = 1;
-  }
-  else
-  {
-    marker_msg.color.b = marker_msg.color.g = 1;
-  }
-  marker_msg.type = visualization_msgs::Marker::LINE_STRIP;
+    static int iter = 0;
+    if (++iter % 2 == 0)
+    {
+        marker_msg.color.b = marker_msg.color.r = 1;
+    }
+    else
+    {
+        marker_msg.color.b = marker_msg.color.g = 1;
+    }
 
-  marker_msg.points.push_back(req.raytrace_pose.pose.position);
-  marker_msg.points.push_back(res.intersection_point.point);
-  ray_trace_visualization_publisher_.publish(marker_msg);
-  marker_msg.color.a = marker_msg.color.r = marker_msg.color.g = marker_msg.color.b = 1;
-  marker_msg.scale.x = 0.02;
-  marker_msg.id = 1;
-  ray_trace_visualization_publisher_.publish(marker_msg);
+    marker_msg.type = visualization_msgs::Marker::LINE_STRIP;
 
-  return true;
+    marker_msg.points.push_back(req.raytrace_pose.pose.position);
+    marker_msg.points.push_back(res.intersection_point.point);
+    ray_trace_visualization_publisher_.publish(marker_msg);
+    marker_msg.color.a = marker_msg.color.r = marker_msg.color.g = marker_msg.color.b = 1;
+    marker_msg.scale.x = 0.02;
+    marker_msg.id = 1;
+    ray_trace_visualization_publisher_.publish(marker_msg);
+
+    //
+    for(ed::WorldModel::const_iterator it = world_->begin(); it != world_->end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+        if (e->hasFlag("highlighted"))
+            update_req_->removeFlag(e->id(), "highlighted");
+    }
+
+    //
+    ed::EntityConstPtr hightlighted_e = world_->getEntity(res.entity_id);
+    if (hightlighted_e)
+    {
+        ROS_INFO("Hit on %s", res.entity_id.c_str());
+        update_req_->setFlag(res.entity_id, "highlighted");
+        ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
+    }
+
+    return true;
 }
 
 // ----------------------------------------------------------------------------------------------------
