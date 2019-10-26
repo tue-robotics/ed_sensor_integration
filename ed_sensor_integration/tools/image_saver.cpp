@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 
 // Services
-#include <ed_sensor_integration/GetImage.h>
+#include <ed_sensor_integration_msgs/GetImage.h>
 
 // Write to file
 #include <fstream>
@@ -57,14 +57,14 @@ int main(int argc, char **argv)
 
     ros::init(argc, argv, "ed_image_saver");
     ros::NodeHandle nh;
-    ros::ServiceClient cl_get_image = nh.serviceClient<ed_sensor_integration::GetImage>("ed/kinect/get_image");
+    ros::ServiceClient cl_get_image = nh.serviceClient<ed_sensor_integration_msgs::GetImage>("ed/kinect/get_image");
 
     double fps = 1;
 
     ros::Time t_last_saved(0);
 
     rgbd::Image image;
-    ed_sensor_integration::GetImage srv;
+    ed_sensor_integration_msgs::GetImage srv;
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Start loop

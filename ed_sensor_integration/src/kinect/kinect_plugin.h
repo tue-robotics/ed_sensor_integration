@@ -9,9 +9,9 @@
 
 // Services
 #include <ros/service_server.h>
-#include <ed_sensor_integration/GetImage.h>
-#include <ed_sensor_integration/Update.h>
-#include <ed_sensor_integration/RayTrace.h>
+#include <ed_sensor_integration_msgs/GetImage.h>
+#include <ed_sensor_integration_msgs/Update.h>
+#include <ed_sensor_integration_msgs/RayTrace.h>
 
 // Visualization
 #include <ros/publisher.h>
@@ -59,16 +59,16 @@ private:
 
     ros::ServiceServer srv_get_image_;
 
-    bool srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res);
+    bool srvGetImage(ed_sensor_integration_msgs::GetImage::Request& req, ed_sensor_integration_msgs::GetImage::Response& res);
 
 
     ros::ServiceServer srv_update_;
 
-    bool srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res);
+    bool srvUpdate(ed_sensor_integration_msgs::Update::Request& req, ed_sensor_integration_msgs::Update::Response& res);
 
     ros::ServiceServer srv_ray_trace_;
 
-    bool srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res);
+    bool srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& req, ed_sensor_integration_msgs::RayTrace::Response& res);
 
     ros::Publisher ray_trace_visualization_publisher_;
 

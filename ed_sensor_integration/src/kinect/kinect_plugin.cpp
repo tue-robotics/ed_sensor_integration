@@ -94,7 +94,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 // ----------------------------------------------------------------------------------------------------
 
-bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed_sensor_integration::GetImage::Response& res)
+bool KinectPlugin::srvGetImage(ed_sensor_integration_msgs::GetImage::Request& req, ed_sensor_integration_msgs::GetImage::Response& res)
 {
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
@@ -147,7 +147,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration::GetImage::Request& req, ed
 
 // ----------------------------------------------------------------------------------------------------
 
-bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sensor_integration::Update::Response& res)
+bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, ed_sensor_integration_msgs::Update::Response& res)
 {    
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
@@ -202,7 +202,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration::Update::Request& req, ed_sen
 
 // ----------------------------------------------------------------------------------------------------
 
-bool KinectPlugin::srvRayTrace(ed_sensor_integration::RayTrace::Request& req, ed_sensor_integration::RayTrace::Response& res)
+bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& req, ed_sensor_integration_msgs::RayTrace::Response& res)
 {
     if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
     {

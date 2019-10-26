@@ -20,7 +20,7 @@
 #include "ed/kinect/mesh_tools.h"
 
 // Communication
-#include "ed_sensor_integration/ImageBinary.h"
+#include <ed_sensor_integration_msgs/ImageBinary.h>
 
 // ----------------------------------------------------------------------------------------------------
 
