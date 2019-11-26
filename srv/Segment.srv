@@ -1,6 +1,0 @@
-bool enable_continuous_mode     # Set to true to enable continuous mode
-bool disable_continuous_mode    # Set to true to disable continuous mode
-
-float32 max_sensor_range
----
-string[] entity_ids    # List of ids of entities that were segmented

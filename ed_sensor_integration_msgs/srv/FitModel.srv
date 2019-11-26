@@ -1,0 +1,16 @@
+# Set to true if you simple want to undo the latest fit
+# (other fields do not need to be set)
+bool undo_latest_fit
+
+# Name of the model to be fitted
+string model_name
+
+# ID of image in which model should be fitted
+string image_id
+
+# Position on image where user clicked
+float32 click_x_ratio
+float32 click_y_ratio
+---
+# Empty if no error
+string error_msg

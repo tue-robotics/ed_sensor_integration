@@ -1,0 +1,3 @@
+bool reset_pois
+---
+geometry_msgs/PointStamped[] pois

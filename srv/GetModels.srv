@@ -1,3 +1,0 @@
----
-ed_sensor_integration/ImageBinary[] model_images     # images for visualization
-string[]                            model_names      # names of the models

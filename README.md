@@ -1,4 +1,4 @@
-ED Sensor integration [![Build Status](https://travis-ci.org/tue-robotics/ed_sensor_integration.svg?branch=master)](https://travis-ci.org/tue-robotics/ed_sensor_integration)
+ED Sensor integration [![Build Status](https://travis-ci.com/tue-robotics/ed_sensor_integration.svg?branch=master)](https://travis-ci.com/tue-robotics/ed_sensor_integration)
 ======
 
 Plugins for integrating sensor data into ED, e.g. Lidar, RGBD

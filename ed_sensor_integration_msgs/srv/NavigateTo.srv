@@ -1,0 +1,12 @@
+string snapshot_id
+
+uint8 NAVIGATE_TO_PIXEL = 1
+uint8 TURN_LEFT			= 2
+uint8 TURN_RIGHT		= 3
+
+uint8 navigation_type
+
+float32 click_x_ratio
+float32 click_y_ratio
+---
+string error_msg

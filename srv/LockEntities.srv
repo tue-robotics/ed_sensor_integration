@@ -1,4 +1,0 @@
-string[] lock_ids
-string[] unlock_ids
----
-string error_msg

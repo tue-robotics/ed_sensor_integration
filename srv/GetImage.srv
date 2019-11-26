@@ -1,5 +1,0 @@
-string filename  # Used to create a file link in the meta-data
----
-string error_msg  # empty if no error
-string json_meta_data
-uint8[] rgbd_data
