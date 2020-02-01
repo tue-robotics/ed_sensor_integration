@@ -19,12 +19,12 @@ class PointRenderResult : public geo::LaserRangeFinder::RenderResult
 
 public:
 
-    PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_) {}
+    PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_), depth_(0.0), entity_("") {}
 
     void renderPoint(int index, float depth)
     {
         float old_depth = depth_;
-        if (old_depth == 0 || depth < old_depth)
+        if (old_depth == 0.0 || depth < old_depth)
         {
             depth_ = depth;
             entity_ = active_entity_;
@@ -83,9 +83,18 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
 
     RayTraceResult result;
-    result.entity_id_ = res.entity_;
-    result.intersection_point_ = raytrace_pose * point_sensor_frame;
-    result.succes_ = true;
+
+    if (res.entity_.empty())
+    {
+        ROS_WARN("Did not raytrace through any entity");
+        result.succes_ = false;
+    }
+    else
+    {
+        result.entity_id_ = res.entity_;
+        result.intersection_point_ = raytrace_pose * point_sensor_frame;
+        result.succes_ = true;
+    }
 
     return result;
 }
