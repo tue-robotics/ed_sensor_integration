@@ -98,7 +98,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     {
         result.entity_id_ = res.entity_;
         result.intersection_point_ = raytrace_pose * point_sensor_frame;
-        result.succes_ = true;
+        result.success_ = true;
     }
 
     return result;
