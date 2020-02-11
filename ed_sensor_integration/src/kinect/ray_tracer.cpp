@@ -92,7 +92,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
 
     if (res.entity_.empty())
     {
-        ROS_WARN("Did not raytrace through any entity");
+        ROS_DEBUG("Did not raytrace through any entity");
     }
     else
     {
