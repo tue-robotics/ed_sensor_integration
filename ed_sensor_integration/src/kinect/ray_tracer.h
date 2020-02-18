@@ -12,12 +12,12 @@ namespace ed_ray_tracer
 
 struct RayTraceResult {
   RayTraceResult() :
-    succes_(false)
+    success_(false)
   {
 
   }
 
-  bool succes_;
+  bool success_;
   std::string entity_id_;
   geo::Vector3 intersection_point_;
 };

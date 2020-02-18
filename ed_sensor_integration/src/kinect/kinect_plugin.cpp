@@ -215,7 +215,7 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
 
     ed_ray_tracer::RayTraceResult ray_trace_result = ed_ray_tracer::ray_trace(*world_, ray_trace_pose);
 
-    if (!ray_trace_result.succes_)
+    if (!ray_trace_result.success_)
     {
         ROS_ERROR("ed_ray_tracer::RayTrace failed!");
         return false;
@@ -263,8 +263,8 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
     }
 
     //
-    ed::EntityConstPtr hightlighted_e = world_->getEntity(res.entity_id);
-    if (hightlighted_e)
+    ed::EntityConstPtr highlighted_e = world_->getEntity(res.entity_id);
+    if (highlighted_e)
     {
         ROS_INFO("Hit on %s", res.entity_id.c_str());
         update_req_->setFlag(res.entity_id, "highlighted");

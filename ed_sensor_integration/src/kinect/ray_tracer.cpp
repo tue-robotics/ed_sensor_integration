@@ -19,15 +19,20 @@ class PointRenderResult : public geo::LaserRangeFinder::RenderResult
 
 public:
 
-    PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_) {}
+    PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_), depth_(0.0), entity_("") {}
 
     void renderPoint(int index, float depth)
     {
         float old_depth = depth_;
-        if (old_depth == 0 || depth < old_depth)
+        if (old_depth == 0.0 || depth < old_depth)
         {
+            ROS_DEBUG_STREAM("Using " << active_entity_ << " as active entity, depth from " << old_depth << " to " << depth);
             depth_ = depth;
             entity_ = active_entity_;
+        }
+        else
+        {
+            ROS_DEBUG_STREAM("Not using entity " << active_entity_);
         }
     }
 
@@ -59,14 +64,14 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         if (!e->shape() || !e->has_pose())
             continue;
 
+        res.active_entity_ = e->id().str();
         for (const auto& volume : e->volumes())
         {
-            res.active_entity_ = e->id().str();
             std::string name = volume.first;
             geo::ShapeConstPtr shape = volume.second;
             if (name == "on_top_of")
             {
-                ROS_INFO("Raytrace on_top_of array of %s included", e->id().c_str());
+                ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());
                 geo::LaserRangeFinder::RenderOptions opt;
                 opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
 
@@ -74,6 +79,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             }
         }
 
+        ROS_DEBUG_STREAM("Raytracing to " << e->id() << " mesh");
         geo::LaserRangeFinder::RenderOptions opt;
         opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
@@ -83,9 +89,17 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
 
     RayTraceResult result;
-    result.entity_id_ = res.entity_;
-    result.intersection_point_ = raytrace_pose * point_sensor_frame;
-    result.succes_ = true;
+
+    if (res.entity_.empty())
+    {
+        ROS_DEBUG("Did not raytrace through any entity");
+    }
+    else
+    {
+        result.entity_id_ = res.entity_;
+        result.intersection_point_ = raytrace_pose * point_sensor_frame;
+        result.success_ = true;
+    }
 
     return result;
 }
