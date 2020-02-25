@@ -130,7 +130,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     std::vector<int> expected_identifiers(sensor_ranges.size(), 0);
     renderEntity(e, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
 
-    if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+    if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         return false;
 
     // -------------------------------------
