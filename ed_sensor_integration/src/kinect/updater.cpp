@@ -6,7 +6,7 @@
 
 #include <ed/helpers/depth_data_processing.h>
 
-#include <rgbd/View.h>
+#include <rgbd/view.h>
 
 #include <geolib/Shape.h>
 #include <geolib/shapes.h>

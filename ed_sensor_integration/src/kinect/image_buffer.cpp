@@ -1,7 +1,7 @@
 #include "ed/kinect/image_buffer.h"
 
-#include <rgbd/Client.h>
-#include <rgbd/Image.h>
+#include <rgbd/client.h>
+#include <rgbd/image.h>
 #include <tf/transform_listener.h>
 #include <geolib/ros/tf_conversions.h>
 

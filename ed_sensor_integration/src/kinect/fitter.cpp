@@ -7,11 +7,11 @@
 #include <geolib/Shape.h>
 
 // Image capture
-#include <rgbd/Image.h>
+#include <rgbd/image.h>
 #include <geolib/ros/tf_conversions.h>
 
 //
-#include <rgbd/View.h>
+#include <rgbd/view.h>
 
 // Visualization
 #include <opencv2/highgui/highgui.hpp>
