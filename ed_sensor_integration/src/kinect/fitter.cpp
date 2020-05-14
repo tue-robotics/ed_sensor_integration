@@ -9,8 +9,6 @@
 // Image capture
 #include <rgbd/image.h>
 #include <geolib/ros/tf_conversions.h>
-
-//
 #include <rgbd/view.h>
 
 // Visualization
