@@ -1,7 +1,7 @@
 #include "ed/kinect/renderer.h"
 
 #include <ed/entity.h>
-#include <rgbd/View.h>
+#include <rgbd/view.h>
 
 #include <geolib/Shape.h>
 

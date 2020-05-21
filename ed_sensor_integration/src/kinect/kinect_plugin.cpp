@@ -1,6 +1,6 @@
 #include "kinect_plugin.h"
 
-#include <rgbd/Image.h>
+#include <rgbd/image.h>
 
 #include <ros/node_handle.h>
 
@@ -11,7 +11,7 @@
 
 #include <tue/config/reader.h>
 
-#include <rgbd/View.h>
+#include <rgbd/view.h>
 
 #include "ed/kinect/association.h"
 

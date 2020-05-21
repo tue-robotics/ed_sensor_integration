@@ -8,8 +8,8 @@
 #include <ed/update_request.h>
 #include <ed/measurement.h>
 
-#include <rgbd/Image.h>
-#include <rgbd/View.h>
+#include <rgbd/image.h>
+#include <rgbd/view.h>
 
 #include <ros/console.h>
 
