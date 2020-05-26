@@ -13,6 +13,9 @@
 // Model loading
 #include <ed/models/model_loader.h>
 
+#include <map>
+#include <vector>
+
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 // ----------------------------------------------------------------------------------------------------

@@ -3,6 +3,8 @@
 
 #include <geolib/datatypes.h>
 
+#include <vector>
+
 namespace geo
 {
 class Mesh;

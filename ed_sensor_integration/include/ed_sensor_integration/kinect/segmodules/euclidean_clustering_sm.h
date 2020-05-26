@@ -3,6 +3,8 @@
 
 #include "ed_sensor_integration/kinect/segmodules/rgbd_seg_module.h"
 
+#include <vector>
+
 namespace edKinect
 {
 

@@ -9,6 +9,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <vector>
+
 // ----------------------------------------------------------------------------------------------------
 
 bool fullColumnHasColor(const cv::Mat& img, int x, const cv::Vec3b& clr)
