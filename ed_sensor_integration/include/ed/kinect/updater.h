@@ -5,6 +5,9 @@
 #include "ed/kinect/segmenter.h"
 #include "ed/kinect/entity_update.h"
 
+#include <map>
+#include <vector>
+
 // ----------------------------------------------------------------------------------------------------
 
 struct UpdateRequest

@@ -4,6 +4,8 @@
 #include <ed/world_model.h>
 #include <ed/update_request.h>
 
+#include <vector>
+
 // ----------------------------------------------------------------------------------------------------
 
 ClearerPlugin::ClearerPlugin()

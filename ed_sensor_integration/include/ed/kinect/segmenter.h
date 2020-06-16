@@ -10,6 +10,8 @@
 #include <ed/convex_hull.h>
 #include <ed/types.h>
 
+#include <vector>
+
 namespace cv
 {
     class Mat;

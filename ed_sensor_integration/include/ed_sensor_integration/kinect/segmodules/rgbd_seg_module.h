@@ -10,6 +10,8 @@
 
 #include <visualization_msgs/Marker.h>
 
+#include <vector>
+
 namespace edKinect
 {
 

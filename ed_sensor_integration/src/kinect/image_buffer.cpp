@@ -7,7 +7,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-ImageBuffer::ImageBuffer() : kinect_client_(0), tf_listener_(0)
+ImageBuffer::ImageBuffer() : kinect_client_(nullptr), tf_listener_(nullptr)
 {
 }
 
@@ -15,8 +15,10 @@ ImageBuffer::ImageBuffer() : kinect_client_(0), tf_listener_(0)
 
 ImageBuffer::~ImageBuffer()
 {
-    delete kinect_client_;
-    delete tf_listener_;
+    if (kinect_client_)
+        delete kinect_client_;
+    if (tf_listener_)
+        delete tf_listener_;
 }
 
 // ----------------------------------------------------------------------------------------------------
