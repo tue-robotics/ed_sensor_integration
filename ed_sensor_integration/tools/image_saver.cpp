@@ -112,6 +112,11 @@ int main(int argc, char **argv)
 
         cv::putText(img, s_fps.str(), cv::Point(img.cols - 60, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
 
+        if (img.cols == 0 || img.rows == 0)
+        {
+//            std::cout << "Image size 0, 0, skipping" << std::endl;
+            continue;
+        }
         cv::imshow("Image Saver", img);
         unsigned char key = cv::waitKey(30);
 
