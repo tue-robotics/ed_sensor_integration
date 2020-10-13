@@ -108,6 +108,7 @@ target_link_libraries(ed_segmenter ed_kinect)
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
 catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
+target_link_libraries(test_furniture_fitting ${catkin_LIBRARIES})
 
 
 
