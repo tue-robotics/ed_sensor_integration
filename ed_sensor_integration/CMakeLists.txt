@@ -103,3 +103,11 @@ add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
+
+# ------------------------------------------------------------------------------------------------
+#                                           TESTS
+# ------------------------------------------------------------------------------------------------
+catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
+
+
+
