@@ -2,16 +2,52 @@
 #include <iostream>
 
 // ROS
+#include <image_geometry/pinhole_camera_model.h>
 #include <ros/package.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/distortion_models.h>
 
 // TU/e Robotics
 #include <ed/entity.h>
 #include <ed/world_model.h>
 #include <ed/models/model_loader.h>
 #include <ed/update_request.h>
+#include <ed/uuid.h>
 #include <ed/relations/transform_cache.h>
+#include <geolib/Shape.h> // Do we need this?
+#include <geolib/sensors/DepthCamera.h>
 #include "tue/config/reader_writer.h"
 #include "tue/config/loaders/sdf.h"
+
+// ED sensor integration
+#include <ed/kinect/fitter.h>
+
+/**
+ * @brief setupRasterizer sets up the rasterizer
+ * N.B.: shouldn't we move this somewhere else? It's being used more often
+ * @param rasterizer
+ */
+void setupRasterizer(geo::DepthCamera& rasterizer)
+{
+    // Set cam model
+    image_geometry::PinholeCameraModel cam_model;
+    sensor_msgs::CameraInfo cam_info;
+    cam_info.K = sensor_msgs::CameraInfo::_K_type({554.2559327880068, 0.0, 320.5,
+                  0.0, 554.2559327880068, 240.5,
+                  0.0, 0.0, 1.0});
+    cam_info.P = sensor_msgs::CameraInfo::_P_type({554.2559327880068, 0.0, 320.5, 0.0,
+                               0.0, 554.2559327880068, 240.5, 0.0,
+                               0.0, 0.0, 1.0, 0.0});
+    cam_info.distortion_model = sensor_msgs::distortion_models::PLUMB_BOB;
+    cam_info.width = 640;
+    cam_info.height = 480;
+    cam_model.fromCameraInfo(cam_info);
+
+    rasterizer.setFocalLengths(cam_model.fx(), cam_model.fy());
+    rasterizer.setOpticalCenter(cam_model.cx(), cam_model.cy());
+    rasterizer.setOpticalTranslation(cam_model.Tx(), cam_model.Ty());
+
+}
 
 
 /**
@@ -20,34 +56,36 @@
  * @param wm
  */
 // ToDo: generalize
-void renderImage(const ed::WorldModel& wm, cv::Mat& depth_image)
+void renderImage(const geo::DepthCamera& rasterizer, const ed::WorldModel& wm, cv::Mat& depth_image)
 {
     depth_image.setTo(0.0f);
 
     // Iterate over all entities
-//    for (auto it = wm.begin(); it != wm.end(); ++it)
-//    for (ed::WorldModel::const_iterator it = wm.begin(); it != wm.end(); ++it)
-//    {
-//        std::cout << "Entity ID: " << it. << std::endl;
-//    }
-//    std::vector<ed::EntityConstPtr> entities = wm.entities();
-//    for (auto it = entities.begin(); it != entities.end(); ++it)
-//    {
-//        std::cout << "Entity ID: " << it->get() << std::endl;
-////        std::cout << "Entity ID: " << it->get().id() << std::endl;
-//    }
-//    for (const auto& entityptr: entities)
-//    {
-//        std::cout << "Entity ID: " << entityptr << std::endl;
-////        std::cout << "Entity ID: " << it->get().id() << std::endl;
-//    }
+    std::cout << "Iterate over all entities" << std::endl;
+
     for(ed::WorldModel::const_iterator it = wm.begin(); it != wm.end(); ++it)
     {
+        std::cout << "Next entity... " << std::endl;
         const ed::EntityConstPtr& e = *it;
         std::cout << "Entity ID: " << e->id() << std::endl;
-//	    if (!req.id.empty() && e->id() != ed::UUID(req.id))
-//		continue;
+        
+        std::cout << "Getting shaperevision" << std::endl;
+        int shaperevision = e->shapeRevision();
+        std::cout << "ShapeRevision: " << shaperevision << std::endl;
+        if (shaperevision == 0)
+            continue;
+
+        std::cout << "Getting shape" << std::endl;
+        geo::ShapeConstPtr shape = e->shape();
+
+        std::cout << "Entity done" << std::endl;
+
+        // Render ...
+        geo::Transform t(-1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        rasterizer.rasterize(*shape, t, depth_image);
+
     }
+    std::cout << "Iteration done" << std::endl;
 
 
 //    const std::map<std::string, Object*>& objects = world.getObjects();
@@ -95,21 +133,76 @@ void createWorldModel(ed::WorldModel& wm)
     config.readGroup("sdf");
 
     std::stringstream errors;
-    loader.create(config.data(), request, errors);
+    bool load_result = loader.create(config.data(), request, errors);
+    ASSERT_TRUE(load_result);
 
     wm.update(request);
 
 }
 
 
+void moveFurnitureObject(const ed::UUID& id, ed::WorldModel& wm, float x, float y, float z, float roll, float pitch, float yaw)
+{
+    ed::UpdateRequest request;
+    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
+    t1->insert(0, geo::Pose3D(x, y, z, roll, pitch, yaw));
+    request.setRelation("map", "table", t1);
+    wm.update(request);
+
+}
+
+
+/**
+ * @brief fitSupportingEntity fits a supporting entity
+ * @param image depth image
+ * @param sensor_pose pose of the camera when the image was taken
+ * @param wm current world model
+ * @param entity_id id of the entity that will be fitted
+ * @param max_yaw_change max angle change
+ * @param fitter
+ * @param new_pose
+ * @return success
+ */
+bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pose,
+                         const ed::WorldModel& wm, const ed::UUID& entity_id, const double max_yaw_change,
+                         Fitter& fitter, geo::Pose3D& new_pose)
+{
+    // ToDo: create a function for this in the library
+    // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
+    FitterData fitterdata;
+    fitter.processSensorData(*image, sensor_pose, fitterdata);
+
+    ed::EntityConstPtr e = wm.getEntity(entity_id);
+    // ToDo: what do we want to do if we cannot find the entity?
+    if (!e)
+        throw std::runtime_error("Entity not found in WM");
+    return fitter.estimateEntityPose(fitterdata, wm, entity_id, e->pose(), new_pose, max_yaw_change);
+}
+
+
 TEST(TestSuite, testCase)
 {
+    // Setup world model
     std::cout << "Starting testsuite" << std::endl;
     ed::WorldModel wm;
     createWorldModel(wm);
 
+    // Create rasterizer that is used for rendering of depth images
+    geo::DepthCamera rasterizer;
+    setupRasterizer(rasterizer);
+
+    // Render image
     cv::Mat depth_image;
-    renderImage(wm, depth_image);
+    renderImage(rasterizer, wm, depth_image);
+
+    // Move the table
+    moveFurnitureObject("table", wm, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+    // Render another image
+    cv::Mat depth_image2;
+    renderImage(rasterizer, wm, depth_image2);
+
+    // Start fitting
 
     std::cout << "Tests done" << std::endl;
 }
