@@ -10,7 +10,6 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/update_request.h>
-//#include <ed/helpers/depth_data_processing.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 
