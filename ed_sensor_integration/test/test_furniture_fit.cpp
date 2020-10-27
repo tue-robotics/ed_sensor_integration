@@ -14,13 +14,14 @@
 #include <ed/update_request.h>
 #include <ed/uuid.h>
 #include <ed/relations/transform_cache.h>
-#include <geolib/Shape.h> // Do we need this?
+#include <geolib/Shape.h>
 #include <geolib/sensors/DepthCamera.h>
 #include "tue/config/reader_writer.h"
 #include "tue/config/loaders/sdf.h"
 
 // ED sensor integration
 #include <ed/kinect/fitter.h>
+
 
 /**
  * @brief setupRasterizer sets up the rasterizer
@@ -65,24 +66,31 @@ void renderImage(const geo::DepthCamera& rasterizer, const ed::WorldModel& wm, c
 
     for(ed::WorldModel::const_iterator it = wm.begin(); it != wm.end(); ++it)
     {
-        std::cout << "Next entity... " << std::endl;
+        std::cout << "\nNext entity... " << std::endl;
         const ed::EntityConstPtr& e = *it;
         std::cout << "Entity ID: " << e->id() << std::endl;
         
-        std::cout << "Getting shaperevision" << std::endl;
-        int shaperevision = e->shapeRevision();
-        std::cout << "ShapeRevision: " << shaperevision << std::endl;
-        if (shaperevision == 0)
-            continue;
+//        std::cout << "Getting shaperevision" << std::endl;
+//        int shaperevision = e->shapeRevision();
+//        std::cout << "ShapeRevision: " << shaperevision << std::endl;
+//        if (shaperevision == 0)
+//        {
+//            std::cout << "Entity " << e->id() << " does not have a shape, skipping..." << std::endl;
+//            continue;
+//        }
 
         std::cout << "Getting shape" << std::endl;
-        geo::ShapeConstPtr shape = e->shape();
+        geo::ShapeConstPtr shape_ptr = e->shape();
+        if (shape_ptr)
+            std::cout << "Entity " << e->id() << " has a shape of type " << shape_ptr->TYPE << std::endl;
+        else
+            std::cout << "Entity " << e->id() << " does not have a shape" << std::endl;
 
         std::cout << "Entity done" << std::endl;
 
         // Render ...
-        geo::Transform t(-1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        rasterizer.rasterize(*shape, t, depth_image);
+//        geo::Transform t(-1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+//        rasterizer.rasterize(*shape, t, depth_image);
 
     }
     std::cout << "Iteration done" << std::endl;
@@ -114,23 +122,24 @@ void renderImage(const geo::DepthCamera& rasterizer, const ed::WorldModel& wm, c
 }
 
 
+// ToDo: this has a lot of overlap with code in ed/tools/view_model.cpp. Generalize this
 void createWorldModel(ed::WorldModel& wm)
 {
     ed::models::ModelLoader loader;
     ed::UpdateRequest request;
-    request.setType("map", "waypoint");
-    request.setType("table", "object");
+//    request.setType("map", "waypoint");
+//    request.setType("table", "object");
 
-    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
-    t1->insert(0, geo::Pose3D(0, 0, 0, 0, 0, 0));
-    request.setRelation("map", "table", t1);
+//    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
+//    t1->insert(0, geo::Pose3D(0, 0, 0, 0, 0, 0));
+//    request.setRelation("map", "table", t1);
 
     // Load the table model from the sdf file
     std::string path = ros::package::getPath("ed_sensor_integration");
     path += "/test/table.sdf";
     tue::config::ReaderWriter config;
     tue::config::loadFromSDFFile(path, config);
-    config.readGroup("sdf");
+    std::cout << "Config:\n" << config << std::endl;
 
     std::stringstream errors;
     bool load_result = loader.create(config.data(), request, errors);
@@ -196,13 +205,13 @@ TEST(TestSuite, testCase)
     renderImage(rasterizer, wm, depth_image);
 
     // Move the table
-    moveFurnitureObject("table", wm, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0);
+//    moveFurnitureObject("table", wm, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-    // Render another image
-    cv::Mat depth_image2;
-    renderImage(rasterizer, wm, depth_image2);
+//    // Render another image
+//    cv::Mat depth_image2;
+//    renderImage(rasterizer, wm, depth_image2);
 
-    // Start fitting
+//    // Start fitting
 
     std::cout << "Tests done" << std::endl;
 }
