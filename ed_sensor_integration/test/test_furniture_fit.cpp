@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
+#include <opencv2/highgui/highgui.hpp>
 
 // ROS
 #include <image_geometry/pinhole_camera_model.h>
@@ -12,6 +13,7 @@
 #include <ed/world_model.h>
 #include <ed/models/model_loader.h>
 #include <ed/update_request.h>
+#include <ed/rendering.h>
 #include <ed/uuid.h>
 #include <ed/relations/transform_cache.h>
 #include <geolib/Shape.h>
@@ -22,6 +24,10 @@
 // ED sensor integration
 #include <ed/kinect/fitter.h>
 
+uint CAM_RESOLUTION_WIDTH = 640;
+uint CAM_RESOLUTION_HEIGHT = 480;
+
+bool SHOW_DEBUG_IMAGES = false;
 
 /**
  * @brief setupRasterizer sets up the rasterizer
@@ -40,8 +46,8 @@ void setupRasterizer(geo::DepthCamera& rasterizer)
                                0.0, 554.2559327880068, 240.5, 0.0,
                                0.0, 0.0, 1.0, 0.0});
     cam_info.distortion_model = sensor_msgs::distortion_models::PLUMB_BOB;
-    cam_info.width = 640;
-    cam_info.height = 480;
+    cam_info.width = CAM_RESOLUTION_WIDTH;
+    cam_info.height = CAM_RESOLUTION_HEIGHT;
     cam_model.fromCameraInfo(cam_info);
 
     rasterizer.setFocalLengths(cam_model.fx(), cam_model.fy());
@@ -57,93 +63,104 @@ void setupRasterizer(geo::DepthCamera& rasterizer)
  * @param wm
  */
 // ToDo: generalize
-void renderImage(const geo::DepthCamera& rasterizer, const ed::WorldModel& wm, cv::Mat& depth_image)
+void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose, const ed::WorldModel& wm, cv::Mat& depth_image)
 {
-    depth_image.setTo(0.0f);
+    cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
+    bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose, depth_image, image);
+    std::cout << "\nRender result: " << result << "\n" << std::endl;
 
-    // Iterate over all entities
-    std::cout << "Iterate over all entities" << std::endl;
-
-    for(ed::WorldModel::const_iterator it = wm.begin(); it != wm.end(); ++it)
+    if (SHOW_DEBUG_IMAGES)
     {
-        std::cout << "\nNext entity... " << std::endl;
-        const ed::EntityConstPtr& e = *it;
-        std::cout << "Entity ID: " << e->id() << std::endl;
-        
-//        std::cout << "Getting shaperevision" << std::endl;
-//        int shaperevision = e->shapeRevision();
-//        std::cout << "ShapeRevision: " << shaperevision << std::endl;
-//        if (shaperevision == 0)
-//        {
-//            std::cout << "Entity " << e->id() << " does not have a shape, skipping..." << std::endl;
-//            continue;
-//        }
-
-        std::cout << "Getting shape" << std::endl;
-        geo::ShapeConstPtr shape_ptr = e->shape();
-        if (shape_ptr)
-            std::cout << "Entity " << e->id() << " has a shape of type " << shape_ptr->TYPE << std::endl;
-        else
-            std::cout << "Entity " << e->id() << " does not have a shape" << std::endl;
-
-        std::cout << "Entity done" << std::endl;
-
-        // Render ...
-//        geo::Transform t(-1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-//        rasterizer.rasterize(*shape, t, depth_image);
-
+        cv::namedWindow("Colored image", 1);
+        cv::imshow("Colored image", image);
+        std::cout << "Press any key to continue" << std::endl;
+        cv::waitKey(0);
+        cv::namedWindow("Depth image", 1);
+        cv::imshow("Depth image", depth_image);
+        std::cout << "Press any key to continue" << std::endl;
+        cv::waitKey(0);
+        cv::destroyAllWindows();
     }
-    std::cout << "Iteration done" << std::endl;
 
+//    depth_image.setTo(0.0f);
 
-//    const std::map<std::string, Object*>& objects = world.getObjects();
-//    for(std::map<std::string, Object*>::const_iterator it_obj = objects.begin(); it_obj != objects.end(); ++it_obj) {
-//        Object* obj = it_obj->second;
+//    // Iterate over all entities
+//    std::cout << "Iterate over all entities" << std::endl;
 
-//        geo::ShapePtr shape = obj->getShape();
-//        if (shape) {
-//            geo::Transform t = tf_map_to_kinect.inverse() * obj->getAbsolutePose();
-//            rasterizer_.rasterize(*shape, t, depth_image);
-//        }
+//    for(ed::WorldModel::const_iterator it = wm.begin(); it != wm.end(); ++it)
+//    {
+//        std::cout << "\nNext entity... " << std::endl;
+//        const ed::EntityConstPtr& e = *it;
+//        std::cout << "Entity ID: " << e->id() << std::endl;
+        
+////        std::cout << "Getting shaperevision" << std::endl;
+////        int shaperevision = e->shapeRevision();
+////        std::cout << "ShapeRevision: " << shaperevision << std::endl;
+////        if (shaperevision == 0)
+////        {
+////            std::cout << "Entity " << e->id() << " does not have a shape, skipping..." << std::endl;
+////            continue;
+////        }
 
-//        std::vector<Object*> children;
-//        obj->getChildrenRecursive(children);
+////        std::cout << "Getting shape" << std::endl;
+////        geo::ShapeConstPtr shape_ptr = e->shape();
+////        std::cout << "\tType: " << shape_ptr->TYPE << std::endl;
+////        std::cout << "\tShapeRevision: " << e->shapeRevision() << std::endl;
+////        std::cout << "\tEmpty: " << shape_ptr->empty() << std::endl;
+////        if (shape_ptr)
+////            std::cout << "Entity " << e->id() << " has a shape of type " << shape_ptr->TYPE << " with shaperevision " << e->shapeRevision() << " and empty: " << shape_ptr->empty() << std::endl;
+////        else
+////        {
+////            std::cout << "Entity " << e->id() << " does not have a shape" << std::endl;
+////            continue;
+////        }
 
-//        for(std::vector<Object*>::const_iterator it = children.begin(); it != children.end(); ++it) {
-//            const Object& child = **it;
-//            geo::ShapePtr child_shape = child.getShape();
-//            if (child_shape) {
-//                geo::Transform t = tf_map_to_kinect.inverse() * child.getAbsolutePose();
-//                rasterizer_.rasterize(*child_shape, t, depth_image);
-//            }
-//        }
+//        // Render ...
+////        std::cout << "Rendering entity " << e->id() << std::endl;
+////        geo::Transform t(-1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+////        rasterizer.rasterize(*shape_ptr, t, depth_image);
+//        std::cout << "Entity done" << std::endl;
+
 //    }
+//    std::cout << "Iteration done" << std::endl;
+
+
+////    const std::map<std::string, Object*>& objects = world.getObjects();
+////    for(std::map<std::string, Object*>::const_iterator it_obj = objects.begin(); it_obj != objects.end(); ++it_obj) {
+////        Object* obj = it_obj->second;
+
+////        geo::ShapePtr shape = obj->getShape();
+////        if (shape) {
+////            geo::Transform t = tf_map_to_kinect.inverse() * obj->getAbsolutePose();
+////            rasterizer_.rasterize(*shape, t, depth_image);
+////        }
+
+////        std::vector<Object*> children;
+////        obj->getChildrenRecursive(children);
+
+////        for(std::vector<Object*>::const_iterator it = children.begin(); it != children.end(); ++it) {
+////            const Object& child = **it;
+////            geo::ShapePtr child_shape = child.getShape();
+////            if (child_shape) {
+////                geo::Transform t = tf_map_to_kinect.inverse() * child.getAbsolutePose();
+////                rasterizer_.rasterize(*child_shape, t, depth_image);
+////            }
+////        }
+////    }
 
 }
 
 
-// ToDo: this has a lot of overlap with code in ed/tools/view_model.cpp. Generalize this
 void createWorldModel(ed::WorldModel& wm)
 {
-    ed::models::ModelLoader loader;
-    ed::UpdateRequest request;
-//    request.setType("map", "waypoint");
-//    request.setType("table", "object");
-
-//    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
-//    t1->insert(0, geo::Pose3D(0, 0, 0, 0, 0, 0));
-//    request.setRelation("map", "table", t1);
+    // ToDos:
+    // * fix paths in this package (won't work in CI this way since the table (and floor) cannot be used yet)
 
     // Load the table model from the sdf file
     std::string path = ros::package::getPath("ed_sensor_integration");
-    path += "/test/table.sdf";
-    tue::config::ReaderWriter config;
-    tue::config::loadFromSDFFile(path, config);
-    std::cout << "Config:\n" << config << std::endl;
-
-    std::stringstream errors;
-    bool load_result = loader.create(config.data(), request, errors);
-    ASSERT_TRUE(load_result);
+    path += "/test/test_model.sdf";
+    ed::UpdateRequest request;
+    ed::models::loadModel(ed::models::LoadType::FILE, path, request);
 
     wm.update(request);
 
@@ -153,9 +170,10 @@ void createWorldModel(ed::WorldModel& wm)
 void moveFurnitureObject(const ed::UUID& id, ed::WorldModel& wm, float x, float y, float z, float roll, float pitch, float yaw)
 {
     ed::UpdateRequest request;
-    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
-    t1->insert(0, geo::Pose3D(x, y, z, roll, pitch, yaw));
-    request.setRelation("map", "table", t1);
+//    boost::shared_ptr<ed::TransformCache> t1(new ed::TransformCache());
+//    t1->insert(0, geo::Pose3D(x, y, z, roll, pitch, yaw));
+//    request.setRelation("floor", "table", t1);
+    request.setPose(id, geo::Pose3D(x, y, z, roll, pitch, yaw));
     wm.update(request);
 
 }
@@ -200,16 +218,23 @@ TEST(TestSuite, testCase)
     geo::DepthCamera rasterizer;
     setupRasterizer(rasterizer);
 
+    // Camera pose
+    geo::Pose3D cam_pose;
+    cam_pose.t = geo::Vector3(-1.5, 0.0, 1.5);
+    cam_pose.setRPY(0.0, -1.57, 0.0);  // In view, rotated 90 degrees
+    cam_pose.setRPY(1.57, 0.0, -1.57);  // In view, straight
+    cam_pose.setRPY(0.87, 0.0, -1.57);  // In view, tilted at table
+
     // Render image
-    cv::Mat depth_image;
-    renderImage(rasterizer, wm, depth_image);
+    cv::Mat depth_image(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
+    renderImage(rasterizer, cam_pose, wm, depth_image);
 
     // Move the table
-//    moveFurnitureObject("table", wm, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0);
+    moveFurnitureObject("table", wm, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0);
 
 //    // Render another image
-//    cv::Mat depth_image2;
-//    renderImage(rasterizer, wm, depth_image2);
+    cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
+    renderImage(rasterizer, cam_pose, wm, depth_image2);
 
 //    // Start fitting
 
@@ -223,6 +248,9 @@ int main(int argc, char **argv)
 
 //  g_argc = argc;
 //  g_argv = argv;
+
+  // ToDo: get this from CLI args
+  SHOW_DEBUG_IMAGES = true;
 
   return RUN_ALL_TESTS();
 }
