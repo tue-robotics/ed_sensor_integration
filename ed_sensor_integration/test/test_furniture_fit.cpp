@@ -18,6 +18,7 @@
 #include <ed/relations/transform_cache.h>
 #include <geolib/Shape.h>
 #include <geolib/sensors/DepthCamera.h>
+#include <rgbd/image.h>
 #include "tue/config/reader_writer.h"
 #include "tue/config/loaders/sdf.h"
 
@@ -34,10 +35,9 @@ bool SHOW_DEBUG_IMAGES = false;
  * N.B.: shouldn't we move this somewhere else? It's being used more often
  * @param rasterizer
  */
-void setupRasterizer(geo::DepthCamera& rasterizer)
+void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCamera& rasterizer)
 {
     // Set cam model
-    image_geometry::PinholeCameraModel cam_model;
     sensor_msgs::CameraInfo cam_info;
     cam_info.K = sensor_msgs::CameraInfo::_K_type({554.2559327880068, 0.0, 320.5,
                   0.0, 554.2559327880068, 240.5,
@@ -66,6 +66,19 @@ void setupRasterizer(geo::DepthCamera& rasterizer)
 void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose, const ed::WorldModel& wm, cv::Mat& depth_image)
 {
     cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
+    /// TESTCODE: DON'T COMMIT
+    std::cout << "renderImage: getting shape and entity" << std::endl;
+    std::cout << "WM revision: " << wm.revision() << ", entity revision: " << wm.getEntity("table")->revision() << std::endl;
+    wm.getEntity(ed::UUID("table"))->shape();
+    std::cout << "renderImage: getting shape and entity, alternative attempt" << std::endl;
+    wm.getEntity("table")->shape();
+    std::cout << "renderImage: done getting shape and entity" << std::endl;
+    const ed::WorldModel* wm_ptr = &wm;
+    ed::EntityConstPtr e_const_ptr = wm.getEntity("table");
+    const ed::Entity* e_ptr = e_const_ptr.get();
+    std::cout << "WM: " << wm_ptr << ", e: " << e_ptr << std::endl;
+    std::cout << "" << std::endl;
+    /// END OF TESTCODE
     bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose, depth_image, image);
     std::cout << "\nRender result: " << result << "\n" << std::endl;
 
@@ -197,26 +210,41 @@ bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pos
     // ToDo: create a function for this in the library
     // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
     FitterData fitterdata;
+    std::cout << "Fitting: Processing sensor data" << std::endl;
     fitter.processSensorData(*image, sensor_pose, fitterdata);
 
+    std::cout << "Fitting: getting entity" << std::endl;
     ed::EntityConstPtr e = wm.getEntity(entity_id);
+    e->shape();
+//    std::cout << "Fitting: getting entity shape"
     // ToDo: what do we want to do if we cannot find the entity?
     if (!e)
         throw std::runtime_error("Entity not found in WM");
+    std::cout << "Fitting: estimating entity pose" << std::endl;
     return fitter.estimateEntityPose(fitterdata, wm, entity_id, e->pose(), new_pose, max_yaw_change);
 }
 
 
 TEST(TestSuite, testCase)
 {
+//    for (unsigned int i = 0; i < 10000; i++)
+//    {
+//        ed::Entity e;
+//        ASSERT_FALSE(e.shape());
+//    }
+
     // Setup world model
     std::cout << "Starting testsuite" << std::endl;
     ed::WorldModel wm;
     createWorldModel(wm);
 
     // Create rasterizer that is used for rendering of depth images
+    image_geometry::PinholeCameraModel cam_model;
     geo::DepthCamera rasterizer;
-    setupRasterizer(rasterizer);
+    setupRasterizer(cam_model, rasterizer);
+
+    // Set up the fitter
+    Fitter fitter;
 
     // Camera pose
     geo::Pose3D cam_pose;
@@ -232,11 +260,35 @@ TEST(TestSuite, testCase)
     // Move the table
     moveFurnitureObject("table", wm, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-//    // Render another image
+    // Render another image
+    ed::WorldModel wm_copy(wm);
     cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
-    renderImage(rasterizer, cam_pose, wm, depth_image2);
+    renderImage(rasterizer, cam_pose, wm_copy, depth_image2);
 
-//    // Start fitting
+    // Start fitting
+    std::cout << "Creating RGBD image" << std::endl;
+    rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
+                           depth_image2,
+                           cam_model,
+                           "camera", // ToDo: check if frame id is necessay
+                           0.0); // ToDo: check if valid stamp is necessary
+    std::cout << "Instantiating 'new pose' " << std::endl;
+    geo::Pose3D new_pose;
+    std::cout << "Fitting supporting entity" << std::endl;
+//    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
+//                                          wm_copy, ed::UUID("table"), 45.0 / 180.0 * 3.14, // ToDo: nicer max yaw angle
+//                                          fitter, new_pose);
+    // ToDo: use wm copy
+//    const std::string& furniture_id = "table";
+//    ed::UUID ed_furniture_id(furniture_id);
+    ed::UUID ed_furniture_id("table");
+    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
+                                          wm, ed_furniture_id, 45.0 / 180.0 * 3.14, // ToDo: nicer max yaw angle
+                                          fitter, new_pose);
+    std::cout << "Fit result: " << fit_result <<
+                 "\nExpected pose (x, y, Y): 0.5, 0.0, 0.0" <<
+                 "\nComputed pose: " << new_pose <<
+                 std::endl;
 
     std::cout << "Tests done" << std::endl;
 }
@@ -250,7 +302,7 @@ int main(int argc, char **argv)
 //  g_argv = argv;
 
   // ToDo: get this from CLI args
-  SHOW_DEBUG_IMAGES = true;
+//  SHOW_DEBUG_IMAGES = true;
 
   return RUN_ALL_TESTS();
 }
