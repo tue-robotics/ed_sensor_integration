@@ -31,6 +31,61 @@ uint CAM_RESOLUTION_HEIGHT = 480;
 
 bool SHOW_DEBUG_IMAGES = false;
 
+// Getting roll, pitch and yaw from a quaternion,
+// copied from https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+// N.B.: we should have a proper implemenation
+struct Quaternion {
+    double w, x, y, z;
+};
+
+struct EulerAngles {
+    double roll, pitch, yaw;
+};
+
+EulerAngles ToEulerAngles(Quaternion q) {
+    EulerAngles angles;
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+    double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    angles.roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = 2 * (q.w * q.y - q.z * q.x);
+    if (std::abs(sinp) >= 1)
+        angles.pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+    else
+        angles.pitch = std::asin(sinp);
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+    double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    angles.yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return angles;
+}
+
+
+double getYaw(const geo::Mat3& rotation)
+{
+    // Get quaternion
+    geo::Quaternion geo_quaternion;
+    rotation.getRotation(geo_quaternion);
+
+    // Convert it to struct
+    Quaternion quaternion;
+    quaternion.x = geo_quaternion.getX();
+    quaternion.y = geo_quaternion.getY();
+    quaternion.z = geo_quaternion.getZ();
+    quaternion.w = geo_quaternion.getW();
+
+    // Get the Euler angles
+    EulerAngles angles = ToEulerAngles(quaternion);
+    std::cout << "Matrix: " << rotation << " --> yaw: " << angles.yaw << std::endl;
+    return angles.yaw;
+}
+
+
 /**
  * @brief setupRasterizer sets up the rasterizer
  * N.B.: shouldn't we move this somewhere else? It's being used more often
@@ -285,8 +340,9 @@ void testSinglePose(const geo::DepthCamera& rasterizer,
          std::endl;
 
     geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
+    double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
     // ToDo: add yaw error
-    if (pos_error.length() > 0.05) // ToDo: this is still quite a lot
+    if (pos_error.length() > 0.05 || fabs(yaw_error) > 5.0 / 180.0 * M_PI) // ToDo: this is still quite a lot
     {
         result = false;
     } else
@@ -335,8 +391,10 @@ TEST(TestSuite, testCase)
     for (double x = -0.5; x <= 0.5; x += 0.1)
     {
         for (double y = -0.5; y <= 0.5; y += 0.1)
+//          double y = 0.0;
         {
             for (double yaw_deg = -40.0; yaw_deg <= 40.0; yaw_deg += 10.0)
+//            double yaw_deg = 0.0;
             {
                 ++nr_tests;
                 double yaw = yaw_deg * M_PI / 180.0;
