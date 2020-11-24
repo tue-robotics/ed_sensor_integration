@@ -226,6 +226,76 @@ bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pos
 }
 
 
+/**
+ * @brief testSinglePose
+ * @param rasterizer
+ * @param cam_model
+ * @param cam_pose
+ * @param wm
+ * @param new_pose
+ * @param fitter
+ * @param result N.B.: the result is stored here instead of return value due to the ASSERT
+ */
+void testSinglePose(const geo::DepthCamera& rasterizer,
+                    const image_geometry::PinholeCameraModel& cam_model,
+                    const geo::Pose3D& cam_pose,
+                    const ed::WorldModel& wm,
+                    const geo::Pose3D& new_pose,
+                    Fitter& fitter,
+                    bool& result)
+{
+    // Move the table
+    ed::WorldModel wm_copy(wm);
+//	geo::Pose3D new_pose(x, y, 0.0, 0.0, 0.0, yaw);
+    moveFurnitureObject("table", new_pose, wm_copy);
+
+    /// Check to see if the pose of the table in the original world model has not changed
+    ed::EntityConstPtr table_entity = wm.getEntity("table");
+    geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
+    ASSERT_TRUE(pos_diff.length() < 0.001);
+    std::cout << "Pose of the table in the original WM: " << table_entity->pose() << std::endl;
+
+    // Render another image
+    cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
+    renderImage(rasterizer, cam_pose, wm_copy, depth_image2);
+
+    // Start fitting
+    std::cout << "Creating RGBD image" << std::endl;
+    rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
+           depth_image2,
+           cam_model,
+           "camera", // ToDo: check if frame id is necessay
+           0.0); // ToDo: check if valid stamp is necessary
+    std::cout << "Instantiating 'new pose' " << std::endl;
+    geo::Pose3D fitted_pose;
+    std::cout << "Fitting supporting entity" << std::endl;
+    //    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
+    //                                          wm_copy, ed::UUID("table"), 45.0 / 180.0 * 3.14, // ToDo: nicer max yaw angle
+    //                                          fitter, new_pose);
+    // ToDo: use wm copy
+    //    const std::string& furniture_id = "table";
+    //    ed::UUID ed_furniture_id(furniture_id);
+    ed::UUID ed_furniture_id("table");
+    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
+              wm, ed_furniture_id, 45.0 / 180.0 * M_PI, // ToDo: nicer max yaw angle
+              fitter, fitted_pose);
+    std::cout << "Fit result: " << fit_result <<
+         "\nExpected pose: " << new_pose <<
+         "\nComputed pose: " << fitted_pose <<
+         std::endl;
+
+    geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
+    // ToDo: add yaw error
+    if (pos_error.length() > 0.05) // ToDo: this is still quite a lot
+    {
+        result = false;
+    } else
+    {
+        result = true;
+    }
+}
+
+
 TEST(TestSuite, testCase)
 {
 //    for (unsigned int i = 0; i < 10000; i++)
@@ -266,54 +336,15 @@ TEST(TestSuite, testCase)
     {
         for (double y = -0.5; y <= 0.5; y += 0.1)
         {
-            for (double yaw_deg = -45.0; yaw_deg <= 45.0; yaw_deg += 15.0)
+            for (double yaw_deg = -40.0; yaw_deg <= 40.0; yaw_deg += 10.0)
             {
                 ++nr_tests;
                 double yaw = yaw_deg * M_PI / 180.0;
 
-                // Move the table
-                ed::WorldModel wm_copy(wm);
                 geo::Pose3D new_pose(x, y, 0.0, 0.0, 0.0, yaw);
-                moveFurnitureObject("table", new_pose, wm_copy);
-
-                /// Check to see if the pose of the table in the original world model has not changed
-                ed::EntityConstPtr table_entity = wm.getEntity("table");
-                geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
-                ASSERT_TRUE(pos_diff.length() < 0.001);
-                std::cout << "Pose of the table in the original WM: " << table_entity->pose() << std::endl;
-
-                // Render another image
-                cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
-                renderImage(rasterizer, cam_pose, wm_copy, depth_image2);
-
-                // Start fitting
-                std::cout << "Creating RGBD image" << std::endl;
-                rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
-                           depth_image2,
-                           cam_model,
-                           "camera", // ToDo: check if frame id is necessay
-                           0.0); // ToDo: check if valid stamp is necessary
-                std::cout << "Instantiating 'new pose' " << std::endl;
-                geo::Pose3D fitted_pose;
-                std::cout << "Fitting supporting entity" << std::endl;
-            //    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
-            //                                          wm_copy, ed::UUID("table"), 45.0 / 180.0 * 3.14, // ToDo: nicer max yaw angle
-            //                                          fitter, new_pose);
-                // ToDo: use wm copy
-            //    const std::string& furniture_id = "table";
-            //    ed::UUID ed_furniture_id(furniture_id);
-                ed::UUID ed_furniture_id("table");
-                bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
-                                  wm, ed_furniture_id, 45.0 / 180.0 * M_PI, // ToDo: nicer max yaw angle
-                                  fitter, fitted_pose);
-                std::cout << "Fit result: " << fit_result <<
-                     "\nExpected pose: " << new_pose <<
-                     "\nComputed pose: " << fitted_pose <<
-                     std::endl;
-
-                geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
-                // ToDo: add yaw error
-                if (pos_error.length() > 0.05) // ToDo: this is still quite a lot
+                bool single_res = false;
+                testSinglePose(rasterizer, cam_model, cam_pose, wm, new_pose, fitter, single_res);
+                if (!single_res)
                 {
                     test_result = false;
                     failed_poses.push_back(new_pose);
