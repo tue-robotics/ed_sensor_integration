@@ -163,9 +163,6 @@ void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose
 
 void createWorldModel(ed::WorldModel& wm)
 {
-    // ToDos:
-    // * fix paths in this package (won't work in CI this way since the table (and floor) cannot be used yet)
-
     // Load the table model from the sdf file
     std::string path = ros::package::getPath("ed_sensor_integration");
     path += "/test/test_model.sdf";
@@ -279,7 +276,45 @@ bool testSinglePose(const geo::DepthCamera& rasterizer,
 }
 
 
-TEST(TestSuite, testCase)
+class FurnitureFitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+      ROS_DEBUG_STREAM("Setting up... ");
+      extendPath("ED_MODEL_PATH");
+      extendPath("GAZEBO_MODEL_PATH");
+      extendPath("GAZEBO_RESOURCE_PATH");
+  }
+
+  void extendPath(const std::string& name)
+  {
+      char* original_path = ::getenv(name.c_str());
+      original_env_values_[name] = original_path;
+      std::string package_path = ros::package::getPath("ed_sensor_integration");
+      std::string original_path_str(original_path);
+      std::string new_path = package_path + "/test";
+      if (!original_path_str.empty())
+      {
+          new_path += ":";
+          new_path += original_path_str;
+      }
+      ROS_INFO_STREAM_ONCE("New model path: " << new_path);
+      ::setenv(name.c_str(), new_path.c_str(), 1);
+  }
+
+  void TearDown() override {
+      ROS_DEBUG_STREAM("Tearing down... ");
+      for (auto it = original_env_values_.begin(); it != original_env_values_.end(); it++)
+      {
+          ::setenv(it->first.c_str(), it->second, 1);
+      }
+  }
+
+  std::map<std::string, char*> original_env_values_;
+
+};
+
+
+TEST_F(FurnitureFitTest, testCase)
 {
 
     // Setup world model
@@ -323,7 +358,6 @@ TEST(TestSuite, testCase)
         } // end of y loop
     } // end of x loop
 
-    ROS_INFO_STREAM("Failed poses: (" << failed_poses.size() << " out of " << nr_poses << ")");
     uint nr_succeeded_poses = nr_poses - failed_poses.size();
     ROS_INFO_STREAM("Tested " << nr_poses << " table poses, succeeded: "
                     << nr_succeeded_poses << ", failed: " << failed_poses.size());
