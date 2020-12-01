@@ -206,13 +206,12 @@ bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pos
  * @param fitter
  * @param result N.B.: the result is stored here instead of return value due to the ASSERT
  */
-void testSinglePose(const geo::DepthCamera& rasterizer,
+bool testSinglePose(const geo::DepthCamera& rasterizer,
                     const image_geometry::PinholeCameraModel& cam_model,
                     const geo::Pose3D& cam_pose,
                     const ed::WorldModel& wm,
                     const geo::Pose3D& new_pose,
-                    Fitter& fitter,
-                    bool& result)
+                    Fitter& fitter)
 {
     // Move the table
     ed::WorldModel wm_copy(wm);
@@ -221,7 +220,8 @@ void testSinglePose(const geo::DepthCamera& rasterizer,
     /// Check to see if the pose of the table in the original world model has not changed
     ed::EntityConstPtr table_entity = wm.getEntity("table");
     geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
-    ASSERT_TRUE(pos_diff.length() < 0.001);
+    if (pos_diff.length() > 0.001)
+        throw std::runtime_error("Table has moved in the original world model");
     std::cout << "Pose of the table in the original WM: " << table_entity->pose() << std::endl;
 
     // Render another image
@@ -249,13 +249,12 @@ void testSinglePose(const geo::DepthCamera& rasterizer,
 
     geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
     double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
-    // ToDo: add yaw error
     if (pos_error.length() > 0.05 || fabs(yaw_error) > 5.0 / 180.0 * M_PI) // ToDo: this is still quite a lot
     {
-        result = false;
+        return false;
     } else
     {
-        result = true;
+        return true;
     }
 }
 
@@ -301,9 +300,7 @@ TEST(TestSuite, testCase)
                 double yaw = yaw_deg * M_PI / 180.0;
 
                 geo::Pose3D new_pose(x, y, 0.0, 0.0, 0.0, yaw);
-                bool single_res = false;
-                testSinglePose(rasterizer, cam_model, cam_pose, wm, new_pose, fitter, single_res);
-                if (!single_res)
+                if (!testSinglePose(rasterizer, cam_model, cam_pose, wm, new_pose, fitter))
                 {
                     test_result = false;
                     failed_poses.push_back(new_pose);
