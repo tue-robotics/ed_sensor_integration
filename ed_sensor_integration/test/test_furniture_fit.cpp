@@ -5,6 +5,7 @@
 
 // ROS
 #include <image_geometry/pinhole_camera_model.h>
+#include <ros/console.h>
 #include <ros/package.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/distortion_models.h>
@@ -81,7 +82,7 @@ double getYaw(const geo::Mat3& rotation)
 
     // Get the Euler angles
     EulerAngles angles = ToEulerAngles(quaternion);
-    std::cout << "Matrix: " << rotation << " --> yaw: " << angles.yaw << std::endl;
+    ROS_DEBUG_STREAM("Matrix: " << rotation << " --> yaw: " << angles.yaw);
     return angles.yaw;
 }
 
@@ -123,7 +124,7 @@ void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose
 {
     cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
     bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose, depth_image, image);
-    std::cout << "\nRender result: " << result << "\n" << std::endl;
+    ROS_DEBUG_STREAM("\nRender result: " << result << "\n");
 
     if (SHOW_DEBUG_IMAGES)
     {
@@ -184,14 +185,14 @@ bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pos
     // ToDo: create a function for this in the library
     // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
     FitterData fitterdata;
-    std::cout << "Fitting: Processing sensor data" << std::endl;
+    ROS_DEBUG_STREAM("Fitting: Processing sensor data");
     fitter.processSensorData(*image, sensor_pose, fitterdata);
 
-    std::cout << "Fitting: getting entity" << std::endl;
+    ROS_DEBUG_STREAM("Fitting: getting entity");
     ed::EntityConstPtr e = wm.getEntity(entity_id);
     if (!e)
         throw std::runtime_error("Entity not found in WM");
-    std::cout << "Fitting: estimating entity pose" << std::endl;
+    ROS_DEBUG_STREAM("Fitting: estimating entity pose");
     return fitter.estimateEntityPose(fitterdata, wm, entity_id, e->pose(), new_pose, max_yaw_change);
 }
 
@@ -222,30 +223,30 @@ bool testSinglePose(const geo::DepthCamera& rasterizer,
     geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
     if (pos_diff.length() > 0.001)
         throw std::runtime_error("Table has moved in the original world model");
-    std::cout << "Pose of the table in the original WM: " << table_entity->pose() << std::endl;
+    ROS_DEBUG_STREAM("Pose of the table in the original WM: " << table_entity->pose());
 
     // Render another image
     cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
     renderImage(rasterizer, cam_pose, wm_copy, depth_image2);
 
     // Start fitting
-    std::cout << "Creating RGBD image" << std::endl;
+    ROS_DEBUG_STREAM("Creating RGBD image");
     rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
            depth_image2,
            cam_model,
            "camera", // ToDo: check if frame id is necessay
            0.0); // ToDo: check if valid stamp is necessary
-    std::cout << "Instantiating 'new pose' " << std::endl;
+    ROS_DEBUG_STREAM("Instantiating 'new pose' ");
     geo::Pose3D fitted_pose;
-    std::cout << "Fitting supporting entity" << std::endl;
+    ROS_DEBUG_STREAM("Fitting supporting entity");
     ed::UUID ed_furniture_id("table");
     bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
               wm, ed_furniture_id, 45.0 / 180.0 * M_PI, // ToDo: nicer max yaw angle
               fitter, fitted_pose);
-    std::cout << "Fit result: " << fit_result <<
+    ROS_DEBUG_STREAM("Fit result: " << fit_result <<
          "\nExpected pose: " << new_pose <<
-         "\nComputed pose: " << fitted_pose <<
-         std::endl;
+         "\nComputed pose: " << fitted_pose
+         );
 
     geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
     double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
@@ -263,7 +264,7 @@ TEST(TestSuite, testCase)
 {
 
     // Setup world model
-    std::cout << "Starting testsuite" << std::endl;
+    ROS_INFO_STREAM("Starting testsuite");
     ed::WorldModel wm;
     createWorldModel(wm);
 
@@ -310,11 +311,10 @@ TEST(TestSuite, testCase)
         } // end of y loop
     } // end of x loop
 
-    std::cout << "Tests done 1" << std::endl;
-    std::cout << "Failed poses: (" << failed_poses.size() << " out of " << nr_tests << ")" << std::endl;
+    ROS_INFO_STREAM("Failed poses: (" << failed_poses.size() << " out of " << nr_tests << ")");
     for (auto& failed_pose: failed_poses)
     {
-        std::cout << "\n" << failed_pose << std::endl;
+        ROS_DEBUG_STREAM("\n" << failed_pose);
     }
     ASSERT_TRUE(test_result);
 }
