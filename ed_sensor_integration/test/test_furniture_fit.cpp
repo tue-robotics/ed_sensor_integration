@@ -270,39 +270,45 @@ bool testSinglePose(const geo::DepthCamera& rasterizer,
 
 
 class FurnitureFitTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-      ROS_DEBUG_STREAM("Setting up... ");
-      extendPath("ED_MODEL_PATH");
-      extendPath("GAZEBO_MODEL_PATH");
-      extendPath("GAZEBO_RESOURCE_PATH");
-  }
+protected:
+    void SetUp() override
+    {
+        ROS_DEBUG_STREAM("Setting up... ");
+        extendPath("ED_MODEL_PATH");
+        extendPath("GAZEBO_MODEL_PATH");
+        extendPath("GAZEBO_RESOURCE_PATH");
+    }
 
-  void extendPath(const std::string& name)
-  {
-      char* original_path = ::getenv(name.c_str());
-      original_env_values_[name] = original_path;
-      std::string package_path = ros::package::getPath("ed_sensor_integration");
-      std::string original_path_str(original_path);
-      std::string new_path = package_path + "/test";
-      if (!original_path_str.empty())
-      {
-          new_path += ":";
-          new_path += original_path_str;
-      }
-      ROS_INFO_STREAM_ONCE("New model path: " << new_path);
-      ::setenv(name.c_str(), new_path.c_str(), 1);
-  }
+    void extendPath(const std::string& name)
+    {
+        if (const char* original_path = ::getenv(name.c_str()))
+            original_env_values_[name] = original_path;
+        else
+            original_env_values_[name] = nullptr;
+        std::string package_path = ros::package::getPath("ed_sensor_integration");
+        std::string new_path = package_path + "/test";
+        if (original_env_values_[name])
+        {
+            new_path += ":";
+            new_path += original_env_values_[name];
+        }
+        ROS_INFO_STREAM("New " << name << ": " << new_path);
+        ::setenv(name.c_str(), new_path.c_str(), 1);
+    }
 
-  void TearDown() override {
-      ROS_DEBUG_STREAM("Tearing down... ");
-      for (auto it = original_env_values_.begin(); it != original_env_values_.end(); it++)
-      {
-          ::setenv(it->first.c_str(), it->second, 1);
-      }
-  }
+    void TearDown() override
+    {
+        ROS_DEBUG_STREAM("Tearing down... ");
+        for (auto it = original_env_values_.begin(); it != original_env_values_.end(); it++)
+        {
+            if(it->second)
+                ::setenv(it->first.c_str(), it->second, 1);
+            else
+                ::unsetenv(it->first.c_str());
+        }
+    }
 
-  std::map<std::string, char*> original_env_values_;
+    std::map<std::string, const char*> original_env_values_;
 
 };
 
