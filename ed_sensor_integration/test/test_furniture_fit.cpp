@@ -129,7 +129,6 @@ void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCa
     rasterizer.setFocalLengths(cam_model.fx(), cam_model.fy());
     rasterizer.setOpticalCenter(cam_model.cx(), cam_model.cy());
     rasterizer.setOpticalTranslation(cam_model.Tx(), cam_model.Ty());
-
 }
 
 
@@ -157,7 +156,6 @@ void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose
         cv::waitKey(0);
         cv::destroyAllWindows();
     }
-
 }
 
 
@@ -170,7 +168,6 @@ void createWorldModel(ed::WorldModel& wm)
     ed::models::loadModel(ed::models::LoadType::FILE, path, request);
 
     wm.update(request);
-
 }
 
 
@@ -179,7 +176,6 @@ void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::Wo
     ed::UpdateRequest request;
     request.setPose(id, new_pose);
     wm.update(request);
-
 }
 
 
@@ -267,12 +263,9 @@ bool testSinglePose(const geo::DepthCamera& rasterizer,
     geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
     double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
     if (pos_error.length() > MAX_POSITION_ERROR || fabs(yaw_error) > degToRad(MAX_YAW_ERROR_DEGREES))
-    {
         return false;
-    } else
-    {
+    else
         return true;
-    }
 }
 
 
