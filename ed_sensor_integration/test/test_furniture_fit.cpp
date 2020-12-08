@@ -106,14 +106,14 @@ double degToRad(double input)
 }
 
 
-/**
- * @brief setupRasterizer sets up the rasterizer
- * N.B.: shouldn't we move this somewhere else? It's being used more often
- * @param rasterizer
- */
-void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCamera& rasterizer)
+struct ImageResolution
 {
-    // Set cam model
+    double width, height;
+};
+
+
+sensor_msgs::CameraInfo getDefaultCamInfo(const ImageResolution& resolution)
+{
     sensor_msgs::CameraInfo cam_info;
     cam_info.K = sensor_msgs::CameraInfo::_K_type({554.2559327880068, 0.0, 320.5,
                   0.0, 554.2559327880068, 240.5,
@@ -122,8 +122,19 @@ void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCa
                                0.0, 554.2559327880068, 240.5, 0.0,
                                0.0, 0.0, 1.0, 0.0});
     cam_info.distortion_model = sensor_msgs::distortion_models::PLUMB_BOB;
-    cam_info.width = CAM_RESOLUTION_WIDTH;
-    cam_info.height = CAM_RESOLUTION_HEIGHT;
+    cam_info.width = resolution.width;
+    cam_info.height = resolution.height;
+    return cam_info;
+}
+
+/**
+ * @brief setupRasterizer sets up the rasterizer
+ * N.B.: shouldn't we move this somewhere else? It's being used more often
+ * @param rasterizer
+ */
+void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCamera& rasterizer)
+{
+    sensor_msgs::CameraInfo cam_info = getDefaultCamInfo({CAM_RESOLUTION_WIDTH, CAM_RESOLUTION_HEIGHT});
     cam_model.fromCameraInfo(cam_info);
 
     rasterizer.setFocalLengths(cam_model.fx(), cam_model.fy());
@@ -159,17 +170,6 @@ void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose
 }
 
 
-void createWorldModel(ed::WorldModel& wm)
-{
-    // Load the table model from the sdf file
-    std::string path = ros::package::getPath("ed_sensor_integration");
-    path += "/test/test_model.sdf";
-    ed::UpdateRequest request;
-    ed::models::loadModel(ed::models::LoadType::FILE, path, request);
-
-    wm.update(request);
-}
-
 
 void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::WorldModel& wm)
 {
@@ -192,7 +192,7 @@ void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::Wo
  */
 bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pose,
                          const ed::WorldModel& wm, const ed::UUID& entity_id, const double max_yaw_change,
-                         Fitter& fitter, geo::Pose3D& new_pose)
+                         const Fitter& fitter, geo::Pose3D& new_pose)
 {
     // ToDo: create a function for this in the library
     // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
@@ -206,66 +206,6 @@ bool fitSupportingEntity(const rgbd::Image* image, const geo::Pose3D& sensor_pos
         throw std::runtime_error("Entity not found in WM");
     ROS_DEBUG_STREAM("Fitting: estimating entity pose");
     return fitter.estimateEntityPose(fitterdata, wm, entity_id, e->pose(), new_pose, max_yaw_change);
-}
-
-
-/**
- * @brief testSinglePose
- * @param rasterizer
- * @param cam_model
- * @param cam_pose
- * @param wm
- * @param new_pose
- * @param fitter
- * @param result N.B.: the result is stored here instead of return value due to the ASSERT
- */
-bool testSinglePose(const geo::DepthCamera& rasterizer,
-                    const image_geometry::PinholeCameraModel& cam_model,
-                    const geo::Pose3D& cam_pose,
-                    const ed::WorldModel& wm,
-                    const geo::Pose3D& new_pose,
-                    Fitter& fitter)
-{
-    // Move the table
-    ed::WorldModel wm_copy(wm);
-    moveFurnitureObject("table", new_pose, wm_copy);
-
-    /// Check to see if the pose of the table in the original world model has not changed
-    ed::EntityConstPtr table_entity = wm.getEntity("table");
-    geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
-    if (pos_diff.length() > 0.001)
-        throw std::runtime_error("Table has moved in the original world model");
-    ROS_DEBUG_STREAM("Pose of the table in the original WM: " << table_entity->pose());
-
-    // Render another image
-    cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
-    renderImage(rasterizer, cam_pose, wm_copy, depth_image2);
-
-    // Start fitting
-    ROS_DEBUG_STREAM("Creating RGBD image");
-    rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
-           depth_image2,
-           cam_model,
-           "camera", // ToDo: check if frame id is necessay
-           0.0); // ToDo: check if valid stamp is necessary
-    ROS_DEBUG_STREAM("Instantiating 'new pose' ");
-    geo::Pose3D fitted_pose;
-    ROS_DEBUG_STREAM("Fitting supporting entity");
-    ed::UUID ed_furniture_id("table");
-    bool fit_result = fitSupportingEntity(&rgbd_image, cam_pose,
-              wm, ed_furniture_id, degToRad(45.0), // ToDo: nicer max yaw angle
-              fitter, fitted_pose);
-    ROS_DEBUG_STREAM("Fit result: " << fit_result <<
-         "\nExpected pose: " << new_pose <<
-         "\nComputed pose: " << fitted_pose
-         );
-
-    geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
-    double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
-    if (pos_error.length() > MAX_POSITION_ERROR || fabs(yaw_error) > degToRad(MAX_YAW_ERROR_DEGREES))
-        return false;
-    else
-        return true;
 }
 
 
@@ -313,58 +253,193 @@ protected:
 };
 
 
-TEST_F(FurnitureFitTest, testCase)
+/**
+ * @brief The TestSetup class contains all constant data for the test
+ */
+class TestSetup
 {
-
-    // Setup world model
-    ROS_INFO_STREAM("Starting testsuite");
-    ed::WorldModel wm;
-    createWorldModel(wm);
-
-    // Create rasterizer that is used for rendering of depth images
-    image_geometry::PinholeCameraModel cam_model;
-    geo::DepthCamera rasterizer;
-    setupRasterizer(cam_model, rasterizer);
-
-    // Set up the fitter
-    Fitter fitter;
-
-    // Camera pose
-    geo::Pose3D cam_pose;
-    cam_pose.t = geo::Vector3(-1.5, 0.0, 1.5);
-    cam_pose.setRPY(0.0, -1.57, 0.0);  // In view, rotated 90 degrees
-    cam_pose.setRPY(1.57, 0.0, -1.57);  // In view, straight
-    cam_pose.setRPY(0.87, 0.0, -1.57);  // In view, tilted at table
-
-    // Count the number of tested poses and store the failed ones for later inspection
-    unsigned int nr_poses = 0;
-    std::vector<geo::Pose3D> failed_poses;
-
-    for (double x = -0.5; x <= 0.5; x += 0.1)
+public:
+    TestSetup()
     {
-        for (double y = -0.5; y <= 0.5; y += 0.1)
-        {
-            for (double yaw_deg = -40.0; yaw_deg <= 40.0; yaw_deg += 10.0)
+        createWorldModel();
+        setupRasterizer();
+        setupCamPose();
+    }
+
+    ~TestSetup(){}
+
+    bool testSinglePose(const geo::Pose3D& new_pose) const
+    {
+        // Move the table
+        ed::WorldModel wm_copy(world_model_);
+        moveFurnitureObject("table", new_pose, wm_copy);
+
+        /// Check to see if the pose of the table in the original world model has not changed
+        checkTablePose();
+
+        // Render image
+        cv::Mat depth_image2(CAM_RESOLUTION_HEIGHT, CAM_RESOLUTION_WIDTH, CV_32FC1, 0.0); // ToDo: check!
+        renderImage(wm_copy, depth_image2);
+
+        // Start fitting
+        ROS_DEBUG_STREAM("Creating RGBD image");
+        rgbd::Image rgbd_image(depth_image2, // ToDo: replace by colored image
+           depth_image2,
+           cam_model_,
+           "camera", // ToDo: check if frame id is necessay
+           0.0); // ToDo: check if valid stamp is necessary
+        ROS_DEBUG_STREAM("Instantiating 'new pose' ");
+        geo::Pose3D fitted_pose;
+        ROS_DEBUG_STREAM("Fitting supporting entity");
+        ed::UUID ed_furniture_id("table");
+        bool fit_result = fitSupportingEntity(&rgbd_image,
+                                              ed_furniture_id, // ToDo: nicer max yaw angle
+                                              fitted_pose);
+        ROS_DEBUG_STREAM("Fit result: " << fit_result <<
+                         "\nExpected pose: " << new_pose <<
+                         "\nComputed pose: " << fitted_pose
+         );
+
+        geo::Vec3 pos_error = new_pose.t - fitted_pose.t;
+        double yaw_error = getYaw(new_pose.R) - getYaw(fitted_pose.R);
+        if (pos_error.length() > MAX_POSITION_ERROR || fabs(yaw_error) > degToRad(MAX_YAW_ERROR_DEGREES))
+            return false;
+        else
+            return true;
+    }
+
+    void testAllPoses(std::vector<geo::Pose3D>& succeeded_poses, std::vector<geo::Pose3D>& failed_poses) const
+    {
+        for (double x = -0.5; x <= 0.5; x += 0.1)
             {
-                ++nr_poses;
-                geo::Pose3D new_pose(x, y, 0.0, 0.0, 0.0, degToRad(yaw_deg));
-                if (!testSinglePose(rasterizer, cam_model, cam_pose, wm, new_pose, fitter))
+            for (double y = -0.5; y <= 0.5; y += 0.1)
+            {
+                for (double yaw_deg = -40.0; yaw_deg <= 40.0; yaw_deg += 10.0)
                 {
-                    failed_poses.push_back(new_pose);
-                }
+                    geo::Pose3D new_pose(x, y, 0.0, 0.0, 0.0, degToRad(yaw_deg));
+                    if (testSinglePose(new_pose))
+                        succeeded_poses.push_back(new_pose);
+                    else
+                        failed_poses.push_back(new_pose);
+                } // end of yaw loop
+            } // end of y loop
+        } // end of x loop
+    }
 
-            } // end of yaw loop
-        } // end of y loop
-    } // end of x loop
+private:
 
-    uint nr_succeeded_poses = nr_poses - failed_poses.size();
-    ROS_INFO_STREAM("Tested " << nr_poses << " table poses, succeeded: "
+    void createWorldModel()
+    {
+        // Load the table model from the sdf file
+        std::string path = ros::package::getPath("ed_sensor_integration");
+        path += "/test/test_model.sdf";
+        ed::UpdateRequest request;
+        ed::models::loadModel(ed::models::LoadType::FILE, path, request);
+
+        world_model_.update(request);
+    }
+
+    void setupRasterizer()
+    {
+        sensor_msgs::CameraInfo cam_info = getDefaultCamInfo({CAM_RESOLUTION_WIDTH, CAM_RESOLUTION_HEIGHT});
+        cam_model_.fromCameraInfo(cam_info);
+
+        rasterizer_.setFocalLengths(cam_model_.fx(), cam_model_.fy());
+        rasterizer_.setOpticalCenter(cam_model_.cx(), cam_model_.cy());
+        rasterizer_.setOpticalTranslation(cam_model_.Tx(), cam_model_.Ty());
+    }
+
+    void setupCamPose()
+    {
+        cam_pose_.t = geo::Vector3(-1.5, 0.0, 1.5);
+        cam_pose_.setRPY(0.0, -1.57, 0.0);  // In view, rotated 90 degrees
+        cam_pose_.setRPY(1.57, 0.0, -1.57);  // In view, straight
+        cam_pose_.setRPY(0.87, 0.0, -1.57);  // In view, tilted at table
+    }
+
+    void checkTablePose() const
+    {
+        ed::EntityConstPtr table_entity = world_model_.getEntity("table");
+        geo::Vec3 pos_diff = geo::Vec3(0.0, 0.0, 0.0) - table_entity->pose().t;
+        if (pos_diff.length() > 0.001)
+            throw std::runtime_error("Table has moved in the original world model");
+        ROS_DEBUG_STREAM("Pose of the table in the original WM: " << table_entity->pose());
+    }
+
+    // ToDo: do or don't have as a member
+    void renderImage(const ed::WorldModel& wm, cv::Mat& depth_image) const
+    {
+        cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
+        bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer_, cam_pose_, depth_image, image);
+        ROS_DEBUG_STREAM("\nRender result: " << result << "\n");
+
+        if (SHOW_DEBUG_IMAGES)
+        {
+            cv::namedWindow("Colored image", 1);
+            cv::imshow("Colored image", image);
+            std::cout << "Press any key to continue" << std::endl;
+            cv::waitKey(0);
+            cv::namedWindow("Depth image", 1);
+            cv::imshow("Depth image", depth_image);
+            std::cout << "Press any key to continue" << std::endl;
+            cv::waitKey(0);
+            cv::destroyAllWindows();
+        }
+    }
+
+    // ToDo: do or don't have as a member
+    bool fitSupportingEntity(const rgbd::Image* image, const ed::UUID& entity_id,
+                             geo::Pose3D& new_pose) const
+    {
+        // ToDo: create a function for this in the library
+        // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
+        FitterData fitterdata;
+        ROS_DEBUG_STREAM("Fitting: Processing sensor data");
+        fitter_.processSensorData(*image, cam_pose_, fitterdata);
+
+        ROS_DEBUG_STREAM("Fitting: getting entity");
+        ed::EntityConstPtr e = world_model_.getEntity(entity_id);
+        if (!e)
+            throw std::runtime_error("Entity not found in WM");
+        ROS_DEBUG_STREAM("Fitting: estimating entity pose");
+        return fitter_.estimateEntityPose(fitterdata, world_model_, entity_id, e->pose(), new_pose, max_yaw_change);
+    }
+
+    ed::WorldModel world_model_;
+    image_geometry::PinholeCameraModel cam_model_;
+    geo::DepthCamera rasterizer_;
+    Fitter fitter_;
+    geo::Pose3D cam_pose_;
+    double max_yaw_change = degToRad(45.0);
+
+};
+
+
+void summarizeResult(std::vector<geo::Pose3D>& succeeded_poses, std::vector<geo::Pose3D>& failed_poses)
+{
+    uint nr_succeeded_poses = succeeded_poses.size();
+    uint nr_failed_poses = failed_poses.size();
+    uint nr_poses_total = nr_succeeded_poses + nr_failed_poses;
+    ROS_INFO_STREAM("Tested " << nr_poses_total << " table poses, succeeded: "
                     << nr_succeeded_poses << ", failed: " << failed_poses.size());
     for (auto& failed_pose: failed_poses)
     {
         ROS_DEBUG_STREAM("\n" << failed_pose);
     }
-    ASSERT_TRUE(nr_succeeded_poses >= NR_SUCCEEDED_POSES);
+
+}
+
+
+TEST_F(FurnitureFitTest, testCase)
+{
+
+    ROS_INFO_STREAM("Starting testsuite");
+    TestSetup test_setup;
+    std::vector<geo::Pose3D> succeeded_poses, failed_poses;
+    test_setup.testAllPoses(succeeded_poses, failed_poses);
+
+    summarizeResult(succeeded_poses, failed_poses);
+    ASSERT_TRUE(succeeded_poses.size() >= NR_SUCCEEDED_POSES);
 }
 
 
