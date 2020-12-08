@@ -9,6 +9,8 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 
+#include <ros/console.h>
+
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
@@ -177,6 +179,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
+    ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
     cv::Mat visited(height, width, CV_8UC1, cv::Scalar(0));
 
@@ -200,7 +203,9 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
     int dirs[] = { -1, 1, -width, width,
                    -2, 2, -width * 2, width * 2};  // Also try one pixel skipped (filtering may cause some 1-pixel gaps)
 
-    for(unsigned int i_pixel = 0; i_pixel < width * height; ++i_pixel)
+    ROS_DEBUG("Creating clusters");
+    unsigned int size = width * height;
+    for(unsigned int i_pixel = 0; i_pixel < size; ++i_pixel)
     {
         float d = depth_image.at<float>(i_pixel);
 
@@ -231,6 +236,11 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             for(int dir = 0; dir < 8; ++dir)
             {
                 unsigned int p2 = p1 + dirs[dir];
+
+                // Check if out of bounds (N.B., if dirs[dir] < 0, p2 might be negative but since it's an unsigned int it will
+                // in practice be a large number.
+                if (p2 >= size)
+                    continue;
                 float p2_d = depth_image.at<float>(p2);
 
                 // If not yet visited, and depth is within bounds
@@ -257,6 +267,7 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
         float z_max = -1e9;
 
         // Calculate z_min and z_max of cluster
+        ROS_DEBUG("Computing min and max of cluster");
         std::vector<geo::Vec2f> points_2d(cluster.points.size());
         for(unsigned int j = 0; j < cluster.points.size(); ++j)
         {

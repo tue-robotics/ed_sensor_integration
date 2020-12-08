@@ -7,6 +7,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
+  geolib2
   sensor_msgs
   tue_config
   tue_filesystem
@@ -103,3 +104,14 @@ add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
+
+# ------------------------------------------------------------------------------------------------
+#                                           TESTS
+# ------------------------------------------------------------------------------------------------
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
+  target_link_libraries(test_furniture_fitting ed_kinect ${catkin_LIBRARIES})
+endif ()
+
+
+
