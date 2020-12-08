@@ -71,8 +71,6 @@ private:
 
     // Models
 
-    std::map<std::string, EntityRepresentation2D> models_;
-
     ed::models::ModelLoader model_loader_;
 
 };
