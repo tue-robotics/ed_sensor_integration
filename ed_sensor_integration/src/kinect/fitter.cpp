@@ -61,7 +61,7 @@ Fitter::~Fitter()
 // ----------------------------------------------------------------------------------------------------
 
 bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
-                                const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change)
+                                const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
 {
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
@@ -320,7 +320,7 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
 
 // ----------------------------------------------------------------------------------------------------
 
-EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e)
+EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e) const
 {
     std::map<ed::UUID, EntityRepresentation2D>::const_iterator it_model = entity_shapes_.find(e->id());
     if (it_model != entity_shapes_.end())
@@ -340,7 +340,7 @@ EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e)
 // ----------------------------------------------------------------------------------------------------
 
 void Fitter::renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
-                  std::vector<double>& model_ranges, std::vector<int>& identifiers)
+                  std::vector<double>& model_ranges, std::vector<int>& identifiers) const
 {
     geo::Transform2 sensor_pose_xya_2d = XYYawToTransform2(sensor_pose_xya);
 
