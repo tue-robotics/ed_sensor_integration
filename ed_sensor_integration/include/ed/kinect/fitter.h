@@ -66,12 +66,14 @@ public:
 
     void processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const;
 
+    // ToDo: make private?
     void renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
                       std::vector<double>& model_ranges, std::vector<int>& identifiers) const;
 
     bool estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change = M_PI) const;
 
+    // ToDo: make private?
     EntityRepresentation2D GetOrCreateEntity2D(const ed::EntityConstPtr& e) const;
 
 private:
@@ -80,6 +82,9 @@ private:
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const;
 
     Shape2D get2DShape(ed::EntityConstPtr entity_ptr) const;
+
+    void renderWorldModel2D(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, const ed::UUID& skip_id,
+                            std::vector<double>& model_ranges, std::vector<int>& identifiers) const;
 
     // Fitting
     BeamModel beam_model_;

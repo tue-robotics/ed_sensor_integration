@@ -126,18 +126,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
 
     // -------------------------------------
-    // Do other stuff...
-//    geo::Pose3D expected_pose_SENSOR = data.sensor_pose_xya.inverse() * expected_pose;
-//    double expected_yaw_SENSOR;
-//    {
-//        tf::Matrix3x3 m;
-//        geo::convert(expected_pose_SENSOR.R, m);
-//        double roll, pitch;
-//        m.getRPY(roll, pitch, expected_yaw_SENSOR);
-//    }
-
-//    double min_yaw = expected_yaw_SENSOR - max_yaw_change;
-//    double max_yaw = expected_yaw_SENSOR + max_yaw_change;
+    // Compute yaw range
     YawRange yaw_range = computeYawRange(data.sensor_pose_xya, expected_pose, max_yaw_change);
 
     // ----------------------------------------------------
