@@ -1,5 +1,7 @@
-#include "ed/kinect/fitter.h"
+// Logging
+#include <ros/console.h>
 
+#include "ed/kinect/fitter.h"
 #include <ed/entity.h>
 #include <ed/world_model.h>
 #include <ed/update_request.h>
@@ -19,6 +21,7 @@
 
 // Communication
 #include <ed_sensor_integration_msgs/ImageBinary.h>
+
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -63,20 +66,28 @@ Fitter::~Fitter()
 bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                                 const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
 {
-    const std::vector<double>& sensor_ranges = data.sensor_ranges;
+    try
+    {
+        estimateEntityPoseImp(data, world, id, expected_pose, fitted_pose, max_yaw_change);
+    }
+    catch (const FitterError& error)
+    {
+        ROS_ERROR_STREAM("Fitter error: " << error.what());
+        return false;
+    }
+    return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
+                                   const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
+{
+    ed::EntityConstPtr entity = world.getEntity(id);
 
     // -------------------------------------
     // Get 2D contour
-
-    ed::EntityConstPtr e = world.getEntity(id);
-    if (!e->shape())
-        return false;
-
-    EntityRepresentation2D repr_2d = GetOrCreateEntity2D(e);
-    if (repr_2d.shape_2d.empty())
-        return false;
-
-    const Shape2D& shape2d = repr_2d.shape_2d;
+    const Shape2D& shape2d = get2DShape(entity);
 
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
@@ -87,6 +98,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     // -------------------------------------
     // Render world model objects
 
+    const std::vector<double>& sensor_ranges = data.sensor_ranges;
     std::vector<double> model_ranges(sensor_ranges.size(), 0);
     std::vector<int> dummy_identifiers(sensor_ranges.size(), -1);
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
@@ -126,7 +138,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     std::vector<double> expected_ranges(sensor_ranges.size(), 0);
     expected_ranges = model_ranges;
     std::vector<int> expected_identifiers(sensor_ranges.size(), 0);
-    renderEntity(e, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
+    renderEntity(entity, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
 
     if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         return false;
@@ -266,7 +278,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     // Convert to 3D Pose
 
     geo::Pose3D pose_3d;
-    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, e->pose().t.z);
+    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, entity->pose().t.z);
     pose_3d.R = geo::Mat3::identity();
     pose_3d.R.xx = best_pose_SENSOR.R.xx;
     pose_3d.R.xy = best_pose_SENSOR.R.xy;
@@ -276,6 +288,20 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
     fitted_pose = data.sensor_pose_xya * pose_3d;
 
     return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+Shape2D Fitter::get2DShape(ed::EntityConstPtr entity_ptr) const
+{
+    if (!entity_ptr->shape())
+        throw FitterError("Entity " + entity_ptr->id().str() + " has no shape");
+
+    EntityRepresentation2D repr_2d = GetOrCreateEntity2D(entity_ptr);
+    if (repr_2d.shape_2d.empty())
+        throw FitterError("No conversion to 2D shape for entity " + entity_ptr->id().str());
+
+    return repr_2d.shape_2d;
 }
 
 // ----------------------------------------------------------------------------------------------------

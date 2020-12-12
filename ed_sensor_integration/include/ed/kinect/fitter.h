@@ -1,6 +1,8 @@
 #ifndef ED_SENSOR_INTEGRATION_FITTER_PLUGIN_H_
 #define ED_SENSOR_INTEGRATION_FITTER_PLUGIN_H_
 
+#include <exception>
+
 #include <ed/plugin.h>
 #include <ed/types.h>
 
@@ -17,6 +19,21 @@
 #include <vector>
 
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
+
+// ----------------------------------------------------------------------------------------------------
+
+class FitterError: public std::exception
+{
+public:
+    FitterError(const std::string& msg){error_message_ = msg;}
+
+    virtual const char* what() const throw ()
+    {
+           return error_message_.c_str();
+    }
+private:
+    std::string error_message_;
+};
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -59,13 +76,16 @@ public:
 
 private:
 
+    bool estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
+                   const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const;
+
+    Shape2D get2DShape(ed::EntityConstPtr entity_ptr) const;
+
     // Fitting
     BeamModel beam_model_;
 
-
     // 2D Entity shapes
     mutable std::map<ed::UUID, EntityRepresentation2D> entity_shapes_;
-
 
     // Models
     ed::models::ModelLoader model_loader_;
