@@ -113,6 +113,44 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
+double computeFittingError(const std::vector<double>& test_ranges, const std::vector<double>& sensor_ranges)
+{
+    int n = 0;
+    double total_error = 0;
+    for(unsigned int i = 0; i < test_ranges.size(); ++i)
+    {
+        double ds = sensor_ranges[i];
+        double dm = test_ranges[i];
+
+        if (ds <= 0)
+            continue;
+
+        ++n;
+
+        if (dm <= 0)
+        {
+            total_error += 0.1;
+            continue;
+        }
+
+        double diff = std::abs(ds - dm);
+        if (diff < 0.1)
+            total_error += diff;
+        else
+        {
+            if (ds > dm)
+                total_error += 1;
+            else
+                total_error += 0.1;
+        }
+    }
+
+    double error = total_error / n;
+    return error;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 Fitter::Fitter(uint nr_data_points) :
     nr_data_points_(nr_data_points)
 {
@@ -183,7 +221,6 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     // -------------------------------------
     // Fit
-
     double min_error = 1e9;
     geo::Transform2 best_pose_SENSOR;
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
@@ -193,20 +230,16 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
         double l = beam_model_.rays()[i_beam].length();
         geo::Vec2 r = beam_model_.rays()[i_beam] / l;
 
-//        for(double yaw = min_yaw; yaw < max_yaw; yaw += 0.1)
+        // Iterate over the yaw range
         for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
         {
-            // ----------------
             // Calculate rotation
-
             double cos_alpha = cos(yaw);
             double sin_alpha = sin(yaw);
             geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
             geo::Transform2 pose(rot, r * 10);
 
-            // ----------------
             // Determine initial pose based on measured range
-
             std::vector<double> test_ranges(nr_data_points_, 0);
             beam_model_.RenderModel(shape2d_transformed, pose, 0, test_ranges, dummy_identifiers);
 
@@ -218,9 +251,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
             pose.t += r * ((ds - dm) * l);
 
-            // ----------------
             // Render model
-
             test_ranges = model_ranges;
             std::vector<int> identifiers(nr_data_points_, 0);
             beam_model_.RenderModel(shape2d_transformed, pose, 1, test_ranges, identifiers);
@@ -228,40 +259,8 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
                 continue;
 
-            // ----------------
             // Calculate error
-
-            int n = 0;
-            double total_error = 0;
-            for(unsigned int i = 0; i < test_ranges.size(); ++i)
-            {
-                double ds = sensor_ranges[i];
-                double dm = test_ranges[i];
-
-                if (ds <= 0)
-                    continue;
-
-                ++n;
-
-                if (dm <= 0)
-                {
-                    total_error += 0.1;
-                    continue;
-                }
-
-                double diff = std::abs(ds - dm);
-                if (diff < 0.1)
-                    total_error += diff;
-                else
-                {
-                    if (ds > dm)
-                        total_error += 1;
-                    else
-                        total_error += 0.1;
-                }
-            }
-
-            double error = total_error / n;
+            double error = computeFittingError(test_ranges, sensor_ranges);
 
             if (error < min_error)
             {
