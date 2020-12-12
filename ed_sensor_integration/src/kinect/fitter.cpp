@@ -113,6 +113,14 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
+struct PoseAndError
+{
+    geo::Transform2 pose;
+    double error;
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 double computeFittingError(const std::vector<double>& test_ranges, const std::vector<double>& sensor_ranges)
 {
     int n = 0;
@@ -151,6 +159,21 @@ double computeFittingError(const std::vector<double>& test_ranges, const std::ve
 
 // ----------------------------------------------------------------------------------------------------
 
+void updateOptimum(const std::vector<double>& test_ranges, const std::vector<double>& sensor_ranges,
+                   const geo::Transform2& candidate_pose, PoseAndError& current_optimum)
+{
+    // Calculate error
+    double error = computeFittingError(test_ranges, sensor_ranges);
+
+    if (error < current_optimum.error)
+    {
+        current_optimum.pose = candidate_pose;
+        current_optimum.error = error;
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 Fitter::Fitter(uint nr_data_points) :
     nr_data_points_(nr_data_points)
 {
@@ -170,14 +193,13 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 {
     try
     {
-        estimateEntityPoseImp(data, world, id, expected_pose, fitted_pose, max_yaw_change);
+        return estimateEntityPoseImp(data, world, id, expected_pose, fitted_pose, max_yaw_change);
     }
     catch (const FitterError& error)
     {
         ROS_ERROR_STREAM("Fitter error: " << error.what());
         return false;
     }
-    return true;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -221,8 +243,8 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     // -------------------------------------
     // Fit
-    double min_error = 1e9;
-    geo::Transform2 best_pose_SENSOR;
+    PoseAndError current_optimum;
+    current_optimum.error = 1e9;
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
     for(int i_beam = 0; i_beam < nr_data_points_; ++i_beam)
@@ -259,24 +281,19 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
                 continue;
 
-            // Calculate error
-            double error = computeFittingError(test_ranges, sensor_ranges);
-
-            if (error < min_error)
-            {
-                best_pose_SENSOR = pose;
-                min_error = error;
-            }
+            // Update optimum
+            updateOptimum(test_ranges, sensor_ranges, pose, current_optimum);
         }
     }
 
-    if (min_error > 1e5)
+    double error_threshold = 1e5;
+    if (current_optimum.error > error_threshold)
     {
-//        std::cout << "No pose found!" << std::endl;
-        return false;
+        throw FitterError("Error of best fit exceeds threshold");
     }
 
     // Correct for shape transformation
+    geo::Transform2 best_pose_SENSOR = current_optimum.pose;
     best_pose_SENSOR.t += best_pose_SENSOR.R * -shape_center;
 
 //    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
