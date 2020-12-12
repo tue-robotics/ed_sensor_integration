@@ -69,8 +69,21 @@ geo::Vec2 computeShapeCenter(const Shape2D& shape2d)
         }
     }
 
-//    geo::Vec2 shape_center = 0.5 * (shape_min + shape_max);
     return 0.5 * (shape_min + shape_max);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+Shape2D transformShape2D(const Shape2D& original_shape, const geo::Vec2& transformation)
+{
+    Shape2D shape2d_transformed = original_shape;
+    for(uint i = 0; i < shape2d_transformed.size(); ++i)
+    {
+        std::vector<geo::Vec2>& contour_transformed = shape2d_transformed[i];
+        for(uint j = 0; j < contour_transformed.size(); ++j)
+            contour_transformed[j] -= transformation;
+    }
+    return shape2d_transformed;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -134,11 +147,20 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
 {
+    // Get entity for which to fit the pose
     ed::EntityConstPtr entity = world.getEntity(id);
 
     // -------------------------------------
     // Get 2D contour
     const Shape2D& shape2d = get2DShape(entity);
+
+    // -------------------------------------
+    // Determine center of the shape
+    geo::Vec2 shape_center = computeShapeCenter(shape2d);
+
+    // -------------------------------------
+    // Transform shape2d such that origin is in the center
+    Shape2D shape2d_transformed = transformShape2D(shape2d, shape_center);
 
     // -------------------------------------
     // Render world model objects
@@ -154,32 +176,10 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     // ----------------------------------------------------
     // Check that we can see the shape in its expected pose
     checkExpectedBeamThroughEntity(model_ranges, entity, data.sensor_pose_xya, expected_center_beam);
-//    std::vector<double> expected_ranges(nr_data_points_, 0);
-//    expected_ranges = model_ranges;
-//    std::vector<int> expected_identifiers(nr_data_points_, 0);
-//    renderEntity(entity, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
-
-//    if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
-//        return false;
 
     // -------------------------------------
     // Compute yaw range
     YawRange yaw_range = computeYawRange(data.sensor_pose_xya, expected_pose, max_yaw_change);
-
-    // -------------------------------------
-    // Determine center of the shape
-    geo::Vec2 shape_center = computeShapeCenter(shape2d);
-
-    // -------------------------------------
-    // Transform shape2d such that origin is in the center
-    Shape2D shape2d_transformed = shape2d;
-
-    for(int i = 0; i < shape2d_transformed.size(); ++i)
-    {
-        std::vector<geo::Vec2>& contour_transformed = shape2d_transformed[i];
-        for(int j = 0; j < contour_transformed.size(); ++j)
-            contour_transformed[j] -= shape_center;
-    }
 
     // -------------------------------------
     // Fit
