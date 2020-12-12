@@ -247,10 +247,10 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     current_optimum.error = 1e9;
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
-    for(int i_beam = 0; i_beam < nr_data_points_; ++i_beam)
+    for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
-        double l = beam_model_.rays()[i_beam].length();
-        geo::Vec2 r = beam_model_.rays()[i_beam] / l;
+        double beam_length = beam_model_.rays()[i_beam].length();
+        geo::Vec2 beam_direction = beam_model_.rays()[i_beam] / beam_length;
 
         // Iterate over the yaw range
         for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
@@ -259,7 +259,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             double cos_alpha = cos(yaw);
             double sin_alpha = sin(yaw);
             geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
-            geo::Transform2 pose(rot, r * 10);
+            geo::Transform2 pose(rot, beam_direction * 10);  // JL: Why multiply by 10?
 
             // Determine initial pose based on measured range
             std::vector<double> test_ranges(nr_data_points_, 0);
@@ -271,7 +271,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             if (ds <= 0 || dm <= 0)
                 continue;
 
-            pose.t += r * ((ds - dm) * l);
+            pose.t += beam_direction * ((ds - dm) * beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
 
             // Render model
             test_ranges = model_ranges;
