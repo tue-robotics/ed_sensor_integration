@@ -174,6 +174,21 @@ void updateOptimum(const std::vector<double>& test_ranges, const std::vector<dou
 
 // ----------------------------------------------------------------------------------------------------
 
+geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityConstPtr entity, const geo::Pose3D& sensor_pose_xya)
+{
+    geo::Pose3D pose_3d;
+    pose_3d.t = geo::Vec3(pose_sensor.t.x, pose_sensor.t.y, entity->pose().t.z);
+    pose_3d.R = geo::Mat3::identity();
+    pose_3d.R.xx = pose_sensor.R.xx;
+    pose_3d.R.xy = pose_sensor.R.xy;
+    pose_3d.R.yx = pose_sensor.R.yx;
+    pose_3d.R.yy = pose_sensor.R.yy;
+
+    return sensor_pose_xya * pose_3d;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 Fitter::Fitter(uint nr_data_points) :
     nr_data_points_(nr_data_points)
 {
@@ -296,19 +311,8 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     geo::Transform2 best_pose_SENSOR = current_optimum.pose;
     best_pose_SENSOR.t += best_pose_SENSOR.R * -shape_center;
 
-//    std::cout << "Found a pose: " << best_pose_SENSOR << std::endl;
-
     // Convert to 3D Pose
-
-    geo::Pose3D pose_3d;
-    pose_3d.t = geo::Vec3(best_pose_SENSOR.t.x, best_pose_SENSOR.t.y, entity->pose().t.z);
-    pose_3d.R = geo::Mat3::identity();
-    pose_3d.R.xx = best_pose_SENSOR.R.xx;
-    pose_3d.R.xy = best_pose_SENSOR.R.xy;
-    pose_3d.R.yx = best_pose_SENSOR.R.yx;
-    pose_3d.R.yy = best_pose_SENSOR.R.yy;
-
-    fitted_pose = data.sensor_pose_xya * pose_3d;
+    fitted_pose = computeFittedPose(best_pose_SENSOR, entity, data.sensor_pose_xya);
 
     return true;
 }
