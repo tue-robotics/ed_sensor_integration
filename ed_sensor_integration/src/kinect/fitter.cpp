@@ -49,6 +49,32 @@ YawRange computeYawRange(const geo::Pose3D& sensor_pose_xya, const geo::Pose3D& 
 
 // ----------------------------------------------------------------------------------------------------
 
+geo::Vec2 computeShapeCenter(const Shape2D& shape2d)
+{
+    // ToDo: make member method? This doesn't make any sense as a separate method
+    // since you need to know the internals of a Shape2D
+    geo::Vec2 shape_min(1e6, 1e6);
+    geo::Vec2 shape_max(-1e6, -1e6);
+
+    for(uint i = 0; i < shape2d.size(); ++i)
+    {
+        const std::vector<geo::Vec2>& contour = shape2d[i];
+        for(uint j = 0; j < contour.size(); ++j)
+        {
+            const geo::Vec2& p = contour[j];
+            shape_min.x = std::min(shape_min.x, p.x);
+            shape_min.y = std::min(shape_min.y, p.y);
+            shape_max.x = std::max(shape_max.x, p.x);
+            shape_max.y = std::max(shape_max.y, p.y);
+        }
+    }
+
+//    geo::Vec2 shape_center = 0.5 * (shape_min + shape_max);
+    return 0.5 * (shape_min + shape_max);
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 // Decomposes 'pose' into a (X, Y, YAW) and (Z, ROLL, PITCH) component
 void decomposePose(const geo::Pose3D& pose, geo::Pose3D& pose_xya, geo::Pose3D& pose_zrp)
 {
@@ -74,9 +100,10 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
-Fitter::Fitter()
+Fitter::Fitter(uint nr_data_points) :
+    nr_data_points_(nr_data_points)
 {
-    beam_model_.initialize(4, 200);  // TODO: remove hard-coded values
+    beam_model_.initialize(4, nr_data_points);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -114,67 +141,37 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     const Shape2D& shape2d = get2DShape(entity);
 
     // -------------------------------------
+    // Render world model objects
+    std::vector<double> model_ranges(nr_data_points_, 0);
+    std::vector<int> dummy_identifiers(nr_data_points_, -1);
+    renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
+
+    // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
     geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
     int expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
 
-    // -------------------------------------
-    // Render world model objects
-    const std::vector<double>& sensor_ranges = data.sensor_ranges;
-    std::vector<double> model_ranges(sensor_ranges.size(), 0);
-    std::vector<int> dummy_identifiers(sensor_ranges.size(), -1);
-    renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
-
-    // -------------------------------------
-    // Do other stuff...
-//    geo::Pose3D expected_pose_SENSOR = data.sensor_pose_xya.inverse() * expected_pose;
-//    double expected_yaw_SENSOR;
-//    {
-//        tf::Matrix3x3 m;
-//        geo::convert(expected_pose_SENSOR.R, m);
-//        double roll, pitch;
-//        m.getRPY(roll, pitch, expected_yaw_SENSOR);
-//    }
-
-//    double min_yaw = expected_yaw_SENSOR - max_yaw_change;
-//    double max_yaw = expected_yaw_SENSOR + max_yaw_change;
-    YawRange yaw_range = computeYawRange(data.sensor_pose_xya, expected_pose, max_yaw_change);
-
     // ----------------------------------------------------
     // Check that we can see the shape in its expected pose
+    checkExpectedBeamThroughEntity(model_ranges, entity, data.sensor_pose_xya, expected_center_beam);
+//    std::vector<double> expected_ranges(nr_data_points_, 0);
+//    expected_ranges = model_ranges;
+//    std::vector<int> expected_identifiers(nr_data_points_, 0);
+//    renderEntity(entity, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
 
-    std::vector<double> expected_ranges(sensor_ranges.size(), 0);
-    expected_ranges = model_ranges;
-    std::vector<int> expected_identifiers(sensor_ranges.size(), 0);
-    renderEntity(entity, data.sensor_pose_xya, 1, expected_ranges, expected_identifiers);
+//    if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+//        return false;
 
-    if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
-        return false;
+    // -------------------------------------
+    // Compute yaw range
+    YawRange yaw_range = computeYawRange(data.sensor_pose_xya, expected_pose, max_yaw_change);
 
     // -------------------------------------
     // Determine center of the shape
-
-    geo::Vec2 shape_min(1e6, 1e6);
-    geo::Vec2 shape_max(-1e6, -1e6);
-
-    for(int i = 0; i < shape2d.size(); ++i)
-    {
-        const std::vector<geo::Vec2>& contour = shape2d[i];
-        for(int j = 0; j < contour.size(); ++j)
-        {
-            const geo::Vec2& p = contour[j];
-            shape_min.x = std::min(shape_min.x, p.x);
-            shape_min.y = std::min(shape_min.y, p.y);
-            shape_max.x = std::max(shape_max.x, p.x);
-            shape_max.y = std::max(shape_max.y, p.y);
-        }
-    }
-
-    geo::Vec2 shape_center = 0.5 * (shape_min + shape_max);
+    geo::Vec2 shape_center = computeShapeCenter(shape2d);
 
     // -------------------------------------
     // Transform shape2d such that origin is in the center
-
     Shape2D shape2d_transformed = shape2d;
 
     for(int i = 0; i < shape2d_transformed.size(); ++i)
@@ -189,8 +186,9 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     double min_error = 1e9;
     geo::Transform2 best_pose_SENSOR;
+    const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
-    for(int i_beam = 0; i_beam < sensor_ranges.size(); ++i_beam)
+    for(int i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
         double l = beam_model_.rays()[i_beam].length();
         geo::Vec2 r = beam_model_.rays()[i_beam] / l;
@@ -209,7 +207,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             // ----------------
             // Determine initial pose based on measured range
 
-            std::vector<double> test_ranges(sensor_ranges.size(), 0);
+            std::vector<double> test_ranges(nr_data_points_, 0);
             beam_model_.RenderModel(shape2d_transformed, pose, 0, test_ranges, dummy_identifiers);
 
             double ds = sensor_ranges[i_beam];
@@ -224,7 +222,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             // Render model
 
             test_ranges = model_ranges;
-            std::vector<int> identifiers(sensor_ranges.size(), 0);
+            std::vector<int> identifiers(nr_data_points_, 0);
             beam_model_.RenderModel(shape2d_transformed, pose, 1, test_ranges, identifiers);
 
             if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
@@ -338,6 +336,22 @@ void Fitter::renderWorldModel2D(const ed::WorldModel& world, const geo::Pose3D& 
         renderEntity(e, sensor_pose_xya, -1, model_ranges, identifiers);
     }
 
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+void Fitter::checkExpectedBeamThroughEntity(const std::vector<double>& model_ranges,
+                                            ed::EntityConstPtr entity,
+                                            const geo::Pose3D& sensor_pose_xya,
+                                            const int expected_center_beam) const
+{
+    std::vector<double> expected_ranges(nr_data_points_, 0);
+    expected_ranges = model_ranges;
+    std::vector<int> expected_identifiers(nr_data_points_, 0);
+    renderEntity(entity, sensor_pose_xya, 1, expected_ranges, expected_identifiers);
+
+    if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+        throw FitterError("Expected beam does not go through entity");
 }
 
 // ----------------------------------------------------------------------------------------------------

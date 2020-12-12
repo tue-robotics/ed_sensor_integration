@@ -60,7 +60,7 @@ class Fitter
 
 public:
 
-    Fitter();
+    Fitter(uint nr_data_points = 200);  // TODO: remove hard-coded values
 
     ~Fitter();
 
@@ -86,6 +86,9 @@ private:
     void renderWorldModel2D(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, const ed::UUID& skip_id,
                             std::vector<double>& model_ranges, std::vector<int>& identifiers) const;
 
+    void checkExpectedBeamThroughEntity(const std::vector<double> &model_ranges, ed::EntityConstPtr entity,
+                                        const geo::Pose3D &sensor_pose_xya, const int expected_center_beam) const;
+
     // Fitting
     BeamModel beam_model_;
 
@@ -94,6 +97,8 @@ private:
 
     // Models
     ed::models::ModelLoader model_loader_;
+
+    uint nr_data_points_;
 
 };
 
