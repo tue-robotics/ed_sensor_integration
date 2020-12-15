@@ -113,10 +113,54 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
-struct PoseAndError
+//struct Candidate
+//{
+//    geo::Transform2 pose;
+//    double error;
+//};
+
+
+class OptimalFit
 {
+public:
+
+    OptimalFit() : error(1e9) {}
+
+    ~OptimalFit(){}
+
+    void update(const geo::Transform2& new_pose, const double& new_error)
+    {
+        pose = new_pose;
+        error = new_error;
+    }
+
+    double getError(){return error;}
+    geo::Transform2 getPose(){return pose;}
+
+private:
     geo::Transform2 pose;
     double error;
+};
+
+class Candidate
+{
+public:
+
+    Candidate(const uint nr_data_points){beam_ranges.resize(nr_data_points, 0.0);}
+    void initialize(const double yaw, const geo::Vec2& beam_direction)
+    {
+        pose.setRotation(yaw);
+        pose.setOrigin(beam_direction * 10);  // JL: why this factor 10?
+        std::fill(beam_ranges.begin(), beam_ranges.end(), 0.0);
+    }
+
+    ~Candidate(){}
+
+    // ToDo: how can we make this private? Use smart pointers as well?
+    // It's not desirable to make the beam model aware of this datastructure
+    geo::Transform2 pose;
+    std::vector<double> beam_ranges;
+
 };
 
 // ----------------------------------------------------------------------------------------------------
@@ -159,16 +203,17 @@ double computeFittingError(const std::vector<double>& test_ranges, const std::ve
 
 // ----------------------------------------------------------------------------------------------------
 
-void updateOptimum(const std::vector<double>& test_ranges, const std::vector<double>& sensor_ranges,
-                   const geo::Transform2& candidate_pose, PoseAndError& current_optimum)
+void updateOptimum(const std::vector<double>& sensor_ranges,
+                   const Candidate& candidate, OptimalFit& current_optimum)
 {
     // Calculate error
-    double error = computeFittingError(test_ranges, sensor_ranges);
+    double error = computeFittingError(candidate.beam_ranges, sensor_ranges);
 
-    if (error < current_optimum.error)
+    if (error < current_optimum.getError())
     {
-        current_optimum.pose = candidate_pose;
-        current_optimum.error = error;
+//        current_optimum.pose = candidate_pose;
+//        current_optimum.error = error;
+        current_optimum.update(candidate.pose, error);
     }
 }
 
@@ -258,8 +303,9 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     // -------------------------------------
     // Fit
-    PoseAndError current_optimum;
-    current_optimum.error = 1e9;
+    OptimalFit current_optimum;
+    Candidate candidate(nr_data_points_);
+//    current_optimum.error = 1e9;
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
@@ -271,44 +317,46 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
         for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
         {
             // Calculate rotation
-            double cos_alpha = cos(yaw);
-            double sin_alpha = sin(yaw);
-            geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
-            geo::Transform2 pose(rot, beam_direction * 10);  // JL: Why multiply by 10?
+//            double cos_alpha = cos(yaw);
+//            double sin_alpha = sin(yaw);
+//            geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
+//            geo::Transform2 pose(rot, beam_direction * 10);  // JL: Why multiply by 10?
+//            Candidate candidate(yaw, beam_direction, nr_data_points_);
+            candidate.initialize(yaw, beam_direction);
 
             // Determine initial pose based on measured range
-            std::vector<double> test_ranges(nr_data_points_, 0);
-            beam_model_.RenderModel(shape2d_transformed, pose, 0, test_ranges, dummy_identifiers);
+//            std::vector<double> test_ranges(nr_data_points_, 0);
+            beam_model_.RenderModel(shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
 
             double ds = sensor_ranges[i_beam];
-            double dm = test_ranges[i_beam];
+            double dm = candidate.beam_ranges[i_beam];
 
             if (ds <= 0 || dm <= 0)
                 continue;
 
-            pose.t += beam_direction * ((ds - dm) * beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
+            candidate.pose.t += beam_direction * ((ds - dm) * beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
 
             // Render model
-            test_ranges = model_ranges;
+            candidate.beam_ranges = model_ranges;
             std::vector<int> identifiers(nr_data_points_, 0);
-            beam_model_.RenderModel(shape2d_transformed, pose, 1, test_ranges, identifiers);
+            beam_model_.RenderModel(shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
 
             if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
                 continue;
 
             // Update optimum
-            updateOptimum(test_ranges, sensor_ranges, pose, current_optimum);
+            updateOptimum(sensor_ranges, candidate, current_optimum);
         }
     }
 
     double error_threshold = 1e5;
-    if (current_optimum.error > error_threshold)
+    if (current_optimum.getError() > error_threshold)
     {
         throw FitterError("Error of best fit exceeds threshold");
     }
 
     // Correct for shape transformation
-    geo::Transform2 best_pose_SENSOR = current_optimum.pose;
+    geo::Transform2 best_pose_SENSOR = current_optimum.getPose();
     best_pose_SENSOR.t += best_pose_SENSOR.R * -shape_center;
 
     // Convert to 3D Pose
