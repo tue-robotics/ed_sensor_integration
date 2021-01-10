@@ -1,4 +1,5 @@
 # Plugins
+
 ### ED Kinect plugin
 Compares recent sensor image with an image rendered from the world model. Based on this comparison:
 * the pose of existing entities is updated
