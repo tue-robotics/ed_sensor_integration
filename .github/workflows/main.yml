@@ -14,7 +14,7 @@ jobs:
           fetch-depth: 300
       - name: Commit Range
         id: commit-range
-        uses: tue-robotics/tue-env/ci/commit-range@master
+        uses: tue-robotics/tue-env/ci/commit-range@fix/commit_range
       - name: Modified packages
         id: modified-packages
         uses: tue-robotics/tue-env/ci/modified-packages@master
