@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 300
+          fetch-depth: 0
       - name: Commit Range
         id: commit-range
         uses: tue-robotics/tue-env/ci/commit-range@master
