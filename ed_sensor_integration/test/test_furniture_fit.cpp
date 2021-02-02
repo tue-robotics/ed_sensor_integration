@@ -253,6 +253,8 @@ protected:
 };
 
 
+// ToDo: make this class a member of the FurnitureFitTest and separate
+// the test functions from the test setup
 /**
  * @brief The TestSetup class contains all constant data for the test
  */
@@ -274,7 +276,7 @@ public:
         ed::WorldModel wm_copy(world_model_);
         moveFurnitureObject("table", new_pose, wm_copy);
 
-        /// Check to see if the pose of the table in the original world model has not changed
+        // Check to see if the pose of the table in the original world model has not changed
         checkTablePose();
 
         // Render image
@@ -293,7 +295,7 @@ public:
         ROS_DEBUG_STREAM("Fitting supporting entity");
         ed::UUID ed_furniture_id("table");
         bool fit_result = fitSupportingEntity(&rgbd_image,
-                                              ed_furniture_id, // ToDo: nicer max yaw angle
+                                              ed_furniture_id,
                                               fitted_pose);
         ROS_DEBUG_STREAM("Fit result: " << fit_result <<
                          "\nExpected pose: " << new_pose <<
@@ -415,6 +417,7 @@ private:
 };
 
 
+// ToDo: move to TestFurnitureFit
 void summarizeResult(std::vector<geo::Pose3D>& succeeded_poses, std::vector<geo::Pose3D>& failed_poses)
 {
     uint nr_succeeded_poses = succeeded_poses.size();
@@ -435,6 +438,11 @@ TEST_F(FurnitureFitTest, testCase)
 
     ROS_INFO_STREAM("Starting testsuite");
     TestSetup test_setup;
+
+    // For single test
+//    geo::Pose3D test_pose(-0.5, -0.5, 0.0, 0.0, 0.0, 0.0);
+//    ASSERT_TRUE(test_setup.testSinglePose(test_pose));
+
     std::vector<geo::Pose3D> succeeded_poses, failed_poses;
     test_setup.testAllPoses(succeeded_poses, failed_poses);
 

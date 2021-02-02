@@ -31,7 +31,6 @@ struct YawRange
 
 YawRange computeYawRange(const geo::Pose3D& sensor_pose_xya, const geo::Pose3D& expected_entity_pose, const double& max_yaw_change)
 {
-//    geo::Pose3D expected_pose_SENSOR = data.sensor_pose_xya.inverse() * expected_pose;
     geo::Pose3D expected_pose_SENSOR = sensor_pose_xya.inverse() * expected_entity_pose;
     double expected_yaw_SENSOR;
     {
@@ -43,7 +42,6 @@ YawRange computeYawRange(const geo::Pose3D& sensor_pose_xya, const geo::Pose3D& 
 
     double min_yaw = expected_yaw_SENSOR - max_yaw_change;
     double max_yaw = expected_yaw_SENSOR + max_yaw_change;
-//    return YawRange(min_yaw, max_yaw);
     return {min_yaw, max_yaw};
 }
 
@@ -113,13 +111,6 @@ geo::Transform2 XYYawToTransform2(const geo::Pose3D& pose)
 
 // ----------------------------------------------------------------------------------------------------
 
-//struct Candidate
-//{
-//    geo::Transform2 pose;
-//    double error;
-//};
-
-
 class OptimalFit
 {
 public:
@@ -141,6 +132,8 @@ private:
     geo::Transform2 pose;
     double error;
 };
+
+// ----------------------------------------------------------------------------------------------------
 
 class Candidate
 {
@@ -211,8 +204,6 @@ void updateOptimum(const std::vector<double>& sensor_ranges,
 
     if (error < current_optimum.getError())
     {
-//        current_optimum.pose = candidate_pose;
-//        current_optimum.error = error;
         current_optimum.update(candidate.pose, error);
     }
 }
@@ -305,7 +296,6 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     // Fit
     OptimalFit current_optimum;
     Candidate candidate(nr_data_points_);
-//    current_optimum.error = 1e9;
     const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
@@ -317,15 +307,9 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
         for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
         {
             // Calculate rotation
-//            double cos_alpha = cos(yaw);
-//            double sin_alpha = sin(yaw);
-//            geo::Mat2 rot(cos_alpha, -sin_alpha, sin_alpha, cos_alpha);
-//            geo::Transform2 pose(rot, beam_direction * 10);  // JL: Why multiply by 10?
-//            Candidate candidate(yaw, beam_direction, nr_data_points_);
             candidate.initialize(yaw, beam_direction);
 
             // Determine initial pose based on measured range
-//            std::vector<double> test_ranges(nr_data_points_, 0);
             beam_model_.RenderModel(shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
 
             double ds = sensor_ranges[i_beam];
