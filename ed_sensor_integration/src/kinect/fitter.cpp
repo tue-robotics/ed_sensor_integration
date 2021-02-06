@@ -142,6 +142,7 @@ public:
     Candidate(const uint nr_data_points){beam_ranges.resize(nr_data_points, 0.0);}
     void initialize(const double yaw, const geo::Vec2& beam_direction)
     {
+        beam_direction_ = beam_direction;
         pose.setRotation(yaw);
         pose.setOrigin(beam_direction * 10);  // JL: why this factor 10?
         std::fill(beam_ranges.begin(), beam_ranges.end(), 0.0);
@@ -151,6 +152,7 @@ public:
 
     // ToDo: how can we make this private? Use smart pointers as well?
     // It's not desirable to make the beam model aware of this datastructure
+    geo::Vec2 beam_direction_;
     geo::Transform2 pose;
     std::vector<double> beam_ranges;
 
@@ -300,33 +302,21 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
+        // ToDo: put this in the candidate
         double beam_length = beam_model_.rays()[i_beam].length();
         geo::Vec2 beam_direction = beam_model_.rays()[i_beam] / beam_length;
 
         // Iterate over the yaw range
         for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
         {
-            // Calculate rotation
+            // Initialize candidate solution
             candidate.initialize(yaw, beam_direction);
 
-            // Determine initial pose based on measured range
-            beam_model_.RenderModel(shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
-
-            double ds = sensor_ranges[i_beam];
-            double dm = candidate.beam_ranges[i_beam];
-
-            if (ds <= 0 || dm <= 0)
+            // And render it
+            if (!evaluateCandidate(shape2d_transformed, sensor_ranges, i_beam, beam_length, expected_center_beam, candidate))
+            {
                 continue;
-
-            candidate.pose.t += beam_direction * ((ds - dm) * beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
-
-            // Render model
-            candidate.beam_ranges = model_ranges;
-            std::vector<int> identifiers(nr_data_points_, 0);
-            beam_model_.RenderModel(shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
-
-            if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
-                continue;
+            }
 
             // Update optimum
             updateOptimum(sensor_ranges, candidate, current_optimum);
@@ -347,6 +337,34 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     fitted_pose = computeFittedPose(best_pose_SENSOR, entity, data.sensor_pose_xya);
 
     return true;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool Fitter::evaluateCandidate(const Shape2D& shape2d_transformed, const std::vector<double>& sensor_ranges, uint i_beam, double beam_length, int expected_center_beam, Candidate& candidate) const
+{
+    // Determine initial pose based on measured range
+    std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: add to candidate?
+    beam_model_.RenderModel(shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
+
+    double ds = sensor_ranges[i_beam];
+    double dm = candidate.beam_ranges[i_beam];
+
+    if (ds <= 0 || dm <= 0)
+        return false;
+
+    candidate.pose.t += candidate.beam_direction_ * ((ds - dm) * beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
+
+    // Render model
+    candidate.beam_ranges.resize(nr_data_points_, 0.0);
+    std::vector<int> identifiers(nr_data_points_, 0);
+    beam_model_.RenderModel(shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
+
+    if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+        return false;
+
+    return true;
+
 }
 
 // ----------------------------------------------------------------------------------------------------
