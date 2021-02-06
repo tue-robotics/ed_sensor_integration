@@ -436,7 +436,7 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
                 continue;
 
             int i = beam_model_.CalculateBeam(p_floor.x, p_floor.y);
-            if (i >= 0 && i < ranges.size())
+            if (i >= 0 && i < static_cast<int>(ranges.size()))
             {
                 double& r = ranges[i];
                 if (r == 0 || p_floor.y < r)
