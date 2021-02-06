@@ -270,7 +270,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
 {
-    EstimationInputData estimation_input_data = preProcessInputData(world, id, expected_pose, data);
+    const EstimationInputData estimation_input_data = preProcessInputData(world, id, expected_pose, data);
 
     // -------------------------------------
     // Compute yaw range
@@ -291,13 +291,8 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             candidate.initialize(i_beam, yaw);
 
             // And render it
-            if (!evaluateCandidate(estimation_input_data.shape2d_transformed,
-                                   estimation_input_data.sensor_ranges,
-                                   estimation_input_data.expected_center_beam,
-                                   candidate))
-            {
+            if (!evaluateCandidate(estimation_input_data, candidate))
                 continue;
-            }
 
             // Update optimum
             updateOptimum(estimation_input_data.sensor_ranges, candidate, current_optimum);
@@ -362,13 +357,13 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
 // ----------------------------------------------------------------------------------------------------
 
-bool Fitter::evaluateCandidate(const Shape2D& shape2d_transformed, const std::vector<double>& sensor_ranges, const int expected_center_beam, Candidate& candidate) const
+bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate& candidate) const
 {
     // Determine initial pose based on measured range
     std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: prevent redeclaration?
-    beam_model_.RenderModel(shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
+    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
 
-    double ds = sensor_ranges[candidate.beam_index];
+    double ds = static_data.sensor_ranges[candidate.beam_index];
     double dm = candidate.beam_ranges[candidate.beam_index];
 
     if (ds <= 0 || dm <= 0)
@@ -379,9 +374,9 @@ bool Fitter::evaluateCandidate(const Shape2D& shape2d_transformed, const std::ve
     // Render model
     candidate.beam_ranges.resize(nr_data_points_, 0.0);
     std::vector<int> identifiers(nr_data_points_, 0);  // ToDo: prevent redeclaration?
-    beam_model_.RenderModel(shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
+    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
 
-    if (identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
+    if (identifiers[static_data.expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         return false;
 
     return true;
