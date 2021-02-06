@@ -57,6 +57,17 @@ struct FitterData
 
 // ----------------------------------------------------------------------------------------------------
 
+struct EstimationInputData
+{
+    ed::EntityConstPtr entity;
+    Shape2D shape2d_transformed;
+    geo::Vec2 shape_center;
+    int expected_center_beam;
+    std::vector<double> sensor_ranges;
+};
+
+// ----------------------------------------------------------------------------------------------------
+
 class Fitter
 {
 
@@ -83,6 +94,8 @@ private:
     bool estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const;
 
+    EstimationInputData preProcessInputData(const ed::WorldModel &world, const ed::UUID &id, const geo::Pose3D &expected_pose, const FitterData &data) const; // ToDo: unique_ptr?
+
     Shape2D get2DShape(ed::EntityConstPtr entity_ptr) const;
 
     void renderWorldModel2D(const ed::WorldModel& world, const geo::Pose3D& sensor_pose_xya, const ed::UUID& skip_id,
@@ -91,7 +104,7 @@ private:
     void checkExpectedBeamThroughEntity(const std::vector<double> &model_ranges, ed::EntityConstPtr entity,
                                         const geo::Pose3D &sensor_pose_xya, const int expected_center_beam) const;
 
-    bool evaluateCandidate(const Shape2D &shape2d_transformed, const std::vector<double> &sensor_ranges, int expected_center_beam, Candidate& candidate) const;
+    bool evaluateCandidate(const Shape2D &shape2d_transformed, const std::vector<double> &sensor_ranges, const int expected_center_beam, Candidate& candidate) const;
 
     // Fitting
     BeamModel beam_model_;

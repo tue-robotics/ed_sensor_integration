@@ -270,35 +270,7 @@ bool Fitter::estimateEntityPose(const FitterData& data, const ed::WorldModel& wo
 bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change) const
 {
-    // Get entity for which to fit the pose
-    ed::EntityConstPtr entity = world.getEntity(id);
-
-    // -------------------------------------
-    // Get 2D contour
-    const Shape2D& shape2d = get2DShape(entity);
-
-    // -------------------------------------
-    // Determine center of the shape
-    geo::Vec2 shape_center = computeShapeCenter(shape2d);
-
-    // -------------------------------------
-    // Transform shape2d such that origin is in the center
-    Shape2D shape2d_transformed = transformShape2D(shape2d, shape_center);
-
-    // -------------------------------------
-    // Render world model objects
-    std::vector<double> model_ranges(nr_data_points_, 0);
-    std::vector<int> dummy_identifiers(nr_data_points_, -1);
-    renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
-
-    // -------------------------------------
-    // Calculate the beam which shoots through the expected position of the entity
-    geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
-    int expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
-
-    // ----------------------------------------------------
-    // Check that we can see the shape in its expected pose
-    checkExpectedBeamThroughEntity(model_ranges, entity, data.sensor_pose_xya, expected_center_beam);
+    EstimationInputData estimation_input_data = preProcessInputData(world, id, expected_pose, data);
 
     // -------------------------------------
     // Compute yaw range
@@ -309,7 +281,6 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     OptimalFit current_optimum;
     std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
     Candidate candidate(beam_model_ptr);
-    const std::vector<double>& sensor_ranges = data.sensor_ranges;
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
@@ -320,13 +291,16 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
             candidate.initialize(i_beam, yaw);
 
             // And render it
-            if (!evaluateCandidate(shape2d_transformed, sensor_ranges, expected_center_beam, candidate))
+            if (!evaluateCandidate(estimation_input_data.shape2d_transformed,
+                                   estimation_input_data.sensor_ranges,
+                                   estimation_input_data.expected_center_beam,
+                                   candidate))
             {
                 continue;
             }
 
             // Update optimum
-            updateOptimum(sensor_ranges, candidate, current_optimum);
+            updateOptimum(estimation_input_data.sensor_ranges, candidate, current_optimum);
         }
     }
 
@@ -338,17 +312,57 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     // Correct for shape transformation
     geo::Transform2 best_pose_SENSOR = current_optimum.getPose();
-    best_pose_SENSOR.t += best_pose_SENSOR.R * -shape_center;
+    best_pose_SENSOR.t += best_pose_SENSOR.R * -estimation_input_data.shape_center;
 
     // Convert to 3D Pose
-    fitted_pose = computeFittedPose(best_pose_SENSOR, entity, data.sensor_pose_xya);
+    fitted_pose = computeFittedPose(best_pose_SENSOR, estimation_input_data.entity, data.sensor_pose_xya);
 
     return true;
 }
 
 // ----------------------------------------------------------------------------------------------------
 
-bool Fitter::evaluateCandidate(const Shape2D& shape2d_transformed, const std::vector<double>& sensor_ranges, int expected_center_beam, Candidate& candidate) const
+EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, const ed::UUID& id, const geo::Pose3D& expected_pose, const FitterData& data) const // ToDo: unique_ptr?
+{
+    EstimationInputData result;
+
+    // Get entity for which to fit the pose
+    result.entity = world.getEntity(id);
+
+    // -------------------------------------
+    // Get 2D contour
+    const Shape2D& shape2d = get2DShape(result.entity);
+
+    // -------------------------------------
+    // Determine center of the shape
+    result.shape_center = computeShapeCenter(shape2d);
+
+    // -------------------------------------
+    // Transform shape2d such that origin is in the center
+    result.shape2d_transformed = transformShape2D(shape2d, result.shape_center);
+
+    // -------------------------------------
+    // Render world model objects
+    std::vector<double> model_ranges(nr_data_points_, 0);
+    std::vector<int> dummy_identifiers(nr_data_points_, -1);
+    renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
+
+    // -------------------------------------
+    // Calculate the beam which shoots through the expected position of the entity
+    geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
+    result.expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
+
+    // ----------------------------------------------------
+    // Check that we can see the shape in its expected pose
+    checkExpectedBeamThroughEntity(model_ranges, result.entity, data.sensor_pose_xya, result.expected_center_beam);
+
+    result.sensor_ranges = data.sensor_ranges;
+    return result;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+bool Fitter::evaluateCandidate(const Shape2D& shape2d_transformed, const std::vector<double>& sensor_ranges, const int expected_center_beam, Candidate& candidate) const
 {
     // Determine initial pose based on measured range
     std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: prevent redeclaration?
