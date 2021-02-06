@@ -91,7 +91,7 @@ private:
     void checkExpectedBeamThroughEntity(const std::vector<double> &model_ranges, ed::EntityConstPtr entity,
                                         const geo::Pose3D &sensor_pose_xya, const int expected_center_beam) const;
 
-    bool evaluateCandidate(const Shape2D &shape2d_transformed, const std::vector<double> &sensor_ranges, uint i_beam, double beam_length, int expected_center_beam, Candidate& candidate) const;
+    bool evaluateCandidate(const Shape2D &shape2d_transformed, const std::vector<double> &sensor_ranges, int expected_center_beam, Candidate& candidate) const;
 
     // Fitting
     BeamModel beam_model_;
