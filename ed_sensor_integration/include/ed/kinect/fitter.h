@@ -21,9 +21,11 @@
 typedef std::vector<std::vector<geo::Vec2> > Shape2D;
 
 /**
- * Forward declaration of 'Candidate' class
+ * Forward declaration classes
  */
 class Candidate;
+class OptimalFit;
+struct YawRange;
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -128,6 +130,15 @@ public:
      */
     bool estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change = M_PI) const;
+
+    /**
+     * @brief findOptimum finds the 'optimal' fit by evaluating candidates over all beams and over the entire
+     * yaw range.
+     * @param input_data EstimationInputData: everything that's required
+     * @param yaw_range min and max yaw range to sample over
+     * @return pointer to the optimum
+     */
+    std::unique_ptr<OptimalFit> findOptimum(const EstimationInputData& input_data, const YawRange& yaw_range) const;
 
 private:
 

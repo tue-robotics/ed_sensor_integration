@@ -285,35 +285,16 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
     // -------------------------------------
     // Fit
-    OptimalFit current_optimum;
-    std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
-    Candidate candidate(beam_model_ptr);
-
-    for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
-    {
-        // Iterate over the yaw range
-        for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
-        {
-            // Initialize candidate solution
-            candidate.initialize(i_beam, yaw);
-
-            // And render it
-            if (!evaluateCandidate(estimation_input_data, candidate))
-                continue;
-
-            // Update optimum
-            updateOptimum(estimation_input_data.sensor_ranges, candidate, current_optimum);
-        }
-    }
+    std::unique_ptr<OptimalFit> current_optimum = findOptimum(estimation_input_data, yaw_range);
 
     double error_threshold = ERROR_THRESHOLD;
-    if (current_optimum.getError() > error_threshold)
+    if (current_optimum->getError() > error_threshold)
     {
         throw FitterError("Error of best fit exceeds threshold");
     }
 
     // Correct for shape transformation
-    geo::Transform2 best_pose_SENSOR = current_optimum.getPose();
+    geo::Transform2 best_pose_SENSOR = current_optimum->getPose();
     best_pose_SENSOR.t += best_pose_SENSOR.R * -estimation_input_data.shape_center;
 
     // Convert to 3D Pose
@@ -359,6 +340,33 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
     checkExpectedBeamThroughEntity(result.model_ranges, result.entity, data.sensor_pose_xya, result.expected_center_beam);
 
     result.sensor_ranges = data.sensor_ranges;
+    return result;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input_data, const YawRange& yaw_range) const
+{
+    std::unique_ptr<OptimalFit> result(new OptimalFit);
+    std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
+    Candidate candidate(beam_model_ptr);
+
+    for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
+    {
+        // Iterate over the yaw range
+        for(double yaw = yaw_range.min; yaw < yaw_range.max; yaw += 0.1)
+        {
+            // Initialize candidate solution
+            candidate.initialize(i_beam, yaw);
+
+            // And render it
+            if (!evaluateCandidate(input_data, candidate))
+                continue;
+
+            // Update optimum
+            updateOptimum(input_data.sensor_ranges, candidate, *result);
+        }
+    }
     return result;
 }
 
