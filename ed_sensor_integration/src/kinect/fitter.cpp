@@ -324,7 +324,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
 
 // ----------------------------------------------------------------------------------------------------
 
-EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, const ed::UUID& id, const geo::Pose3D& expected_pose, const FitterData& data) const // ToDo: unique_ptr?
+EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, const ed::UUID& id, const geo::Pose3D& expected_pose, const FitterData& data) const
 {
     EstimationInputData result;
 
@@ -351,8 +351,8 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
-    geo::Vec3 expected_pos_SENSOR = data.sensor_pose_xya.inverse() * expected_pose.t;
-    result.expected_center_beam = beam_model_.CalculateBeam(expected_pos_SENSOR.x, expected_pos_SENSOR.y);
+    geo::Vec3 expected_pos_sensor = data.sensor_pose_xya.inverse() * expected_pose.t;
+    result.expected_center_beam = beam_model_.CalculateBeam(expected_pos_sensor.x, expected_pos_sensor.y);
 
     // ----------------------------------------------------
     // Check that we can see the shape in its expected pose
@@ -370,8 +370,8 @@ bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate
     std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: prevent redeclaration?
     beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
 
-    double ds = static_data.sensor_ranges[candidate.beam_index];
-    double dm = candidate.beam_ranges[candidate.beam_index];
+    double ds = static_data.sensor_ranges[candidate.beam_index]; // Transformed sensor reading (distance measured along beam)
+    double dm = candidate.beam_ranges[candidate.beam_index]; // Distance along the beam to an entity in the world model
 
     if (ds <= 0 || dm <= 0)
         return false;

@@ -164,7 +164,7 @@ private:
      * @param data input sensor data
      * @return EstimationInputData used throughout the rest of the algorithm
      */
-    EstimationInputData preProcessInputData(const ed::WorldModel &world, const ed::UUID &id, const geo::Pose3D &expected_pose, const FitterData &data) const; // ToDo: unique_ptr?
+    EstimationInputData preProcessInputData(const ed::WorldModel &world, const ed::UUID &id, const geo::Pose3D &expected_pose, const FitterData &data) const;
 
     /**
      * @brief get2DShape gets the downprojected, 2D shape from an entity
