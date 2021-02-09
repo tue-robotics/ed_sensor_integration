@@ -115,6 +115,17 @@ public:
      */
     void processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const;
 
+    /**
+     * @brief estimateEntityPose performs the entity pose estimation. Basically, tries to call estimateEntityPoseImp and
+     * return the results, catches any FitterErrors and returns false
+     * @param data pre-processed sensor data
+     * @param world world model
+     * @param id id of the entity we're trying to fit
+     * @param expected_pose pose where the entity is expected
+     * @param fitted_pose the fitted pose is stored here
+     * @param max_yaw_change maximum allowed yaw rotation
+     * @return success or failure
+     */
     bool estimateEntityPose(const FitterData& data, const ed::WorldModel& world, const ed::UUID& id,
                    const geo::Pose3D& expected_pose, geo::Pose3D& fitted_pose, double max_yaw_change = M_PI) const;
 
