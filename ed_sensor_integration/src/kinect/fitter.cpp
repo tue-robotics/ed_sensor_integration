@@ -397,7 +397,7 @@ Shape2D Fitter::get2DShape(ed::EntityConstPtr entity_ptr) const
     if (!entity_ptr->shape())
         throw FitterError("Entity " + entity_ptr->id().str() + " has no shape");
 
-    EntityRepresentation2D repr_2d = GetOrCreateEntity2D(entity_ptr);
+    EntityRepresentation2D repr_2d = getOrCreateEntity2D(entity_ptr);
     if (repr_2d.shape_2d.empty())
         throw FitterError("No conversion to 2D shape for entity " + entity_ptr->id().str());
 
@@ -489,9 +489,10 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
 
 // ----------------------------------------------------------------------------------------------------
 
-EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e) const
+EntityRepresentation2D Fitter::getOrCreateEntity2D(const ed::EntityConstPtr& e) const
 {
     std::map<ed::UUID, EntityRepresentation2D>::const_iterator it_model = entity_shapes_.find(e->id());
+    // ToDo: this does not accomodate for different shape revisions.
     if (it_model != entity_shapes_.end())
         return it_model->second;
 
@@ -524,7 +525,7 @@ void Fitter::renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor
     geo::Pose3D pose_zrp;
     decomposePose(e->pose(), pose_xya, pose_zrp);
 
-    EntityRepresentation2D e2d = GetOrCreateEntity2D(e);
+    EntityRepresentation2D e2d = getOrCreateEntity2D(e);
 
     geo::Transform2 pose_2d_SENSOR = sensor_pose_xya_2d.inverse() * XYYawToTransform2(pose_xya);
 
