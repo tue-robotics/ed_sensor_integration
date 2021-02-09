@@ -1,3 +1,6 @@
+// Generic
+#include <limits>
+
 // Logging
 #include <ros/console.h>
 
@@ -21,6 +24,10 @@
 
 // Communication
 #include <ed_sensor_integration_msgs/ImageBinary.h>
+
+
+const double ERROR_THRESHOLD = 1e5;
+
 
 struct YawRange
 {
@@ -51,8 +58,8 @@ geo::Vec2 computeShapeCenter(const Shape2D& shape2d)
 {
     // ToDo: make member method? This doesn't make any sense as a separate method
     // since you need to know the internals of a Shape2D
-    geo::Vec2 shape_min(1e6, 1e6);
-    geo::Vec2 shape_max(-1e6, -1e6);
+    geo::Vec2 shape_min(std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
+    geo::Vec2 shape_max(std::numeric_limits<double>::min(), std::numeric_limits<double>::min());
 
     for(uint i = 0; i < shape2d.size(); ++i)
     {
@@ -115,7 +122,7 @@ class OptimalFit
 {
 public:
 
-    OptimalFit() : error(1e9) {}
+    OptimalFit() : error(10.0 * ERROR_THRESHOLD) {}
 
     ~OptimalFit(){}
 
@@ -299,7 +306,7 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
         }
     }
 
-    double error_threshold = 1e5;
+    double error_threshold = ERROR_THRESHOLD;
     if (current_optimum.getError() > error_threshold)
     {
         throw FitterError("Error of best fit exceeds threshold");
