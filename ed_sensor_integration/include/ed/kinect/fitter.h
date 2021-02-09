@@ -75,7 +75,8 @@ struct FitterData
 /**
  * @brief The EstimationInputData struct contains processed data from the world model (entity, 2D shape
  * w.r.t. shape center at (0, 0), the shape center in the world model, the beam index that is expected
- * to pass close to the shape center and the (2D) sensor ranges.
+ * to pass close to the shape center, the rendered 'model ranges' *without the entity to fit*
+ *  and the (2D) sensor ranges.
  */
 struct EstimationInputData
 {
@@ -83,6 +84,7 @@ struct EstimationInputData
     Shape2D shape2d_transformed;
     geo::Vec2 shape_center;
     int expected_center_beam;
+    std::vector<double> model_ranges;
     std::vector<double> sensor_ranges;
 };
 

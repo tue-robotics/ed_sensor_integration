@@ -148,7 +148,7 @@ public:
 
     Candidate(std::shared_ptr<BeamModel> beam_model_ptr) : beam_model_ptr_(beam_model_ptr)
     {
-        beam_ranges.resize(beam_model_ptr_->num_beams(), 0.0);
+        test_ranges.resize(beam_model_ptr_->num_beams(), 0.0);
     }
     void initialize(const uint i_beam, const double yaw)
     {
@@ -157,7 +157,7 @@ public:
         beam_direction = beam_model_ptr_->rays()[i_beam] / beam_length;
         pose.setRotation(yaw);
         pose.setOrigin(beam_direction * 10);  // JL: why this factor 10?
-        std::fill(beam_ranges.begin(), beam_ranges.end(), 0.0);
+        std::fill(test_ranges.begin(), test_ranges.end(), 0.0);
     }
 
     ~Candidate(){}
@@ -168,7 +168,7 @@ public:
     double beam_length;
     geo::Vec2 beam_direction;
     geo::Transform2 pose;
-    std::vector<double> beam_ranges;
+    std::vector<double> test_ranges;
 
 private:
     std::shared_ptr<BeamModel> beam_model_ptr_;
@@ -219,7 +219,7 @@ void updateOptimum(const std::vector<double>& sensor_ranges,
                    const Candidate& candidate, OptimalFit& current_optimum)
 {
     // Calculate error
-    double error = computeFittingError(candidate.beam_ranges, sensor_ranges);
+    double error = computeFittingError(candidate.test_ranges, sensor_ranges);
 
     if (error < current_optimum.getError())
     {
@@ -345,9 +345,9 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
     // -------------------------------------
     // Render world model objects
-    std::vector<double> model_ranges(nr_data_points_, 0);
+    result.model_ranges.resize(nr_data_points_, 0);
     std::vector<int> dummy_identifiers(nr_data_points_, -1);
-    renderWorldModel2D(world, data.sensor_pose_xya, id, model_ranges, dummy_identifiers);
+    renderWorldModel2D(world, data.sensor_pose_xya, id, result.model_ranges, dummy_identifiers);
 
     // -------------------------------------
     // Calculate the beam which shoots through the expected position of the entity
@@ -356,7 +356,7 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
     // ----------------------------------------------------
     // Check that we can see the shape in its expected pose
-    checkExpectedBeamThroughEntity(model_ranges, result.entity, data.sensor_pose_xya, result.expected_center_beam);
+    checkExpectedBeamThroughEntity(result.model_ranges, result.entity, data.sensor_pose_xya, result.expected_center_beam);
 
     result.sensor_ranges = data.sensor_ranges;
     return result;
@@ -368,10 +368,10 @@ bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate
 {
     // Determine initial pose based on measured range
     std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: prevent redeclaration?
-    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 0, candidate.beam_ranges, dummy_identifiers);
+    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 0, candidate.test_ranges, dummy_identifiers);
 
     double ds = static_data.sensor_ranges[candidate.beam_index]; // Transformed sensor reading (distance measured along beam)
-    double dm = candidate.beam_ranges[candidate.beam_index]; // Distance along the beam to an entity in the world model
+    double dm = candidate.test_ranges[candidate.beam_index]; // Distance along the beam to an entity in the world model
 
     if (ds <= 0 || dm <= 0)
         return false;
@@ -379,9 +379,9 @@ bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate
     candidate.pose.t += candidate.beam_direction * ((ds - dm) * candidate.beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
 
     // Render model
-    candidate.beam_ranges.resize(nr_data_points_, 0.0);
+    candidate.test_ranges = static_data.model_ranges;
     std::vector<int> identifiers(nr_data_points_, 0);  // ToDo: prevent redeclaration?
-    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 1, candidate.beam_ranges, identifiers);
+    beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 1, candidate.test_ranges, identifiers);
 
     if (identifiers[static_data.expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         return false;
