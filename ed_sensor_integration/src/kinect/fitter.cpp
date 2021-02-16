@@ -374,19 +374,20 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
 
 bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate& candidate) const
 {
-    // Determine initial pose based on measured range
+    // Render the entity model *exluding* other entities in the world model
     std::vector<int> dummy_identifiers(nr_data_points_, -1); // ToDo: prevent redeclaration?
     beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 0, candidate.test_ranges, dummy_identifiers);
 
     double ds = static_data.sensor_ranges[candidate.beam_index]; // Transformed sensor reading (distance measured along beam)
-    double dm = candidate.test_ranges[candidate.beam_index]; // Distance along the beam to an entity in the world model
+    double dm = candidate.test_ranges[candidate.beam_index]; // Distance along the beam to the candidate entity
 
     if (ds <= 0 || dm <= 0)
         return false;
 
+	// Correct the entity pose in the direction of the beam
     candidate.pose.t += candidate.beam_direction * ((ds - dm) * candidate.beam_length); // JL: Why multiply with beam_length (or, at least, 'l')?
 
-    // Render model
+    // Render model on top of the rendered data of the other entities in the world model
     candidate.test_ranges = static_data.model_ranges;
     std::vector<int> identifiers(nr_data_points_, 0);  // ToDo: prevent redeclaration?
     beam_model_.RenderModel(static_data.shape2d_transformed, candidate.pose, 1, candidate.test_ranges, identifiers);
