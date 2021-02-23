@@ -140,6 +140,14 @@ public:
      */
     std::unique_ptr<OptimalFit> findOptimum(const EstimationInputData& input_data, const YawRange& yaw_range) const;
 
+    /**
+     * @brief GetOrCreateEntity2D returns the downprojected shape of the entity. If it's already in the cache,
+     * it's returned directly. If not, it's obtained from the entity
+     * @param e input entity
+     * @return 2D entity representation
+     */
+    EntityRepresentation2D GetOrCreateEntity2D(const ed::EntityConstPtr& e) const;
+
 private:
 
     /**
@@ -154,14 +162,6 @@ private:
      */
     void renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor_pose_xya, int identifier,
                       std::vector<double>& model_ranges, std::vector<int>& identifiers) const;
-
-    /**
-     * @brief GetOrCreateEntity2D returns the downprojected shape of the entity. If it's already in the cache,
-     * it's returned directly. If not, it's obtained from the entity
-     * @param e input entity
-     * @return 2D entity representation
-     */
-    EntityRepresentation2D getOrCreateEntity2D(const ed::EntityConstPtr& e) const;
 
     /**
      * @brief estimateEntityPoseImp actual implementation of the entity pose estimation. Preprocess input data
