@@ -13,20 +13,12 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>ed</build_depend>
-  <build_depend>ed_sensor_integration_msgs</build_depend>
-  <build_depend>geolib2</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>tue_config</build_depend>
-  <build_depend>tue_filesystem</build_depend>
-  <build_depend>visualization_msgs</build_depend>
-
-  <exec_depend>ed</exec_depend>
-  <exec_depend>ed_sensor_integration_msgs</exec_depend>
-  <exec_depend>geolib2</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>tue_config</exec_depend>
-  <exec_depend>tue_filesystem</exec_depend>
-  <exec_depend>visualization_msgs</exec_depend>
+  <depend>ed</depend>
+  <depend>ed_sensor_integration_msgs</depend>
+  <depend>geolib2</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tue_config</depend>
+  <depend>tue_filesystem</depend>
+  <depend>visualization_msgs</depend>
 
 </package>
