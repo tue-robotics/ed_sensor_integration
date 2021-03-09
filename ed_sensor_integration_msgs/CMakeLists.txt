@@ -4,7 +4,6 @@ project(ed_sensor_integration_msgs)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   message_generation
-  std_msgs
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -26,7 +25,6 @@ add_service_files(
 
 generate_messages(
   DEPENDENCIES
-    std_msgs
     geometry_msgs
 )
 
@@ -35,5 +33,5 @@ generate_messages(
 # ------------------------------------------------------------------------------------------------
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs message_runtime std_msgs
+  CATKIN_DEPENDS geometry_msgs message_runtime
 )
