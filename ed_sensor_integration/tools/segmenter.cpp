@@ -82,58 +82,6 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
         return false;
     }
 
-    // Reset world
-    world_model = ed::WorldModel();
-
-    // Read annotations
-    if (r.readArray("annotations"))
-    {
-        while(r.nextArrayItem())
-        {
-            std::string type;
-            double px, py;
-
-            if (!r.value("label", type) || !r.value("px", px) || !r.value("py", py))
-                continue;
-
-            // - - - - - - -
-
-            ed::UpdateRequest req;
-            ed::models::ModelLoader model_loader;
-
-            std::stringstream error;
-            ed::UUID id = "support";
-            if (model_loader.create(id, type, req, error, true))
-            {
-                // Check if this model has an 'on_top_of' volume defined
-                std::map<ed::UUID, std::map<std::string, geo::ShapeConstPtr> >::const_iterator it = req.volumes_added.find(id);
-                if (it == req.volumes_added.end())
-                    continue;
-                if (it->second.find("on_top_of") == it->second.end())
-                    continue;
-
-                int x = px * image->getDepthImage().cols;
-                int y = py * image->getDepthImage().rows;
-                rgbd::View view(*image, image->getDepthImage().cols);
-
-                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
-                pos.z = 0;
-
-                req.setPose(id, geo::Pose3D(geo::Mat3::identity(), pos));
-
-                // Update world
-                world_model.update(req);
-
-                area_description = "on_top_of " + id.str();
-            }
-
-            // - - - - - - -
-
-        }
-
-        r.endArray();
-    }
-
 //    if (r.hasError())
 //    {
 //        std::cout << "Error while reading file '" << filename << "':\n\n" << r.error() << std::endl;
@@ -152,7 +100,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     ed::models::ModelLoader model_loader;
 
     std::stringstream error;
-    if (!model_loader.create("_root", model_name, req, error))
+    if (!model_loader.create("_root", model_name, req, error, true))
     {
         std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
         std::cerr << error.str() << std::endl;
@@ -182,17 +130,17 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "ed_segmenter");
     ros::NodeHandle nh;
 
-    if (argc != 2)
+    if (argc != 3)
     {
         usage();
         return 1;
     }
 
-//    std::string model_name = argv[2];
+    std::string model_name = argv[2];
 
-//    ed::WorldModel world_model;
-//    if (!loadWorldModel(model_name, world_model))
-//        return 1;
+    ed::WorldModel world_model;
+    if (!loadWorldModel(model_name, world_model))
+        return 1;
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
@@ -240,6 +188,7 @@ int main(int argc, char **argv)
                 i_snapshot = snapshots.size();
                 snapshots.push_back(Snapshot());
                 Snapshot& snapshot = snapshots.back();
+                snapshot.world_model = world_model;
 
                 if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
                                snapshot.world_model, snapshot.area_description))
@@ -268,7 +217,7 @@ int main(int argc, char **argv)
         UpdateResult res(update_req);
 
         UpdateRequest kinect_update_request;
-        kinect_update_request.area_description = snapshot.area_description;
+        kinect_update_request.area_description = "on_top_of dinner_table";
         updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
