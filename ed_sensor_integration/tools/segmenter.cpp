@@ -120,7 +120,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME" << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
