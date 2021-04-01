@@ -17,7 +17,7 @@ plugins:
 - name: tf_publisher
   lib: libed_tf_publisher_plugin.so
   parameters:
-      root_frame_id: /map
+      root_frame_id: map
       exclude: amigo
 - name: kinect_integration
   lib: libed_kinect2_plugin.so
@@ -34,7 +34,7 @@ plugins:
       initial_pose:
           x: $(env ROBOT_INIT_X)
           y: $(env ROBOT_INIT_Y)
-          rz: $(env ROBOT_INIT_PHI)    
+          rz: $(env ROBOT_INIT_PHI)
       laser_model:
           topic: /amigo/base_laser/scan
           num_beams: 100
