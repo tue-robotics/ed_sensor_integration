@@ -43,7 +43,7 @@ KinectPlugin::~KinectPlugin()
 
 void KinectPlugin::initialize(ed::InitData& init)
 {
-    tue::Configuration& config = init.config;    
+    tue::Configuration& config = init.config;
 
     std::string topic;
     if (config.value("topic", topic))
@@ -69,7 +69,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
-    const ed::WorldModel& world = data.world;   
+    const ed::WorldModel& world = data.world;
 
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and pose
@@ -148,7 +148,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration_msgs::GetImage::Request& re
 // ----------------------------------------------------------------------------------------------------
 
 bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, ed_sensor_integration_msgs::Update::Response& res)
-{    
+{
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
 
@@ -206,7 +206,7 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
 {
     if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
     {
-        ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in /map frame");
+        ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in map frame");
         return false;
     }
 
