@@ -125,6 +125,58 @@ void usage()
 
 // ----------------------------------------------------------------------------------------------------
 
+/*
+void showSegmentationResults(const Snapshot& snapshot, const UpdateRequest& update_req, const UpdateResult& res, cv::Mat& canvas) {
+    std::cout << update_req.measurements.size() << std::endl;
+
+    std::string error_msg = res.error.str();
+    if (error_msg.empty())
+    {
+        int depth_width = snapshot->image->getDepthImage().cols;
+        double f = (double)canvas->cols / depth_width;
+
+        for(unsigned int i = 0; i < res->entity_updates.size(); ++i)
+        {
+            const EntityUpdate& e_update = res.entity_updates[i];
+            if (e_update.pixel_indices.empty())
+                continue;
+
+            unsigned i_pxl = e_update.pixel_indices[0];
+            cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
+            cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
+
+            for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
+            {
+                int x = *it % depth_width;
+                int y = *it / depth_width;
+
+                bb_min.x = std::min(bb_min.x, x);
+                bb_min.y = std::min(bb_min.y, y);
+                bb_max.x = std::max(bb_max.x, x);
+                bb_max.y = std::max(bb_max.y, y);
+
+                for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
+                    for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
+                        canvas->at<cv::Vec3b>(y2, x2) = cv::Vec3b(0, 0, 255);
+            }
+
+            cv::Point d(2, 2);
+            cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
+            cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
+            cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
+        }
+
+    }
+    else
+    {
+        std::cerr << error_msg << std::endl;
+        cv::putText(canvas, "Segmentation failed", cv::Point(10, 20), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
+    }
+}
+
+*/
+// ----------------------------------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "ed_segmenter");
@@ -157,6 +209,7 @@ int main(int argc, char **argv)
         crawler.setRootPath(path.parentPath());
 
     Updater updater;
+    Fitter fitter;
 
     std::vector<Snapshot> snapshots;
     unsigned int i_snapshot = 0;
@@ -213,62 +266,54 @@ int main(int argc, char **argv)
 
         Snapshot& snapshot = snapshots[i_snapshot];
 
-        ed::UpdateRequest update_req;
-        UpdateResult res(update_req);
+        //ed::UpdateRequest update_req;
+        //UpdateResult res(update_req);
 
-        UpdateRequest kinect_update_request;
-        kinect_update_request.area_description = "on_top_of dinner_table";
-        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+        //UpdateRequest kinect_update_request;
+        //kinect_update_request.area_description = "on_top_of dinner_table";
+        //updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
-        std::cout << update_req.measurements.size() << std::endl;
+        FitterData data;
+        geo::Pose3D fitted_pose;
 
-        cv::Mat canvas = snapshot.image->getRGBImage().clone();
+        ed::EntityConstPtr e = snapshot.world_model.getEntity("dinner_table");
 
-        std::string error_msg = res.error.str();
-        if (error_msg.empty())
-        {
-            int depth_width = snapshot.image->getDepthImage().cols;
-            double f = (double)canvas.cols / depth_width;
+        fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, data);
 
-            for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
-            {
-                const EntityUpdate& e_update = res.entity_updates[i];
-                if (e_update.pixel_indices.empty())
-                    continue;
+        fitter.estimateEntityPose(data, snapshot.world_model, "dinner_table", e->pose(), fitted_pose);
 
-                unsigned i_pxl = e_update.pixel_indices[0];
-                cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
-                cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
+        std::cout << "hallo wereld: gefitte pose is: ("<< fitted_pose << ") hiep hoi"<< std::endl;
 
-                for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
-                {
-                    int x = *it % depth_width;
-                    int y = *it / depth_width;
+        // show snapshot
+        cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
+        cv::imshow("RGB", rgbcanvas);
 
-                    bb_min.x = std::min(bb_min.x, x);
-                    bb_min.y = std::min(bb_min.y, y);
-                    bb_max.x = std::max(bb_max.x, x);
-                    bb_max.y = std::max(bb_max.y, y);
+        //visualise fitting
+        int canvas_width = 500;
+        int canvas_height = 500;
+        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0,0,0));
 
-                    for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
-                        for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
-                            canvas.at<cv::Vec3b>(y2, x2) = cv::Vec3b(0, 0, 255);
-                }
+        // needed parameters: Fitterdata data;
+        int sensor_x = canvas_width/10;
+        int sensor_y = canvas_height/2;
+        float canvas_resolution = 100; //pixels per meter
 
-                cv::Point d(2, 2);
-                cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
-                cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
-                cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
-            }
+        for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
+            float a = ((float)i - 100.0)/100.0; // TODO remove hardcoded values: add this info to fitterdata
+            float x_m = data.sensor_ranges[i] * cos(a);
+            float y_m = data.sensor_ranges[i] * sin(a);
 
-        }
-        else
-        {
-            std::cerr << error_msg << std::endl;
-            cv::putText(canvas, "Segmentation failed", cv::Point(10, 20), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
+            // postion to pixels
+            int x_p = sensor_x + (int)(x_m * canvas_resolution);
+            int y_p = sensor_y + (int)(y_m * canvas_resolution);
+
+            // paint to screen
+            cv::Point centerCircle(x_p, y_p);
+            cv::Scalar colorCircle(0,0,255);
+            cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
         }
 
-        cv::imshow("RGB", canvas);
+        cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
 
         if (key == 81)  // Left arrow
@@ -285,7 +330,7 @@ int main(int argc, char **argv)
             break;
         }
 
-//        std::cout << (int)key << std::endl;
+        //        std::cout << (int)key << std::endl;
     }
 
     return 0;
