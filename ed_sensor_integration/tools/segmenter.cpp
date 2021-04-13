@@ -298,6 +298,7 @@ int main(int argc, char **argv)
         int sensor_y = canvas_height/2;
         float canvas_resolution = 100; //pixels per meter
 
+        // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
             float a = ((float)i - 100.0)/100.0; // TODO remove hardcoded values: add this info to fitterdata
             float x_m = data.sensor_ranges[i] * cos(a);
@@ -307,10 +308,34 @@ int main(int argc, char **argv)
             int x_p = sensor_x + (int)(x_m * canvas_resolution);
             int y_p = sensor_y + (int)(y_m * canvas_resolution);
 
+            if (x_p >= canvas_width)
+                continue;
+            if (y_p < 0 || y_p >= canvas_height)
+                continue;
+
             // paint to screen
             cv::Point centerCircle(x_p, y_p);
             cv::Scalar colorCircle(0,0,255);
             cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
+        }
+
+        //paint entity
+        //TODO
+        // e->pose.t.x // postion of original entity
+        // e->pose().getYaw() // yaw
+        // fitted_pose.t.x
+        // a = fitter;
+
+        cv::Scalar colorLine(255,0,0);
+        EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
+        for (int i=0; i < entity_2d.shape_2d.size(); i++){
+
+            for (j = 0; j < entity_2d.shape_2d[i].size()-1; j++){
+                float x_m1 = e->pose().t.x + entity_2d.shape_2d[i][j].x;
+                float y_m1 = e->pose().t.y + entity_2d.shape_2d[i][j].y;
+                float x_m2 = e->pose().t.x + entity_2d.shape_2d[i][j+1].x;
+                float y_m2 = e->pose().t.y + entity_2d.shape_2d[i][j+1].y;
+            }
         }
 
         cv::imshow("Fitting", canvas);
