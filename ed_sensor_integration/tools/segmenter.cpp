@@ -15,6 +15,7 @@
 #include <rgbd/view.h>
 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <tue/config/read.h>
 #include <tue/config/reader.h>
@@ -282,33 +283,33 @@ int main(int argc, char **argv)
 
         fitter.estimateEntityPose(data, snapshot.world_model, "dinner_table", e->pose(), fitted_pose);
 
-        std::cout << "hallo wereld: gefitte pose is: ("<< fitted_pose << ") hiep hoi"<< std::endl;
+        //std::cout << "hallo wereld: gefitte pose is: ("<< fitted_pose << ") hiep hoi"<< std::endl;
 
         // show snapshot
         cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
         cv::imshow("RGB", rgbcanvas);
 
-        //visualise fitting
+        //visualise fitting (positive y direction = downwards)
         int canvas_width = 500;
         int canvas_height = 500;
         cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0,0,0));
 
         // needed parameters: Fitterdata data;
-        int sensor_x = canvas_width/10;
-        int sensor_y = canvas_height/2;
+        int sensor_x = canvas_width/2;
+        int sensor_y = canvas_height * 9/10;
         float canvas_resolution = 100; //pixels per meter
 
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
             float a = ((float)i - 100.0)/100.0; // TODO remove hardcoded values: add this info to fitterdata
-            float x_m = data.sensor_ranges[i] * cos(a);
-            float y_m = data.sensor_ranges[i] * sin(a);
+            float x_m = data.sensor_ranges[i] * sin(a);
+            float y_m = data.sensor_ranges[i] * cos(a);
 
             // postion to pixels
             int x_p = sensor_x + (int)(x_m * canvas_resolution);
-            int y_p = sensor_y + (int)(y_m * canvas_resolution);
+            int y_p = sensor_y - (int)(y_m * canvas_resolution);
 
-            if (x_p >= canvas_width)
+            if (x_p < 0 || x_p >= canvas_width)
                 continue;
             if (y_p < 0 || y_p >= canvas_height)
                 continue;
@@ -319,24 +320,124 @@ int main(int argc, char **argv)
             cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
         }
 
-        //paint entity
+    // paint entity (from worldmodel)
+        EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
+        float b = e->pose().R.zz; // TODO check if this is actually the right value, becase getYaw() is not used
+
+        for (int i=0; i < entity_2d.shape_2d.size(); i++){
+
+            for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
+                // computing outer edge positions
+                float x_m1 = e->pose().t.x + (cos(b) * entity_2d.shape_2d[i][j].x - sin(b) * entity_2d.shape_2d[i][j].y);
+                float y_m1 = e->pose().t.y + (sin(b) * entity_2d.shape_2d[i][j].x + cos(b) * entity_2d.shape_2d[i][j].y);
+                float x_m2 = e->pose().t.x + (cos(b) * entity_2d.shape_2d[i][j+1].x - sin(b) * entity_2d.shape_2d[i][j+1].y);
+                float y_m2 = e->pose().t.y + (sin(b) * entity_2d.shape_2d[i][j+1].x + cos(b) * entity_2d.shape_2d[i][j+1].y);
+
+                // position to pixels
+                int x_p1 = sensor_x + (int)(x_m1 * canvas_resolution);
+                int y_p1 = sensor_y - (int)(y_m1 * canvas_resolution);
+                int x_p2 = sensor_x + (int)(x_m2 * canvas_resolution);
+                int y_p2 = sensor_y - (int)(y_m2 * canvas_resolution);
+
+                if ((x_p1, x_p2) < 0 || (x_p1, x_p2) >= canvas_width){
+                    std::cout << "Point x out of range" << std::endl;
+                    continue;
+                }
+                if ((y_p1, y_p2) < 0 || (y_p1, y_p2) >= canvas_height){
+                    std::cout << "Point y out of range" << std::endl;
+                    continue;
+                }
+
+                // paint to screen
+                cv::Point point1(x_p1, y_p1);
+                cv::Point point2(x_p2, y_p2);
+                cv::Scalar colorLine(0,255,0);
+                cv::line(canvas, point1, point2, colorLine, 1);
+            }
+        }
+
+        // adding last edge of entity (begin point to end point)
+        float x_m_start = e->pose().t.x + (cos(b) * entity_2d.shape_2d[0][0].x - sin(b) * entity_2d.shape_2d[0][0].y);
+        float y_m_start = e->pose().t.y + (sin(b) * entity_2d.shape_2d[0][0].x + cos(b) * entity_2d.shape_2d[0][0].y);
+        float x_m_end = e->pose().t.x + (cos(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_m_end = e->pose().t.y + (sin(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+
+        // position to pixels
+        int x_p_start = sensor_x + (int)(x_m_start * canvas_resolution);
+        int y_p_start = sensor_y - (int)(y_m_start * canvas_resolution);
+        int x_p_end = sensor_x + (int)(x_m_end * canvas_resolution);
+        int y_p_end = sensor_y - (int)(y_m_end * canvas_resolution);
+
+        //std::cout << "de begin coordinaat is: ("<< x_p_start << "),("<< y_p_start << ")" << std::endl;
+        //std::cout << "de eind coordinaat is: ("<< x_p_end << "),("<< y_p_end << ")" << std::endl;
+
+        // paint last edge to screen
+        cv::Point point_begin(x_p_start, y_p_start);
+        cv::Point point_end(x_p_end, y_p_end);
+        cv::Scalar colorLine(0,255,0);
+        cv::line(canvas, point_begin, point_end, colorLine, 1);
+
+    // paint fitted entity
+        float c = fitted_pose.R.zz; // TODO check if this is actually the right value
+
+        for (int i=0; i < entity_2d.shape_2d.size(); i++){
+
+            for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
+                // computing outer edge positions
+                float x_m1 = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[i][j].x - sin(c) * entity_2d.shape_2d[i][j].y);
+                float y_m1 = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[i][j].x + cos(c) * entity_2d.shape_2d[i][j].y);
+                float x_m2 = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[i][j+1].x - sin(c) * entity_2d.shape_2d[i][j+1].y);
+                float y_m2 = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[i][j+1].x + cos(c) * entity_2d.shape_2d[i][j+1].y);
+
+                // position to pixels
+                int x_p1 = sensor_x + (int)(x_m1 * canvas_resolution);
+                int y_p1 = sensor_y - (int)(y_m1 * canvas_resolution);
+                int x_p2 = sensor_x + (int)(x_m2 * canvas_resolution);
+                int y_p2 = sensor_y - (int)(y_m2 * canvas_resolution);
+
+                if ((x_p1, x_p2) < 0 || (x_p1, x_p2) >= canvas_width){
+                    std::cout << "Point x out of range" << std::endl;
+                    continue;
+                }
+                if ((y_p1, y_p2) < 0 || (y_p1, y_p2) >= canvas_height){
+                    std::cout << "Point y out of range" << std::endl;
+                    continue;
+                }
+
+                // paint to screen
+                cv::Point point1(x_p1, y_p1);
+                cv::Point point2(x_p2, y_p2);
+                cv::Scalar colorLine2(255,0,0);
+                cv::line(canvas, point1, point2, colorLine2, 1);
+            }
+        }
+
+        // adding last edge of entity (begin point to end point)
+        float x_m_f_start = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[0][0].x - sin(c) * entity_2d.shape_2d[0][0].y);
+        float y_m_f_start = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[0][0].x + cos(c) * entity_2d.shape_2d[0][0].y);
+        float x_m_f_end = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_m_f_end = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+
+        // position to pixels
+        int x_p_f_start = sensor_x + (int)(x_m_f_start * canvas_resolution);
+        int y_p_f_start = sensor_y - (int)(y_m_f_start * canvas_resolution);
+        int x_p_f_end = sensor_x + (int)(x_m_f_end * canvas_resolution);
+        int y_p_f_end = sensor_y - (int)(y_m_f_end * canvas_resolution);
+
+        //std::cout << "de begin coordinaat is: ("<< x_p_start << "),("<< y_p_start << ")" << std::endl;
+        //std::cout << "de eind coordinaat is: ("<< x_p_end << "),("<< y_p_end << ")" << std::endl;
+
+        // paint last edge to screen
+        cv::Point point_f_begin(x_p_f_start, y_p_f_start);
+        cv::Point point_f_end(x_p_f_end, y_p_f_end);
+        cv::Scalar colorLine2(255,0,0);
+        cv::line(canvas, point_f_begin, point_f_end, colorLine2, 1);
+
         //TODO
-        // e->pose.t.x // postion of original entity
+        // e->pose().t.x // postion of original entity
         // e->pose().getYaw() // yaw
         // fitted_pose.t.x
         // a = fitter;
-
-        cv::Scalar colorLine(255,0,0);
-        EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
-        for (int i=0; i < entity_2d.shape_2d.size(); i++){
-
-            for (j = 0; j < entity_2d.shape_2d[i].size()-1; j++){
-                float x_m1 = e->pose().t.x + entity_2d.shape_2d[i][j].x;
-                float y_m1 = e->pose().t.y + entity_2d.shape_2d[i][j].y;
-                float x_m2 = e->pose().t.x + entity_2d.shape_2d[i][j+1].x;
-                float y_m2 = e->pose().t.y + entity_2d.shape_2d[i][j+1].y;
-            }
-        }
 
         cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
