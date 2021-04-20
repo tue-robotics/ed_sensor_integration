@@ -304,9 +304,13 @@ int main(int argc, char **argv)
         int sensor_y = canvas_height * 9/10;
         float canvas_resolution = 100; //pixels per meter
 
+        cv::Point sensorlocation(sensor_x, sensor_y);
+        cv::Scalar sensorcolor(0,255,0);
+        cv::circle(canvas, sensorlocation, 3, sensorcolor, CV_FILLED);
+
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
-            float a = ((float)i - 100.0)/100.0; // TODO remove hardcoded values: add this info to fitterdata
+            float a = (((float)i - 100.0)/100.0);// * ((58*M_PI)/180); // TODO remove hardcoded values: add this info to fitterdata
             float x_m = data.sensor_ranges[i] * sin(a);
             float y_m = data.sensor_ranges[i] * cos(a);
 
@@ -317,6 +321,8 @@ int main(int argc, char **argv)
             if (x_p < 0 || x_p >= canvas_width)
                 continue;
             if (y_p < 0 || y_p >= canvas_height)
+                continue;
+            if (data.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
                 continue;
 
             // paint to screen
@@ -331,7 +337,10 @@ int main(int argc, char **argv)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
 
         geo::Pose3D pose = e->pose();
-        float yaw_ent = pose.getYaw();
+        //float yaw_ent = atan2(pose.R.yx, pose.R.xx);
+
+        // entity yaw is relative to HERO's yaw
+        float yaw_ent = -(M_PI/2) + atan2(snapshot.sensor_pose.R.yx, snapshot.sensor_pose.R.xx) + atan2(pose.R.yx, pose.R.xx);
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
@@ -357,7 +366,7 @@ int main(int argc, char **argv)
                     continue;
                 }
 
-                std::cout << "normal pose: ("<< pose << ")" << std::endl;
+                std::cout << "normal pose: ("<< e->pose() << ")" << std::endl;
                 std::cout << "Yaw of entity: ("<< yaw_ent << ")" << std::endl;
 
                 // paint to screen
@@ -390,7 +399,7 @@ int main(int argc, char **argv)
         cv::line(canvas, point_begin, point_end, colorLine, 1);
 
     // paint fitted entity
-        float yaw_fit_ent = fitted_pose.getYaw();
+        float yaw_fit_ent = atan2(fitted_pose.R.yx, fitted_pose.R.xx);
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
@@ -417,7 +426,7 @@ int main(int argc, char **argv)
                 }
 
                 std::cout << "fitted_pose: ("<< fitted_pose << ")" << std::endl;
-                std::cout << "Yaw of fitted entity: ("<< fitted_pose.getYaw() << ")" << std::endl;
+                std::cout << "Yaw of fitted entity: ("<< yaw_fit_ent << ")" << std::endl;
 
                 // paint to screen
                 cv::Point point1(x_p1, y_p1);
