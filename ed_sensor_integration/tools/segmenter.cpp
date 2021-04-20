@@ -23,6 +23,11 @@
 
 #include <ed/entity.h>
 
+#include "geolib/math_types.h"
+#include <tf2/convert.h>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <fstream>
 #include <vector>
 
@@ -320,18 +325,22 @@ int main(int argc, char **argv)
             cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
         }
 
+        //std::cout << "range: ("<< data.sensor_ranges.size() << ")" << std::endl;
+
     // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
-        float b = e->pose().R.zz; // TODO check if this is actually the right value, becase getYaw() is not used
+
+        geo::Pose3D pose = e->pose();
+        float yaw_ent = pose.getYaw();
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer edge positions
-                float x_m1 = e->pose().t.x + (cos(b) * entity_2d.shape_2d[i][j].x - sin(b) * entity_2d.shape_2d[i][j].y);
-                float y_m1 = e->pose().t.y + (sin(b) * entity_2d.shape_2d[i][j].x + cos(b) * entity_2d.shape_2d[i][j].y);
-                float x_m2 = e->pose().t.x + (cos(b) * entity_2d.shape_2d[i][j+1].x - sin(b) * entity_2d.shape_2d[i][j+1].y);
-                float y_m2 = e->pose().t.y + (sin(b) * entity_2d.shape_2d[i][j+1].x + cos(b) * entity_2d.shape_2d[i][j+1].y);
+                float x_m1 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float y_m1 = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float x_m2 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_m2 = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // position to pixels
                 int x_p1 = sensor_x + (int)(x_m1 * canvas_resolution);
@@ -339,28 +348,31 @@ int main(int argc, char **argv)
                 int x_p2 = sensor_x + (int)(x_m2 * canvas_resolution);
                 int y_p2 = sensor_y - (int)(y_m2 * canvas_resolution);
 
-                if ((x_p1, x_p2) < 0 || (x_p1, x_p2) >= canvas_width){
-                    std::cout << "Point x out of range" << std::endl;
+                if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas_width || x_p2 >= canvas_width){
+                    std::cout << "Entity: x-coordinate out of range" << std::endl;
                     continue;
                 }
-                if ((y_p1, y_p2) < 0 || (y_p1, y_p2) >= canvas_height){
-                    std::cout << "Point y out of range" << std::endl;
+                if (y_p1 < 0 || y_p2 < 0|| y_p1 >= canvas_height || y_p2 >= canvas_height){
+                    std::cout << "Entity: y-coordinate out of range" << std::endl;
                     continue;
                 }
+
+                std::cout << "normal pose: ("<< pose << ")" << std::endl;
+                std::cout << "Yaw of entity: ("<< yaw_ent << ")" << std::endl;
 
                 // paint to screen
                 cv::Point point1(x_p1, y_p1);
                 cv::Point point2(x_p2, y_p2);
-                cv::Scalar colorLine(0,255,0);
+                cv::Scalar colorLine(0,255,255); //B G R
                 cv::line(canvas, point1, point2, colorLine, 1);
             }
         }
 
         // adding last edge of entity (begin point to end point)
-        float x_m_start = e->pose().t.x + (cos(b) * entity_2d.shape_2d[0][0].x - sin(b) * entity_2d.shape_2d[0][0].y);
-        float y_m_start = e->pose().t.y + (sin(b) * entity_2d.shape_2d[0][0].x + cos(b) * entity_2d.shape_2d[0][0].y);
-        float x_m_end = e->pose().t.x + (cos(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
-        float y_m_end = e->pose().t.y + (sin(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(b) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float x_m_start = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][0].x - sin(yaw_ent) * entity_2d.shape_2d[0][0].y);
+        float y_m_start = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_ent) * entity_2d.shape_2d[0][0].y);
+        float x_m_end = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_m_end = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
 
         // position to pixels
         int x_p_start = sensor_x + (int)(x_m_start * canvas_resolution);
@@ -374,20 +386,20 @@ int main(int argc, char **argv)
         // paint last edge to screen
         cv::Point point_begin(x_p_start, y_p_start);
         cv::Point point_end(x_p_end, y_p_end);
-        cv::Scalar colorLine(0,255,0);
+        cv::Scalar colorLine(0,255,255);
         cv::line(canvas, point_begin, point_end, colorLine, 1);
 
     // paint fitted entity
-        float c = fitted_pose.R.zz; // TODO check if this is actually the right value
+        float yaw_fit_ent = fitted_pose.getYaw();
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer edge positions
-                float x_m1 = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[i][j].x - sin(c) * entity_2d.shape_2d[i][j].y);
-                float y_m1 = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[i][j].x + cos(c) * entity_2d.shape_2d[i][j].y);
-                float x_m2 = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[i][j+1].x - sin(c) * entity_2d.shape_2d[i][j+1].y);
-                float y_m2 = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[i][j+1].x + cos(c) * entity_2d.shape_2d[i][j+1].y);
+                float x_m1 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float y_m1 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float x_m2 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_m2 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // position to pixels
                 int x_p1 = sensor_x + (int)(x_m1 * canvas_resolution);
@@ -395,14 +407,17 @@ int main(int argc, char **argv)
                 int x_p2 = sensor_x + (int)(x_m2 * canvas_resolution);
                 int y_p2 = sensor_y - (int)(y_m2 * canvas_resolution);
 
-                if ((x_p1, x_p2) < 0 || (x_p1, x_p2) >= canvas_width){
-                    std::cout << "Point x out of range" << std::endl;
+                if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas_width || x_p2 >= canvas_width){
+                    std::cout << "Fitted entity: x-coordinate out of range" << std::endl;
                     continue;
                 }
-                if ((y_p1, y_p2) < 0 || (y_p1, y_p2) >= canvas_height){
-                    std::cout << "Point y out of range" << std::endl;
+                if (y_p1 < 0 || y_p2 < 0|| y_p1 >= canvas_height || y_p2 >= canvas_height){
+                    std::cout << "Fitted entity: y-coordinate out of range" << std::endl;
                     continue;
                 }
+
+                std::cout << "fitted_pose: ("<< fitted_pose << ")" << std::endl;
+                std::cout << "Yaw of fitted entity: ("<< fitted_pose.getYaw() << ")" << std::endl;
 
                 // paint to screen
                 cv::Point point1(x_p1, y_p1);
@@ -413,10 +428,10 @@ int main(int argc, char **argv)
         }
 
         // adding last edge of entity (begin point to end point)
-        float x_m_f_start = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[0][0].x - sin(c) * entity_2d.shape_2d[0][0].y);
-        float y_m_f_start = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[0][0].x + cos(c) * entity_2d.shape_2d[0][0].y);
-        float x_m_f_end = fitted_pose.t.x + (cos(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
-        float y_m_f_end = fitted_pose.t.y + (sin(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(c) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float x_m_f_start = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float y_m_f_start = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float x_m_f_end = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_m_f_end = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
 
         // position to pixels
         int x_p_f_start = sensor_x + (int)(x_m_f_start * canvas_resolution);
