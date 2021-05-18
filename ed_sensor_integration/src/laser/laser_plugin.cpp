@@ -88,33 +88,6 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         }
 
         ++num_model_points;
-
-
-
-
-//        if (dm <= 0 && model_ranges[i]>0)
-//        {
-//            total_error += 0.3;
-//            continue;
-//        }
-
-//        if (dm < model_ranges[i])
-//            ++num_model_points;
-//        else if(model_ranges[i]<=0 && dm>0 && dm<=7) //when there is no world model behind the door, output of world render without door is zero.
-//        {                                              //only taking points with no world behind it, into account when nearby.
-//            ++num_model_points;
-//        }                                              // giving problems with fitting when door is not good in view
-
-//        double diff = std::abs(ds - dm);
-//        if (diff < 0.3)
-//            total_error += diff;
-//        else
-//        {
-//            if (ds > dm)
-//                total_error += 1;
-//            else
-//                total_error += 0.3;
-//        }
     }
 
     return total_error / (n+1); // to be sure to never divide by zero.
@@ -161,34 +134,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
-//    int num_model_points;
-//    int num_model_points2;
-//    double min_error = 0.97 * getFittingError(e, lrf, sensor_pose_inv * e.pose(), sensor_ranges, model_ranges, num_model_points); //last position
-//    geo::Pose3D best_pose = e.pose();
-
-//    if (num_model_points < 70)
-//    {
-//        ROS_ERROR_STREAM("not fitting with last position (" << num_model_points << ")");
-//        // check if virtual door in middle of range is visible
-//        geo::Mat3 rot90;
-//        rot90.setRPY(0, 0, 0.5*(yaw_min+yaw_plus));
-//        geo::Pose3D pose90 = old_pose;
-//        pose90.R = old_pose.R * rot90;
-//        double error90 = 0.97 * getFittingError(e, lrf, sensor_pose_inv * pose90, sensor_ranges, model_ranges, num_model_points2);
-//        if (num_model_points2 < 70)
-//        {
-//            //std::cout<<"not fitting with 90 degrees too" << std::endl;
-//            return best_pose;
-//        }
-//        else
-//        {
-//            // fitting started after door in middle of range is visible. Be stricter on error.
-//            num_model_points=num_model_points2;
-//            min_error=0.7*error90;
-//        }
-//    }
-
-
     double min_error = 1e6;
     geo::Pose3D best_pose = e.pose();
 
@@ -210,8 +155,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
                 int num_model_points;
                 double error = getFittingError(e, lrf, sensor_pose_inv * test_pose, sensor_ranges, model_ranges, num_model_points);
 
-//                ROS_ERROR_STREAM("yaw = " << dyaw << ", error = " << error << ", minerror= " << min_error << ", num_model_points = " << num_model_points);
-
                 if (error < min_error && num_model_points >= 3)
                 {
                     best_pose = test_pose;
@@ -220,8 +163,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
             }
         }
     }
-    //    if (best_pose != e.pose())
-    //        std::cout<<"new_pose"<<std::endl;
     return best_pose;
 }
 
@@ -485,9 +426,8 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         }
     }
 
-    if (current_segment.empty())
+    if (current_segment.empty()) // no residual point cloud
     {
-        //std::cout << "No residual point cloud!" << std::endl;
         return;
     }
 
@@ -640,12 +580,6 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
             if (entity_chull.points.empty())
                 continue;
-
-            //            if (e->existenceProbability() < 0.5 && scan_msg_->header.stamp.toSec() - e->lastUpdateTimestamp() > 1.0) // TODO: magic numbers
-            //            {
-            //                req.removeEntity(e->id());
-            //                continue;
-            //            }
 
             if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
                     || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
