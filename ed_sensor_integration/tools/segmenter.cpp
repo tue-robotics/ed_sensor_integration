@@ -184,6 +184,58 @@ void showSegmentationResults(const Snapshot& snapshot, const UpdateRequest& upda
 */
 // ----------------------------------------------------------------------------------------------------
 
+struct Quaternion {
+    double w, x, y, z;
+};
+
+struct EulerAngles {
+    double roll, pitch, yaw;
+};
+
+EulerAngles ToEulerAngles(Quaternion q) {
+    EulerAngles angles;
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+    double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    angles.roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = 2 * (q.w * q.y - q.z * q.x);
+    if (std::abs(sinp) >= 1)
+        angles.pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+    else
+        angles.pitch = std::asin(sinp);
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+    double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    angles.yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return angles;
+}
+
+double getYaw(const geo::Mat3& rotation)
+{
+    // Get quaternion
+    geo::Quaternion geo_quaternion;
+    rotation.getRotation(geo_quaternion);
+
+    // Convert it to struct
+    Quaternion quaternion;
+    quaternion.x = geo_quaternion.getX();
+    quaternion.y = geo_quaternion.getY();
+    quaternion.z = geo_quaternion.getZ();
+    quaternion.w = geo_quaternion.getW();
+
+    // Get the Euler angles
+    EulerAngles angles = ToEulerAngles(quaternion);
+    ROS_DEBUG_STREAM("Matrix: " << rotation << " --> yaw: " << angles.yaw);
+    return angles.yaw;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "ed_segmenter");
@@ -296,20 +348,22 @@ int main(int argc, char **argv)
         // visualise fitting (positive y direction = downwards)
         int canvas_width = 600;
         int canvas_height = 600;
-        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0,0,0));
+        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(100,100,100));
 
         // needed parameters: Fitterdata data;
         int sensor_x = canvas_width/2;
         int sensor_y = canvas_height * 8/10;
         float canvas_resolution = 100; //pixels per meter
 
+        // paint to screen the location of HERO
         cv::Point sensorlocation(sensor_x, sensor_y);
-        cv::Scalar sensorcolor(0,255,0);
+        cv::Scalar sensorcolor(0,255,0); // green
         cv::circle(canvas, sensorlocation, 3, sensorcolor, CV_FILLED);
 
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
-            float a = (((float)i - 100.0)/100.0);// TODO remove hardcoded values: add this info to fitterdata
+            float fx_ = 2 * data.sensor_ranges.size() / 4;
+            float a = (((float) i - (data.sensor_ranges.size()/2)) / fx_); // TODO: remove hard-coded values, both fx_ and amount of sensor_ranges is hardcoded
             float x_m = data.sensor_ranges[i] * sin(a);
             float y_m = data.sensor_ranges[i] * cos(a);
 
@@ -330,28 +384,25 @@ int main(int argc, char **argv)
             cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
         }
 
-        //std::cout << "range: ("<< data.sensor_ranges.size() << ")" << std::endl;
-
     // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
 
         geo::Pose3D pose = e->pose();
-        //float yaw_ent = atan2(pose.R.yx, pose.R.xx)
 
-        // entity yaw
-        float yaw_ent = atan2(pose.R.yx, pose.R.xx);
+        // worldmodel entity yaw (unfitted)
+        float yaw_ent = getYaw(pose.R);
 
         // robot yaw
-        float yaw_robot = atan2(snapshot.sensor_pose.R.yx, snapshot.sensor_pose.R.xx);
+        float yaw_robot = getYaw(snapshot.sensor_pose.R);
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer corner positions (in worldmodel coordinate system)
-                float x_wm1 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_ent) * entity_2d.shape_2d[i][j].y);
-                float y_wm1 = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_ent) * entity_2d.shape_2d[i][j].y);
-                float x_wm2 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
-                float y_wm2 = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
+                float x_wm1 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j].x + sin(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float y_wm1 = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float x_wm2 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j+1].x + sin(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_wm2 = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // computing vector from robot to entity corners (in worldmodel coordinate system)
                 float diff_x1 = x_wm1 - snapshot.sensor_pose.t.x;
@@ -383,16 +434,16 @@ int main(int argc, char **argv)
                 // paint to screen
                 cv::Point point1(x_p1, y_p1);
                 cv::Point point2(x_p2, y_p2);
-                cv::Scalar colorLine(0,255,255); //B G R
+                cv::Scalar colorLine(0,255,255); //Yellow, B G R
                 cv::line(canvas, point1, point2, colorLine, 1);
             }
         }
 
         // adding last edge of entity (begin point to end point) (in worldmodel coordinate system)
-        float x_wm_start = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][0].x - sin(yaw_ent) * entity_2d.shape_2d[0][0].y);
-        float y_wm_start = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_ent) * entity_2d.shape_2d[0][0].y);
-        float x_wm_end = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
-        float y_wm_end = e->pose().t.y + (sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float x_wm_start = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][0].x + sin(yaw_ent) * entity_2d.shape_2d[0][0].y);
+        float y_wm_start = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_ent) * entity_2d.shape_2d[0][0].y);
+        float x_wm_end = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_wm_end = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
 
         //computing vector from robot to entity corners (in worldmodel coordinate system)
         float diff_x_start = x_wm_start - snapshot.sensor_pose.t.x;
@@ -419,16 +470,16 @@ int main(int argc, char **argv)
         cv::line(canvas, point_begin, point_end, colorLine, 1);
 
     // paint fitted entity
-        float yaw_fit_ent = atan2(fitted_pose.R.yx, fitted_pose.R.xx);
+        float yaw_fit_ent = getYaw(fitted_pose.R);
 
         for (int i=0; i < entity_2d.shape_2d.size(); i++){
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer edge positions (in worldmodel coordinate system)
-                float x_wm_f_1 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
-                float y_wm_f_1 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
-                float x_wm_f_2 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
-                float y_wm_f_2 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
+                float x_wm_f_1 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float y_wm_f_1 = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float x_wm_f_2 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_wm_f_2 = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // computing vector from robot to entity corners (in worldmodel coordinate system)
                 float diff_x_f_1 = x_wm_f_1 - snapshot.sensor_pose.t.x;
@@ -441,12 +492,6 @@ int main(int argc, char **argv)
                 float y_m_f_1 = -sin(yaw_robot) * diff_x_f_1 + cos(yaw_robot) * diff_y_f_1;
                 float x_m_f_2 = cos(yaw_robot) * diff_x_f_2 + sin(yaw_robot) * diff_y_f_2;
                 float y_m_f_2 = -sin(yaw_robot) * diff_x_f_2 + cos(yaw_robot) * diff_y_f_2;
-
-
-//                float x_m_f_1 = -sin(yaw_robot) * diff_x_f_1 + cos(yaw_robot) * diff_y_f_1;
-//                float y_m_f_1 = cos(yaw_robot) * diff_x_f_1 + sin(yaw_robot) * diff_y_f_1;
-//                float x_m_f_2 = -sin(yaw_robot) * diff_x_f_2 + cos(yaw_robot) * diff_y_f_2;
-//                float y_m_f_2 = cos(yaw_robot) * diff_x_f_2 + sin(yaw_robot) * diff_y_f_2;
 
                 // position to pixels
                 int x_p_f_1 = sensor_x + (int)(x_m_f_1 * canvas_resolution);
@@ -466,16 +511,16 @@ int main(int argc, char **argv)
                 // paint to screen
                 cv::Point point1(x_p_f_1, y_p_f_1);
                 cv::Point point2(x_p_f_2, y_p_f_2);
-                cv::Scalar colorLine2(255,0,0);
+                cv::Scalar colorLine2(255,0,0); //blue
                 cv::line(canvas, point1, point2, colorLine2, 1);
             }
         }
 
         // adding last edge of entity (begin point to end point)
-        float x_wm_f_start = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
-        float y_wm_f_start = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
-        float x_wm_f_end = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
-        float y_wm_f_end = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float x_wm_f_start = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float y_wm_f_start = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float x_wm_f_end = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_wm_f_end = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
 
         // computing vector from robot to entity corners (in worldmodel coordinate system)
         float diff_x_f_start = x_wm_f_start - snapshot.sensor_pose.t.x;
@@ -497,11 +542,15 @@ int main(int argc, char **argv)
 
         //std::cout << "de begin coordinaat is: ("<< x_p_start << "),("<< y_p_start << ")" << std::endl;
         //std::cout << "de eind coordinaat is: ("<< x_p_end << "),("<< y_p_end << ")" << std::endl;
-        std::cout << "Real pose: ("<< e->pose() << ")" << std::endl;
-        std::cout << "Fitted pose: ("<< fitted_pose << ")" << std::endl;
+        std::cout << "Robot pose: ("<< snapshot.sensor_pose << ")" << std::endl;
+        std::cout << "Worldmodel object pose: ("<< e->pose() << ")" << std::endl;
+        std::cout << "Fitted object pose: ("<< fitted_pose << ")" << std::endl;
         std::cout << "Yaw of robot: ("<< yaw_robot << ")" << std::endl;
-        std::cout << "Yaw of fitted pose: ("<< yaw_fit_ent << ")" << std::endl;
-        std::cout << "Yaw of real pose: ("<< yaw_ent << ")" << std::endl;
+        std::cout << "Yaw of worldmodel object pose: ("<< yaw_ent << ")" << std::endl;
+        std::cout << "Yaw of fitted object pose: ("<< yaw_fit_ent << ")" << std::endl;
+        std::cout << data.sensor_ranges.size() << std::endl;
+        //std::cout << valid_sensor_ranges.size() << std::endl;
+
 
         // paint last edge to screen
         cv::Point point_f_start(x_p_f_start, y_p_f_start);
