@@ -33,8 +33,17 @@ struct EntityUpdate
     std::string flag; // Temp for RoboCup 2015; todo: remove after
 };
 
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * Calculate an error based on the quality of a fit.
+ *
+ * @param e entity being fitted
+ * @param lrf laser range finder
+ * @param rel_pose candidate pose of the entity relative to the laser range finder
+ * @param sensor_ranges distances measured by the lrf
+ * @param model_ranges predicted measurement distances using the model sans e
+ * @param[out] num_model_points number of points used for
+ * @return double error
+ */
 double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, const geo::Pose3D& rel_pose,
                        const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
                        int& num_model_points)
@@ -56,12 +65,12 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         double ds = sensor_ranges[i];
         double dm = test_model_ranges[i];
 
-        if (ds <= 0)
+        if (ds <= 0) // no sensor data
             continue;
 
         ++n;
 
-        if (dm <= 0)
+        if (dm <= 0) // no raytrace collision in model
         {
             total_error += 0.1;
             continue;
@@ -111,8 +120,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
     return total_error / (n+1); // to be sure to never divide by zero.
 }
 
-// ----------------------------------------------------------------------------------------------------
-
+// retrieve pose from cache, otherwise add pose to cache
 geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
     const ed::UUID ID = e.id();
@@ -128,8 +136,23 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
     return old_pose;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * detemine the pose of an entity that best describes the sensor data.
+ *
+ * @param e entity to be fitted
+ * @param sensor_pose pose of the sensor in world coordinates
+ * @param lrf model of the laser range finder
+ * @param sensor_ranges distances measured by the lrf
+ * @param model_ranges predicted measurement distances using the model sans e
+ * @param x_window window size to sample candidate poses
+ * @param x_step step size to sample candidate poses
+ * @param y_window window size to sample candidate poses
+ * @param y_step step size to sample candidate poses
+ * @param yaw_min, yaw_plus window size to sample candidate poses\
+ * @param yaw_step step size to sample candidate poses
+ * @param pose_cache cache of entity poses
+ * @return sum of `values`, or 0.0 if `values` is empty.
+ */
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                       const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
                       float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
@@ -203,8 +226,7 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 }
 
 
-// ----------------------------------------------------------------------------------------------------
-
+// check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
 bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
 {
     int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
@@ -215,8 +237,7 @@ bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinde
     return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
+// check if point p is represented in the lrf data. p is expressed relative to the lrf.
 bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
 {
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
@@ -224,20 +245,14 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
 
 }
 
-// ----------------------------------------------------------------------------------------------------
-
 LaserPlugin::LaserPlugin() : tf_listener_(0)
 {
 }
-
-// ----------------------------------------------------------------------------------------------------
 
 LaserPlugin::~LaserPlugin()
 {
     delete tf_listener_;
 }
-
-// ----------------------------------------------------------------------------------------------------
 
 void LaserPlugin::initialize(ed::InitData& init)
 {
@@ -269,8 +284,6 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     //pose_cache.clear();
 }
-
-// ----------------------------------------------------------------------------------------------------
 
 void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 {
@@ -325,8 +338,6 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         }
     }
 }
-
-// ----------------------------------------------------------------------------------------------------
 
 void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
                          const geo::Pose3D& sensor_pose, ed::UpdateRequest& req)
