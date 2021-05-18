@@ -184,6 +184,9 @@ void showSegmentationResults(const Snapshot& snapshot, const UpdateRequest& upda
 */
 // ----------------------------------------------------------------------------------------------------
 
+// Getting roll, pitch and yaw from a quaternion,
+// copied from https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
 struct Quaternion {
     double w, x, y, z;
 };
@@ -358,7 +361,7 @@ int main(int argc, char **argv)
         // paint to screen the location of HERO
         cv::Point sensorlocation(sensor_x, sensor_y);
         cv::Scalar sensorcolor(0,255,0); // green
-        cv::circle(canvas, sensorlocation, 3, sensorcolor, CV_FILLED);
+        cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
 
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
@@ -381,7 +384,7 @@ int main(int argc, char **argv)
             // paint to screen
             cv::Point centerCircle(x_p, y_p);
             cv::Scalar colorCircle(0,0,255);
-            cv::circle(canvas, centerCircle, 2, colorCircle, CV_FILLED);
+            cv::circle(canvas, centerCircle, 2, colorCircle, cv::FILLED);
         }
 
     // paint entity (from worldmodel)
