@@ -371,16 +371,8 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
-    for(unsigned int i = 0; i < num_beams; ++i)
-    {
-        float rs = sensor_ranges[i];
-        float rm = model_ranges[i];
-
-        if (rs <= 0
-                || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
-                || (std::abs(rm - rs) < world_association_distance_))
-            sensor_ranges[i] = 0;
-    }
+    std::vector<float> associated_ranges;
+    associate(sensor_ranges, model_ranges, associated_ranges);
 
     // - - - - - - - - - - - - - - - - - -
     // Segment the remaining points into clusters
@@ -759,4 +751,17 @@ void LaserPlugin::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMode
     }
 }
 
+void LaserPlugin::associate(const std::vector<float> sensor_ranges, const std::vector<double>model_ranges, std::vector<float> filtered_sensor_ranges){
+    for(unsigned int i = 0; i < sensor_ranges.size(); ++i)
+    {
+        float rs = sensor_ranges[i];
+        float rm = model_ranges[i];
+
+        filtered_sensor_ranges[i] = rs;
+        if (rs <= 0
+                || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
+                || (std::abs(rm - rs) < world_association_distance_))
+            filtered_sensor_ranges[i] = 0;
+    }
+}
 ED_REGISTER_PLUGIN(LaserPlugin)

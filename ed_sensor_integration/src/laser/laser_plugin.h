@@ -73,6 +73,14 @@ private:
     void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world,
                      std::vector<double>& model_ranges);
 
+    /**
+     * @brief associate filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
+     * @param[in] sensor_ranges distances measured by the lrf
+     * @param[in] model_ranges distances as predicted by the worldmodel
+     * @param[out] filtered_sensor_ranges filtered distances. (associated ranges have value 0.0)
+     */
+    void associate(const std::vector<float> sensor_ranges, const std::vector<double>model_ranges, std::vector<float> filtered_sensor_ranges);
+
 
     // PARAMETERS
 
