@@ -21,17 +21,6 @@
 
 #include <tue/profiling/timer.h>
 
-namespace
-{
-
-typedef std::vector<unsigned int> ScanSegment;
-
-struct EntityUpdate
-{
-    ed::ConvexHull chull;
-    geo::Pose3D pose;
-    std::string flag; // Temp for RoboCup 2015; todo: remove after
-};
 
 /**
  * Calculate an error based on the quality of a fit.
@@ -182,8 +171,6 @@ bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinde
 bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
 {
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
-}
-
 }
 
 LaserPlugin::LaserPlugin() : tf_listener_(0)
@@ -377,81 +364,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Segment the remaining points into clusters
 
-    std::vector<ScanSegment> segments;
-
-    // Find first valid value
-    ScanSegment current_segment;
-    for(unsigned int i = 0; i < num_beams; ++i)
-    {
-        if (sensor_ranges[i] > 0)
-        {
-            current_segment.push_back(i);
-            break;
-        }
-    }
-
-    if (current_segment.empty()) // no residual point cloud
-    {
-        return;
-    }
-
-    int gap_size = 0;
-
-    for(unsigned int i = current_segment.front(); i < num_beams; ++i)
-    {
-        float rs = sensor_ranges[i];
-
-        if (rs == 0 || std::abs(rs - sensor_ranges[current_segment.back()]) > segment_depth_threshold_ || i == num_beams - 1)
-        {
-            // Found a gap or at final reading
-            ++gap_size;
-
-            if (gap_size >= max_gap_size_ || i == num_beams - 1)
-            {
-                i = current_segment.back() + 1;
-
-                if (current_segment.size() >= min_segment_size_pixels_)
-                {
-                    // calculate bounding box
-                    geo::Vec2 seg_min, seg_max;
-                    for(unsigned int k = 0; k < current_segment.size(); ++k)
-                    {
-                        geo::Vector3 p = lrf_model_.rayDirections()[current_segment[k]] * sensor_ranges[current_segment[k]];
-
-                        if (k == 0)
-                        {
-                            seg_min = geo::Vec2(p.x, p.y);
-                            seg_max = geo::Vec2(p.x, p.y);
-                        }
-                        else
-                        {
-                            seg_min.x = std::min(p.x, seg_min.x);
-                            seg_min.y = std::min(p.y, seg_min.y);
-                            seg_max.x = std::max(p.x, seg_max.x);
-                            seg_max.y = std::max(p.y, seg_max.y);
-                        }
-                    }
-
-                    geo::Vec2 bb = seg_max - seg_min;
-                    if ((bb.x > min_cluster_size_ || bb.y > min_cluster_size_) && bb.x < max_cluster_size_ && bb.y < max_cluster_size_)
-                        segments.push_back(current_segment);
-                }
-
-                current_segment.clear();
-
-                // Find next good value
-                while(sensor_ranges[i] == 0 && i < num_beams)
-                    ++i;
-
-                current_segment.push_back(i);
-            }
-        }
-        else
-        {
-            gap_size = 0;
-            current_segment.push_back(i);
-        }
-    }
+    std::vector<ScanSegment> segments = segment(associated_ranges);
 
     // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
@@ -764,4 +677,86 @@ void LaserPlugin::associate(const std::vector<float> sensor_ranges, const std::v
             filtered_sensor_ranges[i] = 0;
     }
 }
+
+std::vector<ScanSegment> LaserPlugin::segment(const std::vector<float> sensor_ranges)
+{
+    std::vector<ScanSegment> segments;
+    int num_beams = sensor_ranges.size();
+
+    // Find first valid value
+    ScanSegment current_segment;
+    for(unsigned int i = 0; i < num_beams; ++i)
+    {
+        if (sensor_ranges[i] > 0)
+        {
+            current_segment.push_back(i);
+            break;
+        }
+    }
+
+    if (current_segment.empty()) // no residual point cloud
+    {
+        return segments;
+    }
+
+    int gap_size = 0;
+
+    for(unsigned int i = current_segment.front(); i < num_beams; ++i)
+    {
+        float rs = sensor_ranges[i];
+
+        if (rs == 0 || std::abs(rs - sensor_ranges[current_segment.back()]) > segment_depth_threshold_ || i == num_beams - 1)
+        {
+            // Found a gap or at final reading
+            ++gap_size;
+
+            if (gap_size >= max_gap_size_ || i == num_beams - 1)
+            {
+                i = current_segment.back() + 1;
+
+                if (current_segment.size() >= min_segment_size_pixels_)
+                {
+                    // calculate bounding box
+                    geo::Vec2 seg_min, seg_max;
+                    for(unsigned int k = 0; k < current_segment.size(); ++k)
+                    {
+                        geo::Vector3 p = lrf_model_.rayDirections()[current_segment[k]] * sensor_ranges[current_segment[k]];
+
+                        if (k == 0)
+                        {
+                            seg_min = geo::Vec2(p.x, p.y);
+                            seg_max = geo::Vec2(p.x, p.y);
+                        }
+                        else
+                        {
+                            seg_min.x = std::min(p.x, seg_min.x);
+                            seg_min.y = std::min(p.y, seg_min.y);
+                            seg_max.x = std::max(p.x, seg_max.x);
+                            seg_max.y = std::max(p.y, seg_max.y);
+                        }
+                    }
+
+                    geo::Vec2 bb = seg_max - seg_min;
+                    if ((bb.x > min_cluster_size_ || bb.y > min_cluster_size_) && bb.x < max_cluster_size_ && bb.y < max_cluster_size_)
+                        segments.push_back(current_segment);
+                }
+
+                current_segment.clear();
+
+                // Find next good value
+                while(sensor_ranges[i] == 0 && i < num_beams)
+                    ++i;
+
+                current_segment.push_back(i);
+            }
+        }
+        else
+        {
+            gap_size = 0;
+            current_segment.push_back(i);
+        }
+    }
+    return segments;
+}
+
 ED_REGISTER_PLUGIN(LaserPlugin)

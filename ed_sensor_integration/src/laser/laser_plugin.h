@@ -21,6 +21,14 @@
 
 #include <map>
 
+typedef std::vector<unsigned int> ScanSegment;
+
+struct EntityUpdate
+{
+    ed::ConvexHull chull;
+    geo::Pose3D pose;
+    std::string flag; // Temp for RoboCup 2015; todo: remove after
+};
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -81,6 +89,7 @@ private:
      */
     void associate(const std::vector<float> sensor_ranges, const std::vector<double>model_ranges, std::vector<float> filtered_sensor_ranges);
 
+    std::vector<ScanSegment> segment(const std::vector<float> sensor_ranges);
 
     // PARAMETERS
 
