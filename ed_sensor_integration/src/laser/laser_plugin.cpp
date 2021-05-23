@@ -328,10 +328,11 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
     std::vector<double> model_ranges(num_beams, 0);
     renderWorld(sensor_pose, world, model_ranges);
-    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
     // - - - - - - - - - - - - - - - - - -
     // Fit the doors
+
+    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
     if (fit_entities_)
     {
@@ -351,26 +352,11 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
             if (e_pose_SENSOR.t.length2() > 5.0 * 5.0 || e_pose_SENSOR.t.x < 0)
                 continue;
 
-            if (e->hasType("left_door") || e->hasType("door_left"))
+            if (e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right"))
             {
                 // Try to update the pose
                 geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
                 req.setPose(e->id(), new_pose);
-                //std::cout << "left_door" << std::endl;
-
-                // Render the door with the updated pose
-                geo::LaserRangeFinder::RenderOptions opt;
-                opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
-
-                geo::LaserRangeFinder::RenderResult res(model_ranges);
-                lrf_model_.render(opt, res);
-            }
-            else if (e->hasType("right_door") || e->hasType("door_right"))
-            {
-                // Try to update the pose
-                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
-                req.setPose(e->id(), new_pose);
-                //std::cout << "right_door" << std::endl;
 
                 // Render the door with the updated pose
                 geo::LaserRangeFinder::RenderOptions opt;
