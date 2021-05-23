@@ -64,7 +64,14 @@ private:
      */
     void update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
                 const geo::Pose3D& sensor_pose, ed::UpdateRequest& req);
-
+    /**
+     * @brief render the worldmodel as would be seen by the lrf.
+     * @param[in] sensor_pose pose of the lrf to be modeled in the world frame.
+     * @param[in] world worldmodel
+     * @param[out] model_ranges ranges of distances as would be seen by an lrf
+     */
+    void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world,
+                     std::vector<double>& model_ranges);
 
 
     // PARAMETERS

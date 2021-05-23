@@ -326,23 +326,9 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Render world model as if seen by laser
 
-    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
-
     std::vector<double> model_ranges(num_beams, 0);
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
-    {
-        const ed::EntityConstPtr& e = *it;
-
-        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
-        {
-            // Set render options
-            geo::LaserRangeFinder::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
-
-            geo::LaserRangeFinder::RenderResult res(model_ranges);
-            lrf_model_.render(opt, res);
-        }
-    }
+    renderWorld(sensor_pose, world, model_ranges);
+    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
     // - - - - - - - - - - - - - - - - - -
     // Fit the doors
@@ -767,5 +753,24 @@ void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     scan_buffer_.push(msg);
 }
 
+void LaserPlugin::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)
+{
+    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
+
+    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    {
+        const ed::EntityConstPtr& e = *it;
+
+        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
+        {
+            // Set render options
+            geo::LaserRangeFinder::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
+
+            geo::LaserRangeFinder::RenderResult res(model_ranges);
+            lrf_model_.render(opt, res);
+        }
+    }
+}
 
 ED_REGISTER_PLUGIN(LaserPlugin)
