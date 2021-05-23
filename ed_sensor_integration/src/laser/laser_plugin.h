@@ -87,9 +87,12 @@ private:
      * @param[in] model_ranges distances as predicted by the worldmodel
      * @param[out] filtered_sensor_ranges filtered distances. (associated ranges have value 0.0)
      */
-    void associate(const std::vector<float> sensor_ranges, const std::vector<double>model_ranges, std::vector<float> filtered_sensor_ranges);
+    void associate(const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<float>& filtered_sensor_ranges);
 
-    std::vector<ScanSegment> segment(const std::vector<float> sensor_ranges);
+    /** divide the sensor ranges into segments */
+    std::vector<ScanSegment> segment(const std::vector<float>& sensor_ranges);
+
+    EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<float>& sensor_ranges);
 
     // PARAMETERS
 

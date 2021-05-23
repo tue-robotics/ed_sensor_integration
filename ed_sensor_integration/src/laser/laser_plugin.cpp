@@ -374,52 +374,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
     {
         const ScanSegment& segment = *it;
-        unsigned int segment_size = segment.size();
-
-        std::vector<geo::Vec2f> points(segment_size);
-
-        float z_min, z_max;
-        for(unsigned int i = 0; i < segment_size; ++i)
-        {
-            unsigned int j = segment[i];
-
-            // Calculate the cartesian coordinate of the point in the segment (in sensor frame)
-            geo::Vector3 p_sensor = lrf_model_.rayDirections()[j] * sensor_ranges[j];
-
-            // Transform to world frame
-            geo::Vector3 p = sensor_pose * p_sensor;
-
-            // Add to cv array
-            points[i] = geo::Vec2f(p.x, p.y);
-
-            if (i == 0)
-            {
-                z_min = p.z;
-                z_max = p.z;
-            }
-            else
-            {
-                z_min = std::min<float>(z_min, p.z);
-                z_max = std::max<float>(z_max, p.z);
-            }
-        }
-
-        clusters.push_back(EntityUpdate());
-        EntityUpdate& cluster = clusters.back();
-
-        cluster.pose = geo::Pose3D::identity();
-        ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
-
-        // --------------------------
-        // Temp for RoboCup 2016; todo: remove after
-
-        // Determine the cluster size
-        geo::Vec2f diff = points.back() - points.front();
-        float size_sq = diff.length2();
-        if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
-            cluster.flag = "possible_human";
-
-        // --------------------------
+        clusters.push_back(segmentToConvexHull(segment, sensor_pose, sensor_ranges));
     }
 
     // Create selection of world model entities that could associate
@@ -664,7 +619,7 @@ void LaserPlugin::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMode
     }
 }
 
-void LaserPlugin::associate(const std::vector<float> sensor_ranges, const std::vector<double>model_ranges, std::vector<float> filtered_sensor_ranges){
+void LaserPlugin::associate(const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<float>& filtered_sensor_ranges){
     for(unsigned int i = 0; i < sensor_ranges.size(); ++i)
     {
         float rs = sensor_ranges[i];
@@ -678,7 +633,7 @@ void LaserPlugin::associate(const std::vector<float> sensor_ranges, const std::v
     }
 }
 
-std::vector<ScanSegment> LaserPlugin::segment(const std::vector<float> sensor_ranges)
+std::vector<ScanSegment> LaserPlugin::segment(const std::vector<float>& sensor_ranges)
 {
     std::vector<ScanSegment> segments;
     int num_beams = sensor_ranges.size();
@@ -757,6 +712,56 @@ std::vector<ScanSegment> LaserPlugin::segment(const std::vector<float> sensor_ra
         }
     }
     return segments;
+}
+
+EntityUpdate LaserPlugin::segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<float>& sensor_ranges)
+{
+    unsigned int segment_size = segment.size();
+
+    std::vector<geo::Vec2f> points(segment_size);
+
+    float z_min, z_max;
+    for(unsigned int i = 0; i < segment_size; ++i)
+    {
+        unsigned int j = segment[i];
+
+        // Calculate the cartesian coordinate of the point in the segment (in sensor frame)
+        geo::Vector3 p_sensor = lrf_model_.rayDirections()[j] * sensor_ranges[j];
+
+        // Transform to world frame
+        geo::Vector3 p = sensor_pose * p_sensor;
+
+        // Add to cv array
+        points[i] = geo::Vec2f(p.x, p.y);
+
+        if (i == 0)
+        {
+            z_min = p.z;
+            z_max = p.z;
+        }
+        else
+        {
+            z_min = std::min<float>(z_min, p.z);
+            z_max = std::max<float>(z_max, p.z);
+        }
+    }
+
+    EntityUpdate cluster;
+
+    cluster.pose = geo::Pose3D::identity();
+    ed::convex_hull::create(points, z_min, z_max, cluster.chull, cluster.pose);
+
+    // --------------------------
+    // Temp for RoboCup 2016; todo: remove after
+
+    // Determine the cluster size
+    geo::Vec2f diff = points.back() - points.front();
+    float size_sq = diff.length2();
+    if (size_sq > 0.35 * 0.35 && size_sq < 0.8 * 0.8)
+        cluster.flag = "possible_human";
+
+    // --------------------------
+    return cluster;
 }
 
 ED_REGISTER_PLUGIN(LaserPlugin)
