@@ -366,9 +366,8 @@ int main(int argc, char **argv)
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
             float fx_ = 2 * data.sensor_ranges.size() / 4;
-            float a = (((float) i - (data.sensor_ranges.size()/2)) / fx_); // TODO: remove hard-coded values, both fx_ and amount of sensor_ranges is hardcoded
-            float x_m = data.sensor_ranges[i] * sin(a);
-            float y_m = data.sensor_ranges[i] * cos(a);
+            float x_m = data.sensor_ranges[i] * (((float) i - (data.sensor_ranges.size()/2)) / fx_);
+            float y_m = data.sensor_ranges[i];
 
             // postion to pixels
             int x_p = sensor_x + (int)(x_m * canvas_resolution);
