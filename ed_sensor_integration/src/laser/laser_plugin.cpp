@@ -173,6 +173,12 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
 }
 
+/**
+ * @brief findNearbyEntities create a list of entities that are close to detected clusters
+ * @param clusters detected clusters
+ * @param world worldmodel to get the entities from
+ * @return entities that are near the clusters.
+ */
 std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& clusters, const ed::WorldModel& world){
     float max_dist = 0.3; //TODO magic number
 
@@ -219,7 +225,15 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
     return entities;
 }
 
-bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment assig)
+/**
+ * @brief associateSegmentsWithEntities
+ * @param[in] clusters measured clusters
+ * @param[in] entities entities that may be associated with the clusters
+ * @param[in] current_time current time to compare against the last measurement of an entity
+ * @param[out] assig assignmentmatrix between clusters and entities.
+ * @return
+ */
+bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment& assig)
 {
     // Create association matrix
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
