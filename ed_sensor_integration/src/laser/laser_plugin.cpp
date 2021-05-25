@@ -173,6 +173,95 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
 }
 
+std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& clusters, const ed::WorldModel& world){
+    float max_dist = 0.3; //TODO magic number
+
+    // find nearby entities to associate the measurements with
+    std::vector<ed::EntityConstPtr> entities;
+
+    if (!clusters.empty())
+    {
+        geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
+        geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
+        for (std::vector<EntityUpdate>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
+        {
+            const EntityUpdate& cluster = *it;
+
+            area_min.x = std::min(area_min.x, cluster.pose.t.x);
+            area_min.y = std::min(area_min.y, cluster.pose.t.y);
+
+            area_max.x = std::max(area_max.x, cluster.pose.t.x);
+            area_max.y = std::max(area_max.y, cluster.pose.t.y);
+        }
+
+        area_min -= geo::Vec2(max_dist, max_dist);
+        area_max += geo::Vec2(max_dist, max_dist);
+
+        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+        {
+            const ed::EntityConstPtr& e = *e_it;
+            if (e->shape() || !e->has_pose())
+                continue;
+
+            const geo::Pose3D& entity_pose = e->pose();
+            const ed::ConvexHull& entity_chull = e->convexHull();
+
+            if (entity_chull.points.empty())
+                continue;
+
+            if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
+                    || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
+                continue;
+
+            entities.push_back(e);
+        }
+    }
+    return entities;
+}
+
+bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment assig)
+{
+    // Create association matrix
+    ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
+    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
+    {
+        const EntityUpdate& cluster = clusters[i_cluster];
+
+        for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
+        {
+            const ed::EntityConstPtr& e = entities[i_entity];
+
+            const geo::Pose3D& entity_pose = e->pose();
+            const ed::ConvexHull& entity_chull = e->convexHull();
+
+            float dx = entity_pose.t.x - cluster.pose.t.x;
+            float dy = entity_pose.t.y - cluster.pose.t.y;
+            float dz = 0;
+
+            if (entity_chull.z_max + entity_pose.t.z < cluster.chull.z_min + cluster.pose.t.z
+                    || cluster.chull.z_max + cluster.pose.t.z < entity_chull.z_min + entity_pose.t.z)
+                // The convex hulls are non-overlapping in z
+                dz = entity_pose.t.z - cluster.pose.t.z;
+
+            float dist_sq = (dx * dx + dy * dy + dz * dz);
+
+            // TODO: better prob calculation
+            double prob = 1.0 / (1.0 + 100 * dist_sq);
+
+            double dt = current_time - e->lastUpdateTimestamp();
+
+            double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
+
+            if (dist_sq > e_max_dist * e_max_dist)
+                prob = 0;
+
+            if (prob > 0)
+                assoc_matrix.setEntry(i_cluster, i_entity, prob);
+        }
+    }
+    return assoc_matrix.calculateBestAssignment(assig);
+}
+
 LaserPlugin::LaserPlugin() : tf_listener_(0)
 {
 }
@@ -378,90 +467,9 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     }
 
     // Create selection of world model entities that could associate
-
-    float max_dist = 0.3;
-
-    std::vector<ed::EntityConstPtr> entities;
-
-    if (!clusters.empty())
-    {
-        geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        for (std::vector<EntityUpdate>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
-        {
-            const EntityUpdate& cluster = *it;
-
-            area_min.x = std::min(area_min.x, cluster.pose.t.x);
-            area_min.y = std::min(area_min.y, cluster.pose.t.y);
-
-            area_max.x = std::max(area_max.x, cluster.pose.t.x);
-            area_max.y = std::max(area_max.y, cluster.pose.t.y);
-        }
-
-        area_min -= geo::Vec2(max_dist, max_dist);
-        area_max += geo::Vec2(max_dist, max_dist);
-
-        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
-        {
-            const ed::EntityConstPtr& e = *e_it;
-            if (e->shape() || !e->has_pose())
-                continue;
-
-            const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHull();
-
-            if (entity_chull.points.empty())
-                continue;
-
-            if (entity_pose.t.x < area_min.x || entity_pose.t.x > area_max.x
-                    || entity_pose.t.y < area_min.y || entity_pose.t.y > area_max.y)
-                continue;
-
-            entities.push_back(e);
-        }
-    }
-
-    // Create association matrix
-    ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
-    for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
-    {
-        const EntityUpdate& cluster = clusters[i_cluster];
-
-        for (unsigned int i_entity = 0; i_entity < entities.size(); ++i_entity)
-        {
-            const ed::EntityConstPtr& e = entities[i_entity];
-
-            const geo::Pose3D& entity_pose = e->pose();
-            const ed::ConvexHull& entity_chull = e->convexHull();
-
-            float dx = entity_pose.t.x - cluster.pose.t.x;
-            float dy = entity_pose.t.y - cluster.pose.t.y;
-            float dz = 0;
-
-            if (entity_chull.z_max + entity_pose.t.z < cluster.chull.z_min + cluster.pose.t.z
-                    || cluster.chull.z_max + cluster.pose.t.z < entity_chull.z_min + entity_pose.t.z)
-                // The convex hulls are non-overlapping in z
-                dz = entity_pose.t.z - cluster.pose.t.z;
-
-            float dist_sq = (dx * dx + dy * dy + dz * dz);
-
-            // TODO: better prob calculation
-            double prob = 1.0 / (1.0 + 100 * dist_sq);
-
-            double dt = scan->header.stamp.toSec() - e->lastUpdateTimestamp();
-
-            double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
-
-            if (dist_sq > e_max_dist * e_max_dist)
-                prob = 0;
-
-            if (prob > 0)
-                assoc_matrix.setEntry(i_cluster, i_entity, prob);
-        }
-    }
-
+    std::vector<ed::EntityConstPtr> entities = findNearbyEntities(clusters, world);
     ed_sensor_integration::Assignment assig;
-    if (!assoc_matrix.calculateBestAssignment(assig))
+    if (!associateSegmentsWithEntities(clusters, entities, scan->header.stamp.toSec(), assig))
     {
         std::cout << "WARNING: Association failed!" << std::endl;
         return;

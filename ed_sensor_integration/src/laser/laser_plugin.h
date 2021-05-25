@@ -92,6 +92,7 @@ private:
     /** divide the sensor ranges into segments */
     std::vector<ScanSegment> segment(const std::vector<float>& sensor_ranges);
 
+    /** convert a segment of laserdata to a convex hull */
     EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<float>& sensor_ranges);
 
     // PARAMETERS
