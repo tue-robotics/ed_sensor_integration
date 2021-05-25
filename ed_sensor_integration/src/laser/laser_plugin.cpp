@@ -489,7 +489,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         return;
     }
 
-    std::vector<int> entities_associated(entities.size(), -1);
+    //std::vector<int> entities_associated(entities.size(), -1); // used to clear unaccociated entities
 
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
@@ -517,37 +517,10 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         else
         {
             // Mark the entity as being associated
-            entities_associated[i_entity] = i_cluster;
+            //entities_associated[i_entity] = i_cluster;
 
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
-            //            const ed::ConvexHull& entity_chull = e->convexHullNew();
-            //            const geo::Pose3D& entity_pose = e->pose();
-
-            //            std::vector<geo::Vec2f> new_points_MAP;
-
-            //            // Add the points of the cluster
-            //            for(std::vector<geo::Vec2f>::const_iterator p_it = cluster.chull.points.begin(); p_it != cluster.chull.points.end(); ++p_it)
-            //                new_points_MAP.push_back(geo::Vec2f(p_it->x + cluster.pose.t.x, p_it->y + cluster.pose.t.y));
-
-            //            // Add the entity points that are still present in the depth map (or out of view)
-            //            for(std::vector<geo::Vec2f>::const_iterator p_it = entity_chull.points.begin(); p_it != entity_chull.points.end(); ++p_it)
-            //            {
-            //                geo::Vec2f p_chull_MAP(p_it->x + entity_pose.t.x, p_it->y + entity_pose.t.y);
-
-            //                geo::Vector3 p = sensor_pose.inverse() * geo::Vector3(p_chull_MAP.x, p_chull_MAP.y, entity_pose.t.z);
-
-            //                if (pointIsPresent(p, lrf_model_, sensor_ranges))
-            //                {
-            //                    new_points_MAP.push_back(p_chull_MAP);
-            //                }
-            //            }
-
-            //            double new_z_min = cluster.chull.z_min;
-            //            double new_z_max = cluster.chull.z_max;
-
-            //            // And calculate the convex hull of these points
-            //            ed::convex_hull::create(new_points_MAP, new_z_min, new_z_max, new_chull, new_pose);
 
             if (!e->hasFlag("locked"))
             {
