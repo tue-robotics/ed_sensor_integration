@@ -337,12 +337,13 @@ int main(int argc, char **argv)
 
         FitterData data;
         geo::Pose3D fitted_pose;
+        EstimationInputData result;
 
         ed::EntityConstPtr e = snapshot.world_model.getEntity("dinner_table");
 
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, data);
 
-        fitter.estimateEntityPose(data, snapshot.world_model, "dinner_table", e->pose(), fitted_pose);
+        bool estimateEntityPose = fitter.estimateEntityPose(data, snapshot.world_model, "dinner_table", e->pose(), fitted_pose);
 
         // show snapshot
         cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
@@ -363,9 +364,27 @@ int main(int argc, char **argv)
         cv::Scalar sensorcolor(0,255,0); // green
         cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
 
+        // paint expected center beam, where the beam is extended for visuability
+        float fx_ = 2 * data.sensor_ranges.size() / 4;
+
+        geo::Vec3 expected_pos_sensor = data.sensor_pose_xya.inverse() * e->pose().t;
+        result.expected_center_beam = (fx_ * expected_pos_sensor.x) / expected_pos_sensor.y + (data.sensor_ranges.size()/2); // update expected_center_beam
+
+        float x_m_exp = (3 + data.sensor_ranges[result.expected_center_beam]) * (((float) result.expected_center_beam - (data.sensor_ranges.size()/2)) / fx_);
+        float y_m_exp = ( 3+ data.sensor_ranges[result.expected_center_beam]); // Extension is +3
+
+        int x_p_exp = sensor_x + (int)(x_m_exp * canvas_resolution);
+        int y_p_exp = sensor_y - (int)(y_m_exp * canvas_resolution);
+
+        //std::cout << "Expected center beam " << " = "  << result.expected_center_beam << std::endl;
+        //std::cout << "Length of the expected center beam " << " = "  << data.sensor_ranges[result.expected_center_beam] << std::endl;
+
+        cv::Point expectedcenterbeampoint(x_p_exp, y_p_exp);
+        cv::Scalar colorcenterLine(0,255,0); //Yellow, B G R
+        cv::line(canvas, expectedcenterbeampoint, sensorlocation, colorcenterLine, 1);
+
         // paint sensor_ranges
         for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
-            float fx_ = 2 * data.sensor_ranges.size() / 4;
             float x_m = data.sensor_ranges[i] * (((float) i - (data.sensor_ranges.size()/2)) / fx_);
             float y_m = data.sensor_ranges[i];
 
@@ -401,10 +420,10 @@ int main(int argc, char **argv)
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer corner positions (in worldmodel coordinate system)
-                float x_wm1 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j].x + sin(yaw_ent) * entity_2d.shape_2d[i][j].y);
-                float y_wm1 = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_ent) * entity_2d.shape_2d[i][j].y);
-                float x_wm2 = e->pose().t.x + (cos(yaw_ent) * entity_2d.shape_2d[i][j+1].x + sin(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
-                float y_wm2 = e->pose().t.y + (-sin(yaw_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
+                float x_wm1 = e->pose().t.x + ( cos(yaw_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float y_wm1 = e->pose().t.y + ( sin(yaw_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_ent) * entity_2d.shape_2d[i][j].y);
+                float x_wm2 = e->pose().t.x + ( cos(yaw_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_wm2 = e->pose().t.y + ( sin(yaw_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // computing vector from robot to entity corners (in worldmodel coordinate system)
                 float diff_x1 = x_wm1 - snapshot.sensor_pose.t.x;
@@ -413,9 +432,9 @@ int main(int argc, char **argv)
                 float diff_y2 = y_wm2 - snapshot.sensor_pose.t.y;
 
                 // rotating coordinate system to that of the robot
-                float x_m1 = cos(yaw_robot) * diff_x1 + sin(yaw_robot) * diff_y1;
+                float x_m1 =  cos(yaw_robot) * diff_x1 + sin(yaw_robot) * diff_y1;
                 float y_m1 = -sin(yaw_robot) * diff_x1 + cos(yaw_robot) * diff_y1;
-                float x_m2 = cos(yaw_robot) * diff_x2 + sin(yaw_robot) * diff_y2;
+                float x_m2 =  cos(yaw_robot) * diff_x2 + sin(yaw_robot) * diff_y2;
                 float y_m2 = -sin(yaw_robot) * diff_x2 + cos(yaw_robot) * diff_y2;
 
                 // position to pixels
@@ -454,9 +473,9 @@ int main(int argc, char **argv)
         float diff_y_end = y_wm_end - snapshot.sensor_pose.t.y;
 
         // rotating coordinate system to that of the robot
-        float x_m_start = cos(yaw_robot) * diff_x_start + sin(yaw_robot) * diff_y_start;
+        float x_m_start =  cos(yaw_robot) * diff_x_start + sin(yaw_robot) * diff_y_start;
         float y_m_start = -sin(yaw_robot) * diff_x_start + cos(yaw_robot) * diff_y_start;
-        float x_m_end = cos(yaw_robot) * diff_x_end + sin(yaw_robot) * diff_y_end;
+        float x_m_end =  cos(yaw_robot) * diff_x_end + sin(yaw_robot) * diff_y_end;
         float y_m_end = -sin(yaw_robot) * diff_x_end + cos(yaw_robot) * diff_y_end;
 
         // position to pixels
@@ -471,6 +490,16 @@ int main(int argc, char **argv)
         cv::Scalar colorLine(0,255,255);
         cv::line(canvas, point_begin, point_end, colorLine, 1);
 
+        // paint entity center
+
+        float x_m_ent =  cos(yaw_robot) * (e->pose().t.x - snapshot.sensor_pose.t.x) + sin(yaw_robot) * (e->pose().t.y - snapshot.sensor_pose.t.y);
+        float y_m_ent = -sin(yaw_robot) * (e->pose().t.x - snapshot.sensor_pose.t.x) + cos(yaw_robot) * (e->pose().t.y - snapshot.sensor_pose.t.y);
+        int x_p_ent = sensor_x + (int)(x_m_ent * canvas_resolution);
+        int y_p_ent = sensor_y - (int)(y_m_ent * canvas_resolution);
+        cv::Point Entity_center(x_p_ent, y_p_ent);
+        cv::circle(canvas, Entity_center, 3, colorLine, cv::FILLED);
+
+    if (estimateEntityPose == true){
     // paint fitted entity
         float yaw_fit_ent = getYaw(fitted_pose.R);
 
@@ -478,10 +507,10 @@ int main(int argc, char **argv)
 
             for (int j=0; j < entity_2d.shape_2d[i].size()-1; j++){
                 // computing outer edge positions (in worldmodel coordinate system)
-                float x_wm_f_1 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
-                float y_wm_f_1 = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
-                float x_wm_f_2 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
-                float y_wm_f_2 = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
+                float x_wm_f_1 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float y_wm_f_1 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j].y);
+                float x_wm_f_2 = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
+                float y_wm_f_2 = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[i][j+1].y);
 
                 // computing vector from robot to entity corners (in worldmodel coordinate system)
                 float diff_x_f_1 = x_wm_f_1 - snapshot.sensor_pose.t.x;
@@ -490,9 +519,9 @@ int main(int argc, char **argv)
                 float diff_y_f_2 = y_wm_f_2 - snapshot.sensor_pose.t.y;
 
                 // rotating coordinate system to that of the robot
-                float x_m_f_1 = cos(yaw_robot) * diff_x_f_1 + sin(yaw_robot) * diff_y_f_1;
+                float x_m_f_1 =  cos(yaw_robot) * diff_x_f_1 + sin(yaw_robot) * diff_y_f_1;
                 float y_m_f_1 = -sin(yaw_robot) * diff_x_f_1 + cos(yaw_robot) * diff_y_f_1;
-                float x_m_f_2 = cos(yaw_robot) * diff_x_f_2 + sin(yaw_robot) * diff_y_f_2;
+                float x_m_f_2 =  cos(yaw_robot) * diff_x_f_2 + sin(yaw_robot) * diff_y_f_2;
                 float y_m_f_2 = -sin(yaw_robot) * diff_x_f_2 + cos(yaw_robot) * diff_y_f_2;
 
                 // position to pixels
@@ -519,10 +548,10 @@ int main(int argc, char **argv)
         }
 
         // adding last edge of entity (begin point to end point)
-        float x_wm_f_start = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
-        float y_wm_f_start = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
-        float x_wm_f_end = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
-        float y_wm_f_end = fitted_pose.t.y + (-sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float x_wm_f_start = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float y_wm_f_start = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][0].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][0].y);
+        float x_wm_f_end = fitted_pose.t.x + (cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x - sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
+        float y_wm_f_end = fitted_pose.t.y + (sin(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].x + cos(yaw_fit_ent) * entity_2d.shape_2d[0][entity_2d.shape_2d[0].size()-1].y);
 
         // computing vector from robot to entity corners (in worldmodel coordinate system)
         float diff_x_f_start = x_wm_f_start - snapshot.sensor_pose.t.x;
@@ -531,9 +560,9 @@ int main(int argc, char **argv)
         float diff_y_f_end = y_wm_f_end - snapshot.sensor_pose.t.y;
 
         // rotating coordinate system to that of the robot
-        float x_m_f_start = cos(yaw_robot) * diff_x_f_start + sin(yaw_robot) * diff_y_f_start;
+        float x_m_f_start =  cos(yaw_robot) * diff_x_f_start + sin(yaw_robot) * diff_y_f_start;
         float y_m_f_start = -sin(yaw_robot) * diff_x_f_start + cos(yaw_robot) * diff_y_f_start;
-        float x_m_f_end = cos(yaw_robot) * diff_x_f_end + sin(yaw_robot) * diff_y_f_end;
+        float x_m_f_end =  cos(yaw_robot) * diff_x_f_end + sin(yaw_robot) * diff_y_f_end;
         float y_m_f_end = -sin(yaw_robot) * diff_x_f_end + cos(yaw_robot) * diff_y_f_end;
 
         // position to pixels
@@ -542,23 +571,32 @@ int main(int argc, char **argv)
         int x_p_f_end = sensor_x + (int)(x_m_f_end * canvas_resolution);
         int y_p_f_end = sensor_y - (int)(y_m_f_end * canvas_resolution);
 
-        //std::cout << "de begin coordinaat is: ("<< x_p_start << "),("<< y_p_start << ")" << std::endl;
-        //std::cout << "de eind coordinaat is: ("<< x_p_end << "),("<< y_p_end << ")" << std::endl;
-        std::cout << "Robot pose: ("<< snapshot.sensor_pose << ")" << std::endl;
-        std::cout << "Worldmodel object pose: ("<< e->pose() << ")" << std::endl;
-        std::cout << "Fitted object pose: ("<< fitted_pose << ")" << std::endl;
-        std::cout << "Yaw of robot: ("<< yaw_robot << ")" << std::endl;
-        std::cout << "Yaw of worldmodel object pose: ("<< yaw_ent << ")" << std::endl;
-        std::cout << "Yaw of fitted object pose: ("<< yaw_fit_ent << ")" << std::endl;
-        std::cout << data.sensor_ranges.size() << std::endl;
-        //std::cout << valid_sensor_ranges.size() << std::endl;
-
-
         // paint last edge to screen
         cv::Point point_f_start(x_p_f_start, y_p_f_start);
         cv::Point point_f_end(x_p_f_end, y_p_f_end);
         cv::Scalar colorLine2(255,0,0);
         cv::line(canvas, point_f_start, point_f_end, colorLine2, 1);
+
+        // paint fitted entity center
+        float x_m_fitent =  cos(yaw_robot) * (fitted_pose.t.x - snapshot.sensor_pose.t.x) + sin(yaw_robot) * (fitted_pose.t.y - snapshot.sensor_pose.t.y);
+        float y_m_fitent = -sin(yaw_robot) * (fitted_pose.t.x - snapshot.sensor_pose.t.x) + cos(yaw_robot) * (fitted_pose.t.y - snapshot.sensor_pose.t.y);
+        int x_p_fitent = sensor_x + (int)(x_m_fitent * canvas_resolution);
+        int y_p_fitent = sensor_y - (int)(y_m_fitent * canvas_resolution);
+        cv::Point FitEntity_center(x_p_fitent, y_p_fitent);
+        cv::circle(canvas, FitEntity_center, 3, colorLine2, cv::FILLED);
+
+        //std::cout << "Fitted object pose: ("<< fitted_pose << ")" << std::endl;
+        //std::cout << "Yaw of fitted object pose: ("<< yaw_fit_ent << ")" << std::endl;
+
+    } else {
+        std::cout << "Fitted entity not printed in image because of a fitter error" << std::endl;
+    };
+
+        //std::cout << "Robot pose: ("<< snapshot.sensor_pose << ")" << std::endl;
+        //std::cout << "Worldmodel object pose: ("<< e->pose() << ")" << std::endl;
+        //std::cout << "Yaw of robot: ("<< yaw_robot << ")" << std::endl;
+        //std::cout << "Yaw of worldmodel object pose: ("<< yaw_ent << ")" << std::endl;
+        //std::cout << data.sensor_ranges.size() << std::endl;
 
         cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
