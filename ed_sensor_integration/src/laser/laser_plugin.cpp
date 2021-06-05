@@ -598,7 +598,7 @@ void LaserPlugin::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMode
 {
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
-    for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
+    for(ed::WorldModel::const_iterator it = world.cbegin(); it != world.cend(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
 
