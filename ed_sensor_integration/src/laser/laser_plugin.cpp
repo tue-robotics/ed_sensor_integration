@@ -461,7 +461,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
-    std::vector<float> associated_ranges;
+    std::vector<float> associated_ranges(num_beams);
     associate(sensor_ranges, model_ranges, associated_ranges);
 
     // - - - - - - - - - - - - - - - - - -
