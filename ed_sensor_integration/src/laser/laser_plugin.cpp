@@ -189,7 +189,7 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
     {
         geo::Vec2 area_min(clusters[0].pose.t.x, clusters[0].pose.t.y);
         geo::Vec2 area_max(clusters[0].pose.t.x, clusters[0].pose.t.y);
-        for (std::vector<EntityUpdate>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
+        for (std::vector<EntityUpdate>::const_iterator it = clusters.cbegin(); it != clusters.cend(); ++it)
         {
             const EntityUpdate& cluster = *it;
 
