@@ -23,6 +23,29 @@
 
 
 /**
+ * copy a ros laserscan message to a standard vector
+ *
+ * @param[in] scan laserscan message
+ * @param[out] sensor_ranges vector with ranges
+ */
+void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::vector<float>& sensor_ranges)
+{
+    if (sensor_ranges.size() != scan->ranges.size())
+        sensor_ranges.resize(scan->ranges.size());
+
+    for(unsigned int i = 0; i < scan->ranges.size(); ++i)
+    {
+        float r = scan->ranges[i];
+        if (r > scan->range_max)
+            sensor_ranges[i] = r;
+        else if (r == r && r > scan->range_min)
+            sensor_ranges[i] = r;
+        else
+            sensor_ranges[i] = 0;
+    }
+}
+
+/**
  * Calculate an error based on the quality of a fit.
  *
  * @param e entity being fitted
@@ -380,24 +403,13 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // Update laser model
 
     std::vector<float> sensor_ranges(scan->ranges.size());
-    for(unsigned int i = 0; i < scan->ranges.size(); ++i)
-    {
-        float r = scan->ranges[i];
-        if (r > scan->range_max)
-            sensor_ranges[i] = r;
-        else if (r == r && r > scan->range_min)
-            sensor_ranges[i] = r;
-        else
-            sensor_ranges[i] = 0;
-    }
+    lasermsgToSensorRanges(scan, sensor_ranges);
 
     unsigned int num_beams = sensor_ranges.size();
 
     if (lrf_model_.getNumBeams() != num_beams)
     {
-        lrf_model_.setNumBeams(num_beams);
-        lrf_model_.setAngleLimits(scan->angle_min, scan->angle_max);
-        lrf_model_.setRangeLimits(scan->range_min, scan->range_max);
+        configureLaserModel(scan);
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -592,6 +604,13 @@ void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     //std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
 
     scan_buffer_.push(msg);
+}
+
+void LaserPlugin::configureLaserModel(const sensor_msgs::LaserScan::ConstPtr& scan)
+{
+        lrf_model_.setNumBeams(scan->ranges.size());
+        lrf_model_.setAngleLimits(scan->angle_min, scan->angle_max);
+        lrf_model_.setRangeLimits(scan->range_min, scan->range_max);
 }
 
 void LaserPlugin::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)

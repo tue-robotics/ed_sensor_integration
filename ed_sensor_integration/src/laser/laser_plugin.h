@@ -72,6 +72,14 @@ private:
      */
     void update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
                 const geo::Pose3D& sensor_pose, ed::UpdateRequest& req);
+
+    /**
+     * configure the LRF model based on a laserscan message
+     *
+     * @param scan laserscan message
+     */
+    void configureLaserModel(const sensor_msgs::LaserScan::ConstPtr& scan);
+
     /**
      * @brief render the worldmodel as would be seen by the lrf.
      * @param[in] sensor_pose pose of the lrf to be modeled in the world frame.
