@@ -474,7 +474,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
     std::vector<EntityUpdate> clusters;
 
-    for(std::vector<ScanSegment>::const_iterator it = segments.begin(); it != segments.end(); ++it)
+    for(std::vector<ScanSegment>::const_iterator it = segments.cbegin(); it != segments.cend(); ++it)
     {
         const ScanSegment& segment = *it;
         clusters.push_back(segmentToConvexHull(segment, sensor_pose, sensor_ranges));
