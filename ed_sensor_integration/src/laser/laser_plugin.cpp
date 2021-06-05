@@ -99,7 +99,7 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
 }
 
 /**
- * detemine the pose of an entity that best describes the sensor data.
+ * estimate the pose of an entity that best describes the sensor data.
  *
  * @param e entity to be fitted
  * @param sensor_pose pose of the sensor in world coordinates
@@ -113,7 +113,7 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
  * @param yaw_min, yaw_plus window size to sample candidate poses\
  * @param yaw_step step size to sample candidate poses
  * @param pose_cache cache of entity poses
- * @return sum of `values`, or 0.0 if `values` is empty.
+ * @return estimated pose of the entity
  */
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                       const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
@@ -231,7 +231,7 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
  * @param[in] entities entities that may be associated with the clusters
  * @param[in] current_time current time to compare against the last measurement of an entity
  * @param[out] assig assignmentmatrix between clusters and entities.
- * @return
+ * @return whether or not the assignment was successful
  */
 bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment& assig)
 {
