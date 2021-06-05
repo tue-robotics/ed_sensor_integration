@@ -61,16 +61,7 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     std::string laser_topic;
     config.value("laser_topic", laser_topic);
-    config.value("world_association_distance", world_association_distance_);
-    config.value("min_segment_size_pixels", min_segment_size_pixels_);
-    config.value("segment_depth_threshold", segment_depth_threshold_);
-    config.value("min_cluster_size", min_cluster_size_);
-    config.value("max_cluster_size", max_cluster_size_);
-    config.value("max_gap_size", max_gap_size_);
-
-    int i_fit_entities = 0;
-    config.value("fit_entities", i_fit_entities, tue::config::OPTIONAL);
-    fit_entities_ = (i_fit_entities != 0);
+    //updater_.configure(init);
 
     if (config.hasError())
         return;
@@ -160,7 +151,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         updater_.setLaserFrame(scan->header.frame_id);
     }
 
-    updater_.update(world, sensor_ranges, sensor_pose, scan->header.stamp.toSec(), req);
+    //updater_.update(world, sensor_ranges, sensor_pose, scan->header.stamp.toSec(), req);
 }
 
 // ----------------------------------------------------------------------------------------------------

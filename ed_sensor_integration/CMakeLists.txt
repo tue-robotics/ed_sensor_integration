@@ -80,6 +80,7 @@ add_dependencies(ed_kinect_plugin ${catkin_EXPORTED_TARGETS})
 add_library(ed_laser_plugin
     src/laser/laser_plugin.cpp
     src/laser/laser_plugin.h
+    src/laser/updater.cpp
 )
 target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
 

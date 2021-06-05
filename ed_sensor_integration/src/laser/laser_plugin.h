@@ -59,19 +59,6 @@ private:
      */
     void update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
                 const geo::Pose3D& sensor_pose, ed::UpdateRequest& req);
-
-    // PARAMETERS
-
-    int min_segment_size_pixels_;
-    float world_association_distance_;
-    float segment_depth_threshold_;
-    double min_cluster_size_;
-    double max_cluster_size_;
-    bool fit_entities_;
-    int max_gap_size_;
-
-    std::map<ed::UUID,geo::Pose3D> pose_cache;
-
 };
 
 

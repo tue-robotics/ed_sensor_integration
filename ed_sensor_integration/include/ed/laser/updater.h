@@ -1,8 +1,11 @@
 #ifndef ED_SENSOR_INTEGRATION_LASER_UPDATER_H_
 #define ED_SENSOR_INTEGRATION_LASER_UPDATER_H_
 
-
 #include <ed/laser/entity_update.h>
+
+// ed core
+#include <ed/world_model.h>
+#include <ed/init_data.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
 
@@ -22,6 +25,9 @@ public:
     LaserUpdater();
 
     virtual ~LaserUpdater();
+
+    // configure updater
+    void configure(ed::InitData& init);
 
     /**
      * @brief update update the worldmodel based on a novel laserscan message.

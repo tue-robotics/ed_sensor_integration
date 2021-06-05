@@ -280,12 +280,10 @@ LaserUpdater::~LaserUpdater()
 {
 }
 
-void LaserUpdater::initialize(ed::InitData& init)
+void LaserUpdater::configure(ed::InitData& init)
 {
     tue::Configuration& config = init.config;
 
-    std::string laser_topic;
-    config.value("laser_topic", laser_topic);
     config.value("world_association_distance", world_association_distance_);
     config.value("min_segment_size_pixels", min_segment_size_pixels_);
     config.value("segment_depth_threshold", segment_depth_threshold_);
@@ -303,27 +301,17 @@ void LaserUpdater::initialize(ed::InitData& init)
     //pose_cache.clear();
 }
 
-void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
+void LaserUpdater::update(const ed::WorldModel& world, const std::vector<float>& sensor_ranges,
                          const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req)
 {
     tue::Timer t_total;
     t_total.start();
 
+    uint num_beams = sensor_ranges.size();
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
-    std::vector<float> sensor_ranges(scan->ranges.size());
-    lasermsgToSensorRanges(scan, sensor_ranges);
-
-    unsigned int num_beams = sensor_ranges.size();
-
-    if (lrf_model_.getNumBeams() != num_beams)
-    {
-        configureLaserModel(scan);
-    }
-
-    // - - - - - - - - - - - - - - - - - -
-    // Filter laser data (get rid of ghost points)
+    std::vector<float> filtered_sensor_ranges(num_beams);
 
     for(unsigned int i = 1; i < num_beams - 1; ++i)
     {
@@ -331,7 +319,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserS
         // Get rid of points that are isolated from their neighbours
         if (std::abs(rs - sensor_ranges[i - 1]) > 0.1 && std::abs(rs - sensor_ranges[i + 1]) > 0.1)  // TODO: magic number
         {
-            sensor_ranges[i] = sensor_ranges[i - 1];
+            filtered_sensor_ranges[i] = sensor_ranges[i - 1];
         }
     }
 
@@ -367,7 +355,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserS
             if (e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right"))
             {
                 // Try to update the pose
-                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
+                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, filtered_sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
                 req.setPose(e->id(), new_pose);
 
                 // Render the door with the updated pose
@@ -384,7 +372,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserS
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
     std::vector<float> associated_ranges(num_beams);
-    associate(sensor_ranges, model_ranges, associated_ranges);
+    associate(filtered_sensor_ranges, model_ranges, associated_ranges);
 
     // - - - - - - - - - - - - - - - - - -
     // Segment the remaining points into clusters
@@ -399,7 +387,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserS
     for(std::vector<ScanSegment>::const_iterator it = segments.cbegin(); it != segments.cend(); ++it)
     {
         const ScanSegment& segment = *it;
-        clusters.push_back(segmentToConvexHull(segment, sensor_pose, sensor_ranges));
+        clusters.push_back(segmentToConvexHull(segment, sensor_pose, associated_ranges));
     }
 
     // Create selection of world model entities that could associate
@@ -507,14 +495,6 @@ void LaserUpdater::update(const ed::WorldModel& world, const sensor_msgs::LaserS
 }
 
 // ----------------------------------------------------------------------------------------------------
-
-
-void LaserUpdater::configureLaserModel(uint num_beams, float angle_min, float angle_max, float range_min, float range_max)
-{
-        lrf_model_.setNumBeams(num_beams);
-        lrf_model_.setAngleLimits(angle_min, angle_max);
-        lrf_model_.setRangeLimits(range_min, range_max);
-}
 
 void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)
 {
