@@ -61,7 +61,7 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     std::string laser_topic;
     config.value("laser_topic", laser_topic);
-    //updater_.configure(init);
+    updater_.configure(init);
 
     if (config.hasError())
         return;
@@ -151,7 +151,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
         updater_.setLaserFrame(scan->header.frame_id);
     }
 
-    //updater_.update(world, sensor_ranges, sensor_pose, scan->header.stamp.toSec(), req);
+    updater_.update(world, sensor_ranges, sensor_pose, scan->header.stamp.toSec(), req);
 }
 
 // ----------------------------------------------------------------------------------------------------
