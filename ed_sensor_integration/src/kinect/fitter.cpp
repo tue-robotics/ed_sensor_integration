@@ -1,6 +1,13 @@
 // Generic
 #include <limits>
 
+#include <iostream>
+using std::cerr;
+using std::endl;
+#include <fstream>
+using std::ofstream;
+#include <cstdlib>
+
 // Logging
 #include <ros/console.h>
 
@@ -49,6 +56,8 @@ YawRange computeYawRange(const geo::Pose3D& sensor_pose_xya, const geo::Pose3D& 
 
     double min_yaw = expected_yaw_SENSOR - max_yaw_change;
     double max_yaw = expected_yaw_SENSOR + max_yaw_change;
+    //std::cout << "Yaw ranges, " << " min_yaw = "  << min_yaw << ", max_yaw = " << max_yaw << std::endl;
+    //std::cout << "Max yaw change"  << max_yaw_change << std::endl;
     return {min_yaw, max_yaw};
 }
 
@@ -220,13 +229,11 @@ void updateOptimum(const std::vector<double>& sensor_ranges,
 {
     // Calculate error
     double error = computeFittingError(candidate.test_ranges, sensor_ranges);
-
     if (error < current_optimum.getError())
     {
         current_optimum.update(candidate.pose, error);
     }
 }
-
 // ----------------------------------------------------------------------------------------------------
 
 geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityConstPtr entity, const geo::Pose3D& sensor_pose_xya)
@@ -351,6 +358,10 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
     std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
     Candidate candidate(beam_model_ptr);
 
+    std::vector<double> error_values;
+    ofstream write_candidate_poses;
+    write_candidate_poses.open("candidate_poses.dat");
+
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
         // Iterate over the yaw range
@@ -362,11 +373,22 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
             // And render it
             if (!evaluateCandidate(input_data, candidate))
                 continue;
-
             // Update optimum
             updateOptimum(input_data.sensor_ranges, candidate, *result);
+
+            double error = computeFittingError(candidate.test_ranges, input_data.sensor_ranges); // added for saving data
+            error_values.push_back(error);
+
+            write_candidate_poses << candidate.pose.t.x << " " << candidate.pose.t.y << endl;
+            //std::cout << "Candidate pose " << " = "  << candidate.pose << std::endl;
+
         }
     }
+            std::ofstream output_file("error_values.dat");
+            std::ostream_iterator<double> output_iterator(output_file, "\n");
+            std::copy(error_values.begin(), error_values.end(), output_iterator);
+
+
     return result;
 }
 
@@ -475,6 +497,9 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
     {
         for(int y = 0; y < depth.rows; ++y)
         {
+            if (x <= 16 || x >= 579)    // Removing first 12 and last 28 pixels with a depth value (data starts at x=4 and ends at x=607)
+                continue;               // RGB-d temporary depth sensor bounds issue fix
+
             float d = depth.at<float>(y, x);
             if (d == 0 || d != d)
                 continue;
