@@ -328,12 +328,12 @@ int main(int argc, char **argv)
 
         Snapshot& snapshot = snapshots[i_snapshot];
 
-        //ed::UpdateRequest update_req;
-        //UpdateResult res(update_req);
+//        ed::UpdateRequest update_req;
+//        UpdateResult res(update_req);
 
-        //UpdateRequest kinect_update_request;
-        //kinect_update_request.area_description = "on_top_of dinner_table";
-        //updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+//        UpdateRequest kinect_update_request;
+//        kinect_update_request.area_description = "on_top_of dinner_table";
+//        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         FitterData data;
         geo::Pose3D fitted_pose;
@@ -352,7 +352,7 @@ int main(int argc, char **argv)
         // visualise fitting (positive y direction = downwards)
         int canvas_width = 600;
         int canvas_height = 600;
-        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(100,100,100));
+        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0,0,0));
 
         // needed parameters: Fitterdata data;
         int sensor_x = canvas_width/2;
@@ -363,47 +363,6 @@ int main(int argc, char **argv)
         cv::Point sensorlocation(sensor_x, sensor_y);
         cv::Scalar sensorcolor(0,255,0); // green
         cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
-
-        // paint expected center beam, where the beam is extended for visuability
-        float fx_ = 2 * data.sensor_ranges.size() / 4;
-
-        geo::Vec3 expected_pos_sensor = data.sensor_pose_xya.inverse() * e->pose().t;
-        result.expected_center_beam = (fx_ * expected_pos_sensor.x) / expected_pos_sensor.y + (data.sensor_ranges.size()/2); // update expected_center_beam
-
-        float x_m_exp = (3 + data.sensor_ranges[result.expected_center_beam]) * (((float) result.expected_center_beam - (data.sensor_ranges.size()/2)) / fx_);
-        float y_m_exp = ( 3+ data.sensor_ranges[result.expected_center_beam]); // Extension is +3
-
-        int x_p_exp = sensor_x + (int)(x_m_exp * canvas_resolution);
-        int y_p_exp = sensor_y - (int)(y_m_exp * canvas_resolution);
-
-        //std::cout << "Expected center beam " << " = "  << result.expected_center_beam << std::endl;
-        //std::cout << "Length of the expected center beam " << " = "  << data.sensor_ranges[result.expected_center_beam] << std::endl;
-
-        cv::Point expectedcenterbeampoint(x_p_exp, y_p_exp);
-        cv::Scalar colorcenterLine(0,255,0); //Yellow, B G R
-        cv::line(canvas, expectedcenterbeampoint, sensorlocation, colorcenterLine, 1);
-
-        // paint sensor_ranges
-        for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
-            float x_m = data.sensor_ranges[i] * (((float) i - (data.sensor_ranges.size()/2)) / fx_);
-            float y_m = data.sensor_ranges[i];
-
-            // postion to pixels
-            int x_p = sensor_x + (int)(x_m * canvas_resolution);
-            int y_p = sensor_y - (int)(y_m * canvas_resolution);
-
-            if (x_p < 0 || x_p >= canvas_width)
-                continue;
-            if (y_p < 0 || y_p >= canvas_height)
-                continue;
-            if (data.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
-                continue;
-
-            // paint to screen
-            cv::Point centerCircle(x_p, y_p);
-            cv::Scalar colorCircle(0,0,255);
-            cv::circle(canvas, centerCircle, 2, colorCircle, cv::FILLED);
-        }
 
     // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
@@ -456,7 +415,7 @@ int main(int argc, char **argv)
                 cv::Point point1(x_p1, y_p1);
                 cv::Point point2(x_p2, y_p2);
                 cv::Scalar colorLine(0,255,255); //Yellow, B G R
-                cv::line(canvas, point1, point2, colorLine, 1);
+                cv::line(canvas, point1, point2, colorLine, 1.5);
             }
         }
 
@@ -488,7 +447,7 @@ int main(int argc, char **argv)
         cv::Point point_begin(x_p_start, y_p_start);
         cv::Point point_end(x_p_end, y_p_end);
         cv::Scalar colorLine(0,255,255);
-        cv::line(canvas, point_begin, point_end, colorLine, 1);
+        cv::line(canvas, point_begin, point_end, colorLine, 1.5);
 
         // paint entity center
 
@@ -496,6 +455,7 @@ int main(int argc, char **argv)
         float y_m_ent = -sin(yaw_robot) * (e->pose().t.x - snapshot.sensor_pose.t.x) + cos(yaw_robot) * (e->pose().t.y - snapshot.sensor_pose.t.y);
         int x_p_ent = sensor_x + (int)(x_m_ent * canvas_resolution);
         int y_p_ent = sensor_y - (int)(y_m_ent * canvas_resolution);
+
         cv::Point Entity_center(x_p_ent, y_p_ent);
         cv::circle(canvas, Entity_center, 3, colorLine, cv::FILLED);
 
@@ -542,8 +502,8 @@ int main(int argc, char **argv)
                 // paint to screen
                 cv::Point point1(x_p_f_1, y_p_f_1);
                 cv::Point point2(x_p_f_2, y_p_f_2);
-                cv::Scalar colorLine2(255,0,0); //blue
-                cv::line(canvas, point1, point2, colorLine2, 1);
+                cv::Scalar colorLine2(243,192,15); //blue
+                cv::line(canvas, point1, point2, colorLine2, 1.5);
             }
         }
 
@@ -574,29 +534,44 @@ int main(int argc, char **argv)
         // paint last edge to screen
         cv::Point point_f_start(x_p_f_start, y_p_f_start);
         cv::Point point_f_end(x_p_f_end, y_p_f_end);
-        cv::Scalar colorLine2(255,0,0);
-        cv::line(canvas, point_f_start, point_f_end, colorLine2, 1);
+        cv::Scalar colorLine2(243,192,15);
+        cv::line(canvas, point_f_start, point_f_end, colorLine2, 1.5);
 
         // paint fitted entity center
         float x_m_fitent =  cos(yaw_robot) * (fitted_pose.t.x - snapshot.sensor_pose.t.x) + sin(yaw_robot) * (fitted_pose.t.y - snapshot.sensor_pose.t.y);
         float y_m_fitent = -sin(yaw_robot) * (fitted_pose.t.x - snapshot.sensor_pose.t.x) + cos(yaw_robot) * (fitted_pose.t.y - snapshot.sensor_pose.t.y);
         int x_p_fitent = sensor_x + (int)(x_m_fitent * canvas_resolution);
         int y_p_fitent = sensor_y - (int)(y_m_fitent * canvas_resolution);
+
         cv::Point FitEntity_center(x_p_fitent, y_p_fitent);
         cv::circle(canvas, FitEntity_center, 3, colorLine2, cv::FILLED);
-
-        //std::cout << "Fitted object pose: ("<< fitted_pose << ")" << std::endl;
-        //std::cout << "Yaw of fitted object pose: ("<< yaw_fit_ent << ")" << std::endl;
 
     } else {
         std::cout << "Fitted entity not printed in image because of a fitter error" << std::endl;
     };
 
-        //std::cout << "Robot pose: ("<< snapshot.sensor_pose << ")" << std::endl;
-        //std::cout << "Worldmodel object pose: ("<< e->pose() << ")" << std::endl;
-        //std::cout << "Yaw of robot: ("<< yaw_robot << ")" << std::endl;
-        //std::cout << "Yaw of worldmodel object pose: ("<< yaw_ent << ")" << std::endl;
-        //std::cout << data.sensor_ranges.size() << std::endl;
+        // paint sensor_ranges
+        for(unsigned int i = 0; i < data.sensor_ranges.size(); ++i){
+            float fx_ = 2 * data.sensor_ranges.size() / 4; // Constant value from fitter.cpp
+            float x_m = data.sensor_ranges[i] * (((float) i - (data.sensor_ranges.size()/2)) / fx_);
+            float y_m = data.sensor_ranges[i];
+
+            // postion to pixels
+            int x_p = sensor_x + (int)(x_m * canvas_resolution);
+            int y_p = sensor_y - (int)(y_m * canvas_resolution);
+
+            if (x_p < 0 || x_p >= canvas_width)
+                continue;
+            if (y_p < 0 || y_p >= canvas_height)
+                continue;
+            if (data.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
+                continue;
+
+            // paint to screen
+            cv::Point centerCircle(x_p, y_p);
+            cv::Scalar colorCircle(161,17,187);
+            cv::circle(canvas, centerCircle, 2, colorCircle, cv::FILLED);
+        }
 
         cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
