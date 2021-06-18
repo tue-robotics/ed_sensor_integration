@@ -102,6 +102,9 @@ add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
 
+add_executable(victorfit test/test_fitter_victor.cpp)
+target_link_libraries(victorfit ed_kinect)
+
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
