@@ -497,7 +497,7 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
     {
         for(int y = 0; y < depth.rows; ++y)
         {
-            if (x <= 16 || x >= 579)    // Removing first 12 and last 28 pixels with a depth value (data starts at x=4 and ends at x=607)
+            if (x <= 16 || x >= 576)    // Removing first 12 and last 31 pixels with a depth value (data starts at x=4 and ends at x=607)
                 continue;               // RGB-d temporary depth sensor bounds issue fix
 
             float d = depth.at<float>(y, x);
