@@ -616,7 +616,7 @@ std::vector<ScanSegment> LaserUpdater::segment(const std::vector<double>& sensor
     return segments;
 }
 
-EntityUpdate LaserUpdater::segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<float>& sensor_ranges)
+EntityUpdate LaserUpdater::segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<double>& sensor_ranges)
 {
     unsigned int segment_size = segment.size();
 
