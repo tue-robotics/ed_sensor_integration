@@ -29,14 +29,14 @@
     </include>
         <include name="objectB">
       <pose>0 1.0 0.0 0 0 0.0</pose>
-      <name>objectA</name>
+      <name>objectB</name>
       <!--<uri>model://table</uri>-->
       <!--<uri>model://cabinet</uri>-->
       -<uri>model://block</uri>
     </include>
         <include name="objectC">
       <pose>0 -1.0 0.0 0 0 0.0</pose>
-      <name>objectA</name>
+      <name>objectC</name>
       <!--<uri>model://table</uri>-->
       <!--<uri>model://cabinet</uri>-->
       -<uri>model://block</uri>

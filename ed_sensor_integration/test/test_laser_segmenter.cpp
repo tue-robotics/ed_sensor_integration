@@ -94,13 +94,20 @@ TEST_F(LaserSegmenterTest, testCase)
 
     ed::WorldModel empty_world;
 
-    // create laserscan message
+    // create updater
     LaserUpdater updater;
     uint num_beams = 1000;
+    updater.world_association_distance_ = 0.4;
+    updater.min_segment_size_pixels_ = 5;
+    updater.segment_depth_threshold_ = 0.2;
+    updater.min_cluster_size_ = 0.1;
+    updater.max_cluster_size_ = 3.0;
+    updater.fit_entities_ = false;
+    updater.max_gap_size_ = 10;
     updater.configureLaserModel(num_beams, -2.0, 2.0 , 0.01, 30.0);
     
     std::vector<double> sensor_ranges(num_beams, 0);
-    geo::Pose3D test_pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    geo::Pose3D test_pose(0.0, 0.0, 0.2, 0.0, 0.0, 0.0);
 
     updater.renderWorld(test_pose, world_model, sensor_ranges);
 

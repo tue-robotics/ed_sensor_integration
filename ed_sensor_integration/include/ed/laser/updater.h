@@ -81,6 +81,15 @@ public:
      */
     void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges);
 
+    // parameters
+    int min_segment_size_pixels_; // in nr of laser points
+    double world_association_distance_; // in m
+    double segment_depth_threshold_; 
+    double min_cluster_size_;
+    double max_cluster_size_;
+    bool fit_entities_;
+    int max_gap_size_;
+
 private:
     /**
      * @brief associate filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
@@ -100,14 +109,6 @@ private:
     geo::LaserRangeFinder lrf_model_;
     std::string lrf_frame_;
 
-    int min_segment_size_pixels_;
-    double world_association_distance_;
-    double segment_depth_threshold_;
-    double min_cluster_size_;
-    double max_cluster_size_;
-    bool fit_entities_;
-
-    int max_gap_size_;
     std::map<ed::UUID,geo::Pose3D> pose_cache;
 
 };
