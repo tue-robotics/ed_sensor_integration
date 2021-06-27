@@ -20,7 +20,7 @@
 #include "tue/config/loaders/sdf.h"
 
 // ED sensor integration
-#include <ed/laser/laser_plugin.h>
+#include <ed/laser/updater.h>
 
 const double MAX_POSITION_ERROR = 0.05;
 const double MAX_YAW_ERROR_DEGREES = 5.0;
@@ -36,7 +36,7 @@ void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::Wo
 }
 
 
-class FurnitureFitTest : public ::testing::Test {
+class LaserSegmenterTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
@@ -81,22 +81,33 @@ protected:
 
 
 
-TEST_F(LaserPluginUpdateTest, testCase)
+TEST_F(LaserSegmenterTest, testCase)
 {
     ROS_INFO_STREAM("Starting testsuite");
 
-    ed::WorldModel world_model_;
+    ed::WorldModel world_model;
     std::string path = ros::package::getPath("ed_sensor_integration");
-    path += "/test/test_model.sdf";
+    path += "/test/test_laser_model.sdf";
     ed::UpdateRequest request;
     ed::models::loadModel(ed::models::LoadType::FILE, path, request);
+    world_model.update(request);
 
-    world_model_.update(request);
+    ed::WorldModel empty_world;
 
     // create laserscan message
+    LaserUpdater updater;
+    uint num_beams = 1000;
+    updater.configureLaserModel(num_beams, -2.0, 2.0 , 0.01, 30.0);
+    
+    std::vector<double> sensor_ranges(num_beams, 0);
+    geo::Pose3D test_pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-    geo::Pose3D test_pose(-0.5, -0.5, 0.0, 0.0, 0.0, 0.0);
-    ASSERT_TRUE(test_setup.testSinglePose(test_pose));
+    updater.renderWorld(test_pose, world_model, sensor_ranges);
+
+    ed::UpdateRequest req;
+    double timestamp = 0.0;
+    updater.update(empty_world, sensor_ranges, test_pose, timestamp, req);
+    ASSERT_TRUE(true);
 }
 
 

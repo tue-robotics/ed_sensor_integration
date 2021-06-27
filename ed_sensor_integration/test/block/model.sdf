@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="block">
+    <link name="1">
+      <collision name="1">
+        <geometry>
+          <box>
+            <size>0.1 0.1 1</size>
+          </box>
+        </geometry>
+        <name>1</name>
+      </collision>
+      <visual name="1">
+        <geometry>
+          <box>
+            <size>0.1 0.1 1</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.8 0.8 0.8 1</ambient>
+        </material>
+        <name>1</name>
+      </visual>
+      <pose>0 0 0.5 0 0 0</pose>
+      <name>1</name>
+    </link>
+    <static>true</static>
+    <name>block</name>
+  </model>
+</sdf>
