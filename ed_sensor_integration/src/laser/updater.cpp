@@ -30,7 +30,7 @@
  * @return double error
  */
 double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, const geo::Pose3D& rel_pose,
-                       const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
+                       const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges,
                        int& num_model_points)
 {
     std::vector<double> test_model_ranges = model_ranges;
@@ -112,8 +112,8 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
  * @return estimated pose of the entity
  */
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
-                      const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges,
-                      float x_window, float x_step, float y_window, float y_step, float yaw_min, float yaw_plus, float yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
+                      const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges,
+                      double x_window, double x_step, double y_window, double y_step, double yaw_min, double yaw_plus, double yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
     const geo::Pose3D& old_pose = getPoseFromCache(e, pose_cache);
 
@@ -123,17 +123,17 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
     geo::Pose3D best_pose = e.pose();
 
 
-    for(float dyaw = yaw_min; dyaw <= yaw_plus; dyaw += yaw_step)
+    for(double dyaw = yaw_min; dyaw <= yaw_plus; dyaw += yaw_step)
     {
         geo::Mat3 rot;
         rot.setRPY(0, 0, dyaw);
         geo::Pose3D test_pose = old_pose;
         test_pose.R = old_pose.R * rot;
 
-        for(float dx = -x_window; dx <= x_window; dx += x_step)
+        for(double dx = -x_window; dx <= x_window; dx += x_step)
         {
             test_pose.t.x = old_pose.t.x + dx;
-            for(float dy = -y_window; dy <= y_window; dy += y_step)
+            for(double dy = -y_window; dy <= y_window; dy += y_step)
             {
                 test_pose.t.y = old_pose.t.y + dy;
 
@@ -153,18 +153,18 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
 
 // check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
-bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
+bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
     if (i_beam < 0 || i_beam >= sensor_ranges.size())
         return true; // or actually, we don't know
 
-    float rs = sensor_ranges[i_beam];
+    double rs = sensor_ranges[i_beam];
     return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
 }
 
 // check if point p is represented in the lrf data. p is expressed relative to the lrf.
-bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<float>& sensor_ranges)
+bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
 }
@@ -301,7 +301,7 @@ void LaserUpdater::configure(ed::InitData& init)
     //pose_cache.clear();
 }
 
-void LaserUpdater::update(const ed::WorldModel& world, const std::vector<float>& sensor_ranges,
+void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>& sensor_ranges,
                          const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req)
 {
     tue::Timer t_total;
@@ -311,11 +311,11 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<float>&
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
-    std::vector<float> filtered_sensor_ranges(num_beams);
+    std::vector<double> filtered_sensor_ranges(num_beams);
 
     for(unsigned int i = 1; i < num_beams - 1; ++i)
     {
-        float rs = sensor_ranges[i];
+        double rs = sensor_ranges[i];
         // Get rid of points that are isolated from their neighbours
         if (std::abs(rs - sensor_ranges[i - 1]) > 0.1 && std::abs(rs - sensor_ranges[i + 1]) > 0.1)  // TODO: magic number
         {
@@ -376,7 +376,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<float>&
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
-    std::vector<float> associated_ranges(num_beams);
+    std::vector<double> associated_ranges(num_beams);
     associate(filtered_sensor_ranges, model_ranges, associated_ranges);
 
     // - - - - - - - - - - - - - - - - - -
@@ -521,11 +521,11 @@ void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMod
     }
 }
 
-void LaserUpdater::associate(const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<float>& filtered_sensor_ranges){
+void LaserUpdater::associate(const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<double>& filtered_sensor_ranges){
     for(unsigned int i = 0; i < sensor_ranges.size(); ++i)
     {
-        float rs = sensor_ranges[i];
-        float rm = model_ranges[i];
+        double rs = sensor_ranges[i];
+        double rm = model_ranges[i];
 
         filtered_sensor_ranges[i] = rs;
         if (rs <= 0
@@ -535,7 +535,7 @@ void LaserUpdater::associate(const std::vector<float>& sensor_ranges, const std:
     }
 }
 
-std::vector<ScanSegment> LaserUpdater::segment(const std::vector<float>& sensor_ranges)
+std::vector<ScanSegment> LaserUpdater::segment(const std::vector<double>& sensor_ranges)
 {
     std::vector<ScanSegment> segments;
     int num_beams = sensor_ranges.size();
@@ -560,7 +560,7 @@ std::vector<ScanSegment> LaserUpdater::segment(const std::vector<float>& sensor_
 
     for(unsigned int i = current_segment.front(); i < num_beams; ++i)
     {
-        float rs = sensor_ranges[i];
+        double rs = sensor_ranges[i];
 
         if (rs == 0 || std::abs(rs - sensor_ranges[current_segment.back()]) > segment_depth_threshold_ || i == num_beams - 1)
         {

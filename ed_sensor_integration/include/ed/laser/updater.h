@@ -36,7 +36,7 @@ public:
      * @param[in] sensor_pose pose of the sensor at the time of the measurement
      * @param[out] req update request
      */
-    void update(const ed::WorldModel& world, const std::vector<float>& sensor_ranges,
+    void update(const ed::WorldModel& world, const std::vector<double>& sensor_ranges,
                 const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req);
 
     /**
@@ -48,7 +48,7 @@ public:
      * @param range_min minimum distance that can be detected with the lrf in meters
      * @param range_max maximum distance that can be detected with the lrf in meters
      */
-    void configureLaserModel(uint num_beams, float angle_min, float angle_max, float range_min, float range_max)
+    void configureLaserModel(uint num_beams, double angle_min, double angle_max, double range_min, double range_max)
     {
         lrf_model_.setNumBeams(num_beams);
         lrf_model_.setAngleLimits(angle_min, angle_max);
@@ -79,8 +79,7 @@ public:
      * @param[in] world worldmodel
      * @param[out] model_ranges ranges of distances as would be seen by an lrf
      */
-    void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world,
-                     std::vector<double>& model_ranges);
+    void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges);
 
 private:
     /**
@@ -89,21 +88,21 @@ private:
      * @param[in] model_ranges distances as predicted by the worldmodel
      * @param[out] filtered_sensor_ranges filtered distances. (associated ranges have value 0.0)
      */
-    void associate(const std::vector<float>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<float>& filtered_sensor_ranges);
+    void associate(const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<double>& filtered_sensor_ranges);
 
     /** divide the sensor ranges into segments */
-    std::vector<ScanSegment> segment(const std::vector<float>& sensor_ranges);
+    std::vector<ScanSegment> segment(const std::vector<double>& sensor_ranges);
 
     /** convert a segment of ranges to a convex hull */
-    EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<float>& sensor_ranges);
+    EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<double>& sensor_ranges);
 
     // PARAMETERS
     geo::LaserRangeFinder lrf_model_;
     std::string lrf_frame_;
 
     int min_segment_size_pixels_;
-    float world_association_distance_;
-    float segment_depth_threshold_;
+    double world_association_distance_;
+    double segment_depth_threshold_;
     double min_cluster_size_;
     double max_cluster_size_;
     bool fit_entities_;
