@@ -43,10 +43,10 @@ public:
      * configure the LRF model based on a laserscan message
      *
      * @param num_beams number of beams in the lrf model
-     * @param angle_min angle corresponding to the first beam
-     * @param angle_max angle corresponding to the final beam
-     * @param range_min minimum distance that can be detected with the lrf
-     * @param range_max maximum distance that can be detected with the lrf
+     * @param angle_min angle corresponding to the first beam in radians
+     * @param angle_max angle corresponding to the final beam in radians
+     * @param range_min minimum distance that can be detected with the lrf in meters
+     * @param range_max maximum distance that can be detected with the lrf in meters
      */
     void configureLaserModel(uint num_beams, float angle_min, float angle_max, float range_min, float range_max)
     {
@@ -73,7 +73,6 @@ public:
         return lrf_model_.getNumBeams();
     }
 
-private:
     /**
      * @brief render the worldmodel as would be seen by the lrf.
      * @param[in] sensor_pose pose of the lrf to be modeled in the world frame.
@@ -83,6 +82,7 @@ private:
     void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world,
                      std::vector<double>& model_ranges);
 
+private:
     /**
      * @brief associate filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
      * @param[in] sensor_ranges distances measured by the lrf
