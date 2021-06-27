@@ -321,11 +321,16 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<float>&
         {
             filtered_sensor_ranges[i] = sensor_ranges[i - 1];
         }
+        else
+        {
+            filtered_sensor_ranges[i] = sensor_ranges[i];
+        }
     }
 
     // - - - - - - - - - - - - - - - - - -
     // Render world model as if seen by laser
 
+    std::cout << "updating laserscan" << std::endl;
     std::vector<double> model_ranges(num_beams, 0);
     renderWorld(sensor_pose, world, model_ranges);
 
