@@ -29,14 +29,14 @@
  * @param[in] scan laserscan message
  * @param[out] sensor_ranges vector with ranges
  */
-void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::vector<float>& sensor_ranges)
+void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::vector<double>& sensor_ranges)
 {
     if (sensor_ranges.size() != scan->ranges.size())
         sensor_ranges.resize(scan->ranges.size());
 
     for(unsigned int i = 0; i < scan->ranges.size(); ++i)
     {
-        float r = scan->ranges[i];
+        double r = scan->ranges[i];
         if (r > scan->range_max)
             sensor_ranges[i] = r;
         else if (r == r && r > scan->range_min)
@@ -140,7 +140,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
-    std::vector<float> sensor_ranges(scan->ranges.size());
+    std::vector<double> sensor_ranges(scan->ranges.size());
     lasermsgToSensorRanges(scan, sensor_ranges);
 
     unsigned int num_beams = sensor_ranges.size();
