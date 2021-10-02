@@ -127,7 +127,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME  ENTITY_ID" << std::endl;
 }
 
 // Getting roll, pitch and yaw from a quaternion,
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "ed_segmenter");
     ros::NodeHandle nh;
 
-    if (argc != 3)
+    if (argc != 4)
     {
         usage();
         return 1;
@@ -208,6 +208,9 @@ int main(int argc, char **argv)
         std::cerr << "Path '" << path << "' does not exist." << std::endl;
         return 1;
     }
+
+    std::string entity_id = argv[3];
+
 
     tue::filesystem::Crawler crawler;
 
@@ -278,11 +281,11 @@ int main(int argc, char **argv)
         geo::Pose3D fitted_pose;
         EstimationInputData result;
 
-        ed::EntityConstPtr e = snapshot.world_model.getEntity("dinner_table");
+        ed::EntityConstPtr e = snapshot.world_model.getEntity(entity_id);
 
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, data);
 
-        bool estimateEntityPose = fitter.estimateEntityPose(data, snapshot.world_model, "dinner_table", e->pose(), fitted_pose);
+        bool estimateEntityPose = fitter.estimateEntityPose(data, snapshot.world_model, entity_id, e->pose(), fitted_pose);
 
         // show snapshot
         cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
