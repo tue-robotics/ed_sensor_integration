@@ -234,6 +234,7 @@ Fitter::Fitter(uint nr_data_points) :
     nr_data_points_(nr_data_points)
 {
     beam_model_.initialize(4, nr_data_points);
+    configured_ = false;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -453,6 +454,16 @@ void Fitter::checkExpectedBeamThroughEntity(const std::vector<double>& model_ran
 
 // ----------------------------------------------------------------------------------------------------
 
+void Fitter::configureBeamModel(const image_geometry::PinholeCameraModel& caminfo)
+{
+    uint nr_beams = 200; //std::min(uint(200), caminfo.binningX()); // don't use more data points than the resolution of your camera
+    double fx = 4;
+    beam_model_.initialize(fx, nr_beams);
+    ROS_INFO("Configured fitter with %i beams and a focal length of %f", nr_beams, fx);
+    configured_ = true;
+}
+
+// ----------------------------------------------------------------------------------------------------
 void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const
 {
     data.sensor_pose = sensor_pose;

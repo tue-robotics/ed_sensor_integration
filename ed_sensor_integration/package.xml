@@ -20,6 +20,7 @@
   <depend>tue_config</depend>
   <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
+  <depend>image_geometry</depend>
 
   <export>
     <ed plugin="${prefix}/plugins.xml" />

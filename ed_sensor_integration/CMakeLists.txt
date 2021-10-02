@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  image_geometry
 )
 
 # ------------------------------------------------------------------------------------------------

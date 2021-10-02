@@ -9,6 +9,7 @@
 #include <geolib/datatypes.h>
 
 #include <rgbd/types.h>
+#include <image_geometry/pinhole_camera_model.h>
 
 #include "beam_model.h"
 
@@ -108,6 +109,8 @@ public:
 
     ~Fitter();
 
+    bool isConfigured() {return configured_;};
+
     /**
      * @brief processSensorData pre-processes sensor data, i.e., performs a downprojection of the input
      * depth image based on the provided sensor pose and stores the result in the FitterData struct
@@ -147,6 +150,13 @@ public:
      * @return 2D entity representation
      */
     EntityRepresentation2D GetOrCreateEntity2D(const ed::EntityConstPtr& e) const;
+
+    /**
+     * @brief configure the beam model (nr of data points and focal length) according to the camera you are using.
+     * @param caminfo camera info
+     * @return
+     */
+    void configureBeamModel(const image_geometry::PinholeCameraModel& caminfo);
 
 private:
 
@@ -239,6 +249,7 @@ private:
     ed::models::ModelLoader model_loader_;
 
     uint nr_data_points_;
+    bool configured_;
 
 };
 
