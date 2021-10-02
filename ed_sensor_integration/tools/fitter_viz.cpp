@@ -130,60 +130,6 @@ void usage()
     std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME" << std::endl;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
-/*
-void showSegmentationResults(const Snapshot& snapshot, const UpdateRequest& update_req, const UpdateResult& res, cv::Mat& canvas) {
-    std::cout << update_req.measurements.size() << std::endl;
-
-    std::string error_msg = res.error.str();
-    if (error_msg.empty())
-    {
-        int depth_width = snapshot->image->getDepthImage().cols;
-        double f = (double)canvas->cols / depth_width;
-
-        for(unsigned int i = 0; i < res->entity_updates.size(); ++i)
-        {
-            const EntityUpdate& e_update = res.entity_updates[i];
-            if (e_update.pixel_indices.empty())
-                continue;
-
-            unsigned i_pxl = e_update.pixel_indices[0];
-            cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
-            cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
-
-            for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
-            {
-                int x = *it % depth_width;
-                int y = *it / depth_width;
-
-                bb_min.x = std::min(bb_min.x, x);
-                bb_min.y = std::min(bb_min.y, y);
-                bb_max.x = std::max(bb_max.x, x);
-                bb_max.y = std::max(bb_max.y, y);
-
-                for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
-                    for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
-                        canvas->at<cv::Vec3b>(y2, x2) = cv::Vec3b(0, 0, 255);
-            }
-
-            cv::Point d(2, 2);
-            cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
-            cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
-            cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
-        }
-
-    }
-    else
-    {
-        std::cerr << error_msg << std::endl;
-        cv::putText(canvas, "Segmentation failed", cv::Point(10, 20), cv::FONT_HERSHEY_COMPLEX_SMALL, 1, cv::Scalar(255, 255, 255), 1);
-    }
-}
-
-*/
-// ----------------------------------------------------------------------------------------------------
-
 // Getting roll, pitch and yaw from a quaternion,
 // copied from https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
 
@@ -327,13 +273,6 @@ int main(int argc, char **argv)
         }
 
         Snapshot& snapshot = snapshots[i_snapshot];
-
-//        ed::UpdateRequest update_req;
-//        UpdateResult res(update_req);
-
-//        UpdateRequest kinect_update_request;
-//        kinect_update_request.area_description = "on_top_of dinner_table";
-//        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         FitterData data;
         geo::Pose3D fitted_pose;
@@ -576,21 +515,19 @@ int main(int argc, char **argv)
         cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
 
-//        if (key == 81)  // Left arrow
-//        {
-//            if (i_snapshot > 0)
-//                --i_snapshot;
-//        }
-//        else if (key == 83) // Right arrow
-//        {
-//            ++i_snapshot;
-//        }
-//        else if (key == 'q')
-//        {
-//            break;
-//        }
-
-//        //        std::cout << (int)key << std::endl;
+        if (key == 81)  // Left arrow
+        {
+            if (i_snapshot > 0)
+                --i_snapshot;
+        }
+        else if (key == 83) // Right arrow
+        {
+            ++i_snapshot;
+        }
+        else if (key == 'q')
+        {
+            break;
+        }
     }
 
     return 0;
