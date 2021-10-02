@@ -215,20 +215,6 @@ double computeFittingError(const std::vector<double>& test_ranges, const std::ve
 
 // ----------------------------------------------------------------------------------------------------
 
-void updateOptimum(const std::vector<double>& sensor_ranges,
-                   const Candidate& candidate, OptimalFit& current_optimum)
-{
-    // Calculate error
-    double error = computeFittingError(candidate.test_ranges, sensor_ranges);
-
-    if (error < current_optimum.getError())
-    {
-        current_optimum.update(candidate.pose, error);
-    }
-}
-
-// ----------------------------------------------------------------------------------------------------
-
 geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityConstPtr entity, const geo::Pose3D& sensor_pose_xya)
 {
     geo::Pose3D pose_3d;
@@ -347,9 +333,10 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
 std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input_data, const YawRange& yaw_range) const
 {
-    std::unique_ptr<OptimalFit> result(new OptimalFit);
+    std::unique_ptr<OptimalFit> current_optimum(new OptimalFit);
     std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
     Candidate candidate(beam_model_ptr);
+    bool valid_optimum = false;
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
@@ -363,11 +350,19 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
             if (!evaluateCandidate(input_data, candidate))
                 continue;
 
+            // Calculate error
+            double error = computeFittingError(candidate.test_ranges, input_data.sensor_ranges);
+
             // Update optimum
-            updateOptimum(input_data.sensor_ranges, candidate, *result);
+            if (error < current_optimum->getError())
+            {
+                current_optimum->update(candidate.pose, error);
+                // reject an optimum value found at the boundary of the search space as it is not a global maximum.
+                valid_optimum = (i_beam==0 || i_beam==nr_data_points_-1);
+            }
         }
     }
-    return result;
+    return current_optimum;
 }
 
 // ----------------------------------------------------------------------------------------------------
