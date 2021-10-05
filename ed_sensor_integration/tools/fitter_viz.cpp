@@ -187,7 +187,7 @@ double getYaw(const geo::Mat3& rotation)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ed_segmenter");
+    ros::init(argc, argv, "ed_fitter");
     ros::NodeHandle nh;
 
     if (argc != 4)
