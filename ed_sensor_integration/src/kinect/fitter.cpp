@@ -359,11 +359,15 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
             {
                 current_optimum->update(candidate.pose, error);
                 // reject an optimum value found at the boundary of the search space as it is not a global maximum.
-                valid_optimum = (i_beam==0 || i_beam==nr_data_points_-1);
+                valid_optimum = !(i_beam==0 || i_beam==nr_data_points_-1);
             }
         }
     }
-    return current_optimum;
+    if (valid_optimum){
+        return current_optimum;
+    }
+    std::unique_ptr<OptimalFit> invalid_optimum(new OptimalFit);
+    return invalid_optimum;
 }
 
 // ----------------------------------------------------------------------------------------------------
