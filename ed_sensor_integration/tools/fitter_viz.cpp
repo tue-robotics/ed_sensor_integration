@@ -283,6 +283,7 @@ int main(int argc, char **argv)
 
         ed::EntityConstPtr e = snapshot.world_model.getEntity(entity_id);
 
+        fitter.configureBeamModel(snapshot.image->getCameraModel());
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, data);
 
         bool estimateEntityPose = fitter.estimateEntityPose(data, snapshot.world_model, entity_id, e->pose(), fitted_pose);
