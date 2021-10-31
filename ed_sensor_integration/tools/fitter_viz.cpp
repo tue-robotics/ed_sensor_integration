@@ -352,7 +352,7 @@ int main(int argc, char **argv)
 
         // paint to screen the location of HERO
         cv::Point sensorlocation(sensor_x, sensor_y);
-        cv::Scalar sensorcolor(0,255,0); // green
+        cv::Scalar sensorcolor(0, 255, 0); // green
         cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
 
         geo::Transform2 sensor_pose2d(fitterdata.sensor_pose_xya.t.x, fitterdata.sensor_pose_xya.t.y, getYaw(fitterdata.sensor_pose_xya.R));
