@@ -186,15 +186,15 @@ double getYaw(const geo::Mat3& rotation)
 void drawLine(
         cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
-    // computing outer corner positions (in meters)
-    geo::Vec2 tf_point1 = pose * point1;
-    geo::Vec2 tf_point2 = pose * point2;
+    // computing points relative to the pose (in meters)
+    geo::Vec2 rel_point1 = pose * point1;
+    geo::Vec2 rel_point2 = pose * point2;
 
     // position to pixels
-    int x_p1 = origin_x + (int)(tf_point1.x * resolution);
-    int y_p1 = origin_y - (int)(tf_point1.y * resolution);
-    int x_p2 = origin_x + (int)(tf_point2.x * resolution);
-    int y_p2 = origin_y - (int)(tf_point2.y * resolution);
+    int x_p1 = origin_x + (int)(rel_point1.x * resolution);
+    int y_p1 = origin_y - (int)(rel_point1.y * resolution);
+    int x_p2 = origin_x + (int)(rel_point2.x * resolution);
+    int y_p2 = origin_y - (int)(rel_point2.y * resolution);
 
     if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas.cols || x_p2 >= canvas.cols)
     {
