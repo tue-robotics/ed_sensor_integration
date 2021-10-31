@@ -393,7 +393,7 @@ int main(int argc, char **argv)
 
             // paint to screen
             cv::Point centerCircle(x_p, y_p);
-            cv::Scalar colourCircle(161,17,187);
+            cv::Scalar colourCircle(161, 17, 187);
             cv::circle(canvas, centerCircle, 2, colourCircle, cv::FILLED);
         }
 
