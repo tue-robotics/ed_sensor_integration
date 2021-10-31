@@ -367,7 +367,7 @@ int main(int argc, char **argv)
 
         if (estimateEntityPose == true){
             // paint fitted entity
-            cv::Scalar fittedcolour(243,192,15); //blue
+            cv::Scalar fittedcolour(243, 192, 15); // blue
             geo::Transform2 fitted_relpose = sensor_pose2d.inverse() * fitted_pose2d;;
             drawShape2D(canvas, entity_2d.shape_2d, fitted_relpose, canvas_resolution, sensor_x, sensor_y, fittedcolour);
         } else {
