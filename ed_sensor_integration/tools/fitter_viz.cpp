@@ -213,9 +213,10 @@ void drawLine(
 
 void drawShape2D(cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
-    for (int i=0; i < shape.size(); i++){
-
-        for (int j=0; j < shape[i].size()-1; j++){
+    for (unsigned int i=0; i < shape.size(); i++)
+    {
+        for (unsigned int j=0; j < shape[i].size()-1; j++)
+        {
             drawLine(canvas, shape[i][j], shape[i][j+1], pose, resolution, origin_x, origin_y, color);
         }
         drawLine(canvas, shape[i][0], shape[i][shape[0].size()-1], pose, resolution, origin_x, origin_y, color);
