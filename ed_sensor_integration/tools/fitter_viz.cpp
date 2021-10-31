@@ -196,11 +196,13 @@ void drawLine(
     int x_p2 = origin_x + (int)(tf_point2.x * resolution);
     int y_p2 = origin_y - (int)(tf_point2.y * resolution);
 
-    if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas.cols || x_p2 >= canvas.cols){
+    if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas.cols || x_p2 >= canvas.cols)
+    {
         std::cout << "Entity: x-coordinate out of range" << std::endl;
         return;
     }
-    if (y_p1 < 0 || y_p2 < 0|| y_p1 >= canvas.rows || y_p2 >= canvas.rows){
+    if (y_p1 < 0 || y_p2 < 0|| y_p1 >= canvas.rows || y_p2 >= canvas.rows)
+    {
         std::cout << "Entity: y-coordinate out of range" << std::endl;
         return;
     }
