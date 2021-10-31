@@ -366,7 +366,8 @@ int main(int argc, char **argv)
         cv::Scalar entitycolour(0, 255, 255);
         drawShape2D(canvas, entity_2d.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entitycolour);
 
-        if (estimateEntityPose == true){
+        if (estimateEntityPose)
+        {
             // paint fitted entity
             cv::Scalar fittedcolour(243, 192, 15); // blue
             geo::Transform2 fitted_relpose = sensor_pose2d.inverse() * fitted_pose2d;
