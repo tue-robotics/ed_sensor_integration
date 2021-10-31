@@ -375,7 +375,7 @@ int main(int argc, char **argv)
         };
 
         // paint sensor_ranges
-        for(unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i){
+        for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i) {
             float fx_ = 2 * fitterdata.sensor_ranges.size() / 4; // Constant value from fitter.cpp
             float x_m = fitterdata.sensor_ranges[i] * (((float) i - (fitterdata.sensor_ranges.size()/2)) / fx_);
             float y_m = fitterdata.sensor_ranges[i];
