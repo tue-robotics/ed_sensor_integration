@@ -133,56 +133,6 @@ void usage()
 // Getting roll, pitch and yaw from a quaternion,
 // copied from https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
 
-struct Quaternion {
-    double w, x, y, z;
-};
-
-struct EulerAngles {
-    double roll, pitch, yaw;
-};
-
-EulerAngles ToEulerAngles(Quaternion q) {
-    EulerAngles angles;
-
-    // roll (x-axis rotation)
-    double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-    double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
-    angles.roll = std::atan2(sinr_cosp, cosr_cosp);
-
-    // pitch (y-axis rotation)
-    double sinp = 2 * (q.w * q.y - q.z * q.x);
-    if (std::abs(sinp) >= 1)
-        angles.pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-    else
-        angles.pitch = std::asin(sinp);
-
-    // yaw (z-axis rotation)
-    double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-    double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
-    angles.yaw = std::atan2(siny_cosp, cosy_cosp);
-
-    return angles;
-}
-
-double getYaw(const geo::Mat3& rotation)
-{
-    // Get quaternion
-    geo::Quaternion geo_quaternion;
-    rotation.getRotation(geo_quaternion);
-
-    // Convert it to struct
-    Quaternion quaternion;
-    quaternion.x = geo_quaternion.getX();
-    quaternion.y = geo_quaternion.getY();
-    quaternion.z = geo_quaternion.getZ();
-    quaternion.w = geo_quaternion.getW();
-
-    // Get the Euler angles
-    EulerAngles angles = ToEulerAngles(quaternion);
-    ROS_DEBUG_STREAM("Matrix: " << rotation << " --> yaw: " << angles.yaw);
-    return angles.yaw;
-}
-
 void drawLine(
         cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
@@ -357,9 +307,9 @@ int main(int argc, char **argv)
         cv::Scalar sensorcolor(0, 255, 0); // green
         cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
 
-        geo::Transform2 sensor_pose2d(fitterdata.sensor_pose_xya.t.x, fitterdata.sensor_pose_xya.t.y, getYaw(fitterdata.sensor_pose_xya.R));
-        geo::Transform2 entity_pose2d(e->pose().t.x, e->pose().t.y, getYaw(e->pose().R));
-        geo::Transform2 fitted_pose2d(fitted_pose.t.x, fitted_pose.t.y, getYaw(fitted_pose.R));
+        geo::Transform2 sensor_pose2d = fitterdata.sensor_pose_xya.projectTo2d();
+        geo::Transform2 entity_pose2d = e->pose().projectTo2d();
+        geo::Transform2 fitted_pose2d = fitted_pose.projectTo2d();
 
         // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
