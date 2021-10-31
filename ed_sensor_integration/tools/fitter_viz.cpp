@@ -376,7 +376,7 @@ int main(int argc, char **argv)
         else
         {
             std::cout << "Fitted entity not printed in image because of a fitter error" << std::endl;
-        };
+        }
 
         // paint sensor_ranges
         for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i) {
