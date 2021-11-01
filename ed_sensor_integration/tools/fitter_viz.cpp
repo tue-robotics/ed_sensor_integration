@@ -294,7 +294,7 @@ int main(int argc, char **argv)
         // visualise fitting (positive y direction = downwards)
         int canvas_width = 600;
         int canvas_height = 600;
-        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0,0,0));
+        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
 
         // needed parameters: Fitterdata fitterdata;
         int sensor_x = canvas_width/2;
