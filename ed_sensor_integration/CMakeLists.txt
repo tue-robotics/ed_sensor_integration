@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
   geolib2
+  pcl_ros
   sensor_msgs
   tue_config
   tue_filesystem
@@ -19,7 +20,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
   # DEPENDS
-  CATKIN_DEPENDS ed ed_sensor_integration_msgs tue_config
+  CATKIN_DEPENDS ed ed_sensor_integration_msgs pcl_ros tue_config
 )
 
 # ------------------------------------------------------------------------------------------------

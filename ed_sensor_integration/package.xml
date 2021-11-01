@@ -16,6 +16,7 @@
   <depend>ed</depend>
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
+  <depend>pcl_ros</depend>
   <depend>sensor_msgs</depend>
   <depend>tue_config</depend>
   <depend>tue_filesystem</depend>
