@@ -5,11 +5,11 @@ find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
   geolib2
+  image_geometry
   sensor_msgs
   tue_config
   tue_filesystem
   visualization_msgs
-  image_geometry
 )
 
 # ------------------------------------------------------------------------------------------------
