@@ -462,7 +462,7 @@ void Fitter::configureBeamModel(const image_geometry::PinholeCameraModel& caminf
 {
     uint nr_beams = std::min(200, caminfo.fullResolution().width); // don't use more data points than the resolution of your camera
     double fx = caminfo.fx();
-    double fx_resize = fx * nr_beams/caminfo.fullResolution().width; //reducint nr of data points will require a differenc focal length
+    double fx_resize = fx * nr_beams / caminfo.fullResolution().width; // Reducing nr of data points will require a different focal length
     double w = 2 * double(nr_beams) / fx_resize; // reverse calculation of the width of the beam model.
     beam_model_.initialize(w, nr_beams);
     nr_data_points_ = nr_beams;
