@@ -225,6 +225,20 @@ int main(int argc, char **argv)
     else
         crawler.setRootPath(path.parentPath());
 
+    // visualization parameters
+    int canvas_width = 600; //pixels
+    int canvas_height = 600; // pixels
+    float canvas_resolution = 100; //pixels per meter
+
+    int sensor_x = canvas_width/2;
+    int sensor_y = canvas_height * 8/10;
+    cv::Point sensorlocation(sensor_x, sensor_y);
+
+    cv::Scalar sensor_colour(0, 255, 0); // green
+    cv::Scalar entity_colour(0, 255, 255); // yellow
+    cv::Scalar fitted_colour(243, 192, 15); // blue
+    cv::Scalar measurement_colour(161, 17, 187); // purple
+
     Updater updater;
     Fitter fitter;
 
@@ -292,42 +306,31 @@ int main(int argc, char **argv)
 
         bool estimateEntityPose = fitter.estimateEntityPose(fitterdata, snapshot.world_model, entity_id, e->pose(), fitted_pose);
 
-        // show snapshot
-        cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
-        cv::imshow("RGB", rgbcanvas);
-
-        // visualise fitting (positive y direction = downwards)
-        int canvas_width = 600;
-        int canvas_height = 600;
-        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        // needed parameters: Fitterdata fitterdata;
-        int sensor_x = canvas_width/2;
-        int sensor_y = canvas_height * 8/10;
-        float canvas_resolution = 100; //pixels per meter
-
-        // paint to screen the location of HERO
-        cv::Point sensorlocation(sensor_x, sensor_y);
-        cv::Scalar sensorcolor(0, 255, 0); // green
-        cv::circle(canvas, sensorlocation, 3, sensorcolor, cv::FILLED);
-
+        // poses for visualization
         geo::Transform2 sensor_pose2d = fitterdata.sensor_pose_xya.projectTo2d();
         geo::Transform2 entity_pose2d = e->pose().projectTo2d();
         geo::Transform2 fitted_pose2d = fitted_pose.projectTo2d();
 
+        // show snapshot
+        cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
+        cv::imshow("RGB", rgbcanvas);
+
+        // visualize fitting
+        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+        // paint to screen the location of the sensor
+        cv::circle(canvas, sensorlocation, 3, sensor_colour, cv::FILLED);
+
         // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
-        //geo::Pose3D relpose = fitterdata.sensor_pose_xya.inverse() * e->pose();
         geo::Transform2 relpose = sensor_pose2d.inverse() * entity_pose2d;
-        cv::Scalar entitycolour(0, 255, 255);
-        drawShape2D(canvas, entity_2d.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entitycolour);
+        drawShape2D(canvas, entity_2d.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entity_colour);
 
         if (estimateEntityPose)
         {
             // paint fitted entity
-            cv::Scalar fittedcolour(243, 192, 15); // blue
             geo::Transform2 fitted_relpose = sensor_pose2d.inverse() * fitted_pose2d;
-            drawShape2D(canvas, entity_2d.shape_2d, fitted_relpose, canvas_resolution, sensor_x, sensor_y, fittedcolour);
+            drawShape2D(canvas, entity_2d.shape_2d, fitted_relpose, canvas_resolution, sensor_x, sensor_y, fitted_colour);
         }
         else
         {
@@ -337,7 +340,7 @@ int main(int argc, char **argv)
         // paint sensor_ranges
         for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i)
         {
-            float fx_ = 2 * fitterdata.sensor_ranges.size() / 4; // Constant value from fitter.cpp
+            float fx_ = 2 * fitterdata.sensor_ranges.size() / 4;
             float x_m = fitterdata.sensor_ranges[i] * ((static_cast<int>(i) - (fitterdata.sensor_ranges.size() / 2)) / fx_);
             float y_m = fitterdata.sensor_ranges[i];
 
@@ -354,8 +357,7 @@ int main(int argc, char **argv)
 
             // paint to screen
             cv::Point centerCircle(x_p, y_p);
-            cv::Scalar colourCircle(161, 17, 187);
-            cv::circle(canvas, centerCircle, 2, colourCircle, cv::FILLED);
+            cv::circle(canvas, centerCircle, 2, measurement_colour, cv::FILLED);
         }
 
         cv::imshow("Fitting", canvas);
