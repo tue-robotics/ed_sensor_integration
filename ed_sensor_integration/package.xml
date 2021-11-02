@@ -16,11 +16,11 @@
   <depend>ed</depend>
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
+  <depend>image_geometry</depend>
   <depend>sensor_msgs</depend>
   <depend>tue_config</depend>
   <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
-  <depend>image_geometry</depend>
 
   <export>
     <ed plugin="${prefix}/plugins.xml" />
