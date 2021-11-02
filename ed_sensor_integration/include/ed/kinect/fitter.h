@@ -109,7 +109,7 @@ public:
 
     ~Fitter();
 
-    bool isConfigured() {return configured_;};
+    inline bool isConfigured() { return configured_; };
 
     /**
      * @brief processSensorData pre-processes sensor data, i.e., performs a downprojection of the input
