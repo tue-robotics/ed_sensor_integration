@@ -198,8 +198,18 @@ int main(int argc, char **argv)
     std::string model_name = argv[2];
 
     ed::WorldModel world_model;
-    if (!loadWorldModel(model_name, world_model))
+    if (!loadWorldModel(model_name, world_model)){
+        std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
         return 1;
+    }
+
+    std::string entity_id = argv[3];
+    ed::EntityConstPtr e = world_model.getEntity(entity_id);
+    if (!e)
+    {
+        std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
+        return 1;
+    }
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
@@ -207,9 +217,6 @@ int main(int argc, char **argv)
         std::cerr << "Path '" << path << "' does not exist." << std::endl;
         return 1;
     }
-
-    std::string entity_id = argv[3];
-
 
     tue::filesystem::Crawler crawler;
 
@@ -279,8 +286,6 @@ int main(int argc, char **argv)
         FitterData fitterdata;
         geo::Pose3D fitted_pose;
         EstimationInputData result;
-
-        ed::EntityConstPtr e = snapshot.world_model.getEntity(entity_id);
 
         fitter.configureBeamModel(snapshot.image->getCameraModel());
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, fitterdata);
