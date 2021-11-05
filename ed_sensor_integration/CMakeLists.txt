@@ -20,7 +20,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
   # DEPENDS
-  CATKIN_DEPENDS ed ed_sensor_integration_msgs pcl_ros tue_config
+  CATKIN_DEPENDS ed ed_sensor_integration_msgs tue_config
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
 
 add_executable(ed_table_modeler tools/table_modeler.cpp)
-
+target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
