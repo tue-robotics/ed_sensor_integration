@@ -82,6 +82,7 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
         return false;
     }
 
+    /*
     // Reset world
     world_model = ed::WorldModel();
 
@@ -133,6 +134,7 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
 
         r.endArray();
     }
+    */
 
 //    if (r.hasError())
 //    {
@@ -152,7 +154,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     ed::models::ModelLoader model_loader;
 
     std::stringstream error;
-    if (!model_loader.create("_root", model_name, req, error))
+    if (!model_loader.create("_root", model_name, req, error, true))
     {
         std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
         std::cerr << error.str() << std::endl;
@@ -172,7 +174,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY [WORLDMODEL-NAME] [ENTITY-ID]" << std::endl;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -182,23 +184,44 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "ed_segmenter");
     ros::NodeHandle nh;
 
-    if (argc != 2)
+    if (argc != 4)
     {
-        usage();
-        return 1;
+        if (argc == 2){
+            std::cout << "No worldmodel provided! Using empty worldmodel and no segmentation area" << std::endl;
+        }
+        else{
+            usage();
+            return 1;
+        }
     }
-
-//    std::string model_name = argv[2];
-
-//    ed::WorldModel world_model;
-//    if (!loadWorldModel(model_name, world_model))
-//        return 1;
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
     {
         std::cerr << "Path '" << path << "' does not exist." << std::endl;
         return 1;
+    }
+
+    ed::WorldModel world_model;
+    std::string entity_id;
+    ed::EntityConstPtr e;
+
+    if (argc == 4) {
+        std::string model_name = argv[2];
+
+
+        if (!loadWorldModel(model_name, world_model)){
+            std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
+            return 1;
+        }
+
+        entity_id = argv[3];
+        e = world_model.getEntity(entity_id);
+        if (!e)
+        {
+            std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
+            return 1;
+        }
     }
 
     tue::filesystem::Crawler crawler;
@@ -240,6 +263,12 @@ int main(int argc, char **argv)
                 i_snapshot = snapshots.size();
                 snapshots.push_back(Snapshot());
                 Snapshot& snapshot = snapshots.back();
+                snapshot.world_model = world_model;
+                if (e)
+                    snapshot.area_description = std::string("on_top_of ").append(entity_id);
+                else
+                    snapshot.area_description = "";
+                std::cout << "area description" << snapshot.area_description << std::endl;
 
                 if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
                                snapshot.world_model, snapshot.area_description))
