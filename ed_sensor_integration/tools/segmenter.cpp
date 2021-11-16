@@ -82,66 +82,6 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
         return false;
     }
 
-    /*
-    // Reset world
-    world_model = ed::WorldModel();
-
-    // Read annotations
-    if (r.readArray("annotations"))
-    {
-        while(r.nextArrayItem())
-        {
-            std::string type;
-            double px, py;
-
-            if (!r.value("label", type) || !r.value("px", px) || !r.value("py", py))
-                continue;
-
-            // - - - - - - -
-
-            ed::UpdateRequest req;
-            ed::models::ModelLoader model_loader;
-
-            std::stringstream error;
-            ed::UUID id = "support";
-            if (model_loader.create(id, type, req, error, true))
-            {
-                // Check if this model has an 'on_top_of' volume defined
-                std::map<ed::UUID, std::map<std::string, geo::ShapeConstPtr> >::const_iterator it = req.volumes_added.find(id);
-                if (it == req.volumes_added.end())
-                    continue;
-                if (it->second.find("on_top_of") == it->second.end())
-                    continue;
-
-                int x = px * image->getDepthImage().cols;
-                int y = py * image->getDepthImage().rows;
-                rgbd::View view(*image, image->getDepthImage().cols);
-
-                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
-                pos.z = 0;
-
-                req.setPose(id, geo::Pose3D(geo::Mat3::identity(), pos));
-
-                // Update world
-                world_model.update(req);
-
-                area_description = "on_top_of " + id.str();
-            }
-
-            // - - - - - - -
-
-        }
-
-        r.endArray();
-    }
-    */
-
-//    if (r.hasError())
-//    {
-//        std::cout << "Error while reading file '" << filename << "':\n\n" << r.error() << std::endl;
-//        return false;
-//    }
-
     return true;
 }
 
