@@ -146,7 +146,8 @@ int main(int argc, char **argv)
     std::string entity_id;
     ed::EntityConstPtr e;
 
-    if (argc == 4) {
+    if (argc == 4)
+    {
         std::string model_name = argv[2];
 
 
