@@ -212,6 +212,7 @@ int main(int argc, char **argv)
                     snapshot.area_description = std::string("on_top_of ").append(entity_id);
                 else
                     snapshot.area_description = "";
+
                 std::cout << "area description" << snapshot.area_description << std::endl;
 
                 if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
