@@ -41,12 +41,9 @@ struct Snapshot
  * @param[in] filename name of the json file that describes the image
  * @param[out] image image to write to
  * @param[out] sensor_pose pose to write to
- * @param area_description #TODO remove #TODO remove from function
- * @param world_model worldmodel to write to #TODO remove from function
  * @return bool whether image was successfully loaded
  */
-bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose,
-               ed::WorldModel& world_model, std::string& area_description)
+bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose)
 {
     tue::config::DataPointer meta_data;
 
@@ -228,8 +225,7 @@ int main(int argc, char **argv)
 
                 std::cout << "area description" << snapshot.area_description << std::endl;
 
-                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
-                               snapshot.world_model, snapshot.area_description))
+                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
