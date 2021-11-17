@@ -126,10 +126,12 @@ int main(int argc, char **argv)
 
     if (argc != 4)
     {
-        if (argc == 2){
+        if (argc == 2)
+        {
             std::cout << "No worldmodel provided! Using empty worldmodel and no segmentation area" << std::endl;
         }
-        else{
+        else
+        {
             usage();
             return 1;
         }
