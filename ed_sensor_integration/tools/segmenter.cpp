@@ -150,7 +150,8 @@ int main(int argc, char **argv)
         std::string model_name = argv[2];
 
 
-        if (!loadWorldModel(model_name, world_model)){
+        if (!loadWorldModel(model_name, world_model))
+        {
             std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
             return 1;
         }
