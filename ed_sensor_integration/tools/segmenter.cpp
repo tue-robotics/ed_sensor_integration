@@ -121,6 +121,21 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 }
 
 /**
+ * save the result of the segmentation
+ *
+ * Saves the segmentation result to a json file.
+ *
+ * @param[in] filename name file (without extention)
+ * @param[in] result segmentation result
+ * @param[in] area_description area that was segmented
+ * @param[in] worldmodel_name name of the worldmodel used
+ */
+void saveSegmentation(const std::string filename, const UpdateResult& result, const std::string area_description, const std::string worldmodel_name)
+{
+
+}
+
+/**
  * output the usage of the segmenter tool
  */
 void usage()
@@ -155,13 +170,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    std::string model_name;
     ed::WorldModel world_model;
     std::string entity_id;
     ed::EntityConstPtr e;
 
     if (argc == 4)
     {
-        std::string model_name = argv[2];
+        model_name = argv[2];
 
         if (!loadWorldModel(model_name, world_model))
         {
@@ -313,6 +329,10 @@ int main(int argc, char **argv)
         else if (key == 83) // Right arrow
         {
             ++i_snapshot;
+        }
+        else if (key == 32) // Space bar
+        {
+            saveSegmentation("test", res, snapshot.area_description, model_name);
         }
         else if (key == 'q')
         {
