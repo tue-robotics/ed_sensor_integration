@@ -35,8 +35,16 @@ struct Snapshot
     ed::WorldModel world_model;
 };
 
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * read an rgbd image from file
+ *
+ * @param[in] filename name of the json file that describes the image
+ * @param[out] image image to write to
+ * @param[out] sensor_pose pose to write to
+ * @param area_description #TODO remove #TODO remove from function
+ * @param world_model worldmodel to write to #TODO remove from function
+ * @return bool whether image was successfully loaded
+ */
 bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose,
                ed::WorldModel& world_model, std::string& area_description)
 {
@@ -85,8 +93,13 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
     return true;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * Load a worldmodel from file using its name.
+ *
+ * @param[in] model_name name of the worldmodel
+ * @param[out] world_model worldmodel to write to
+ * @return bool whether model is successfully loaded
+ */
 bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 {
     ed::UpdateRequest req;
@@ -110,8 +123,9 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     return true;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * output the usage of the segmenter tool
+ */
 void usage()
 {
     std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY [WORLDMODEL-NAME] [ENTITY-ID]" << std::endl;
