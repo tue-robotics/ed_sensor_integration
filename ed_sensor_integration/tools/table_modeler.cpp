@@ -12,6 +12,11 @@
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/transforms.h>
 
+#include <boost/filesystem/convenience.hpp>
+
+#include <fstream>
+#include <jsoncpp/json/json.h>
+
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZRGB>::Ptr output, Eigen::Matrix4f &final_transform)
 {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -94,12 +99,44 @@ int main(int argc, char **argv) {
         inputs.push_back(m);
     }
 
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
     Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
 
     for (int i = 1; i < argc-1; ++i)
     {
         // read json metadata
+        /*
+        std::ifstream metadata_file(boost::filesystem::change_extension(argv[i-1], ".json").string(), std::ifstream::binary);
+        Json::Value metadata;
+        metadata_file >> metadata;
+        */
+        float x, y, z, qx, qy, qz, qw;
+
+        const float n = 2.0f/(qx*qx+qy*qy+qz*qz+qw*qw);
+        Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();/* {
+            {1.0f - n*qy*qy - n*qz*qz, n*qx*qy - n*qz*qw, n*qx*qz + n*qy*qw, x},
+            {n*qx*qy + n*qz*qw, 1.0f - n*qx*qx - n*qz*qz, n*qy*qz - n*qx*qw, y},
+            {n*qx*qz - n*qy*qw, n*qy*qz + n*qx*qw, 1.0f - n*qx*qx - n*qy*qy, z},
+            {0.0f, 0.0f, 0.0f, 1.0f}}; */
+
+        Transform(0,0) = 1.0f - n*qy*qy - n*qz*qz;
+        Transform(0,1) = n*qx*qy - n*qz*qw;
+        Transform(0,2) = n*qx*qz + n*qy*qw;
+        Transform(0,3) = x;
+        Transform(1,0) = n*qx*qy + n*qz*qw;
+        Transform(1,1) = 1.0f - n*qx*qx - n*qz*qz;
+        Transform(1,2) = n*qy*qz - n*qx*qw;
+        Transform(1,3) = y;
+        Transform(2,0) = n*qx*qz - n*qy*qw;
+        Transform(2,1) = n*qy*qz + n*qx*qw;
+        Transform(2,2) = 1.0f - n*qx*qx - n*qy*qy;
+        Transform(2,3) = z;
+
+        Transform = Transform.inverse();
+
+        pcl::transformPointCloud (*inputs[i], *inputs[i], Transform);
+
+        //std::cout << metadata["rgbd_filename"] << std::endl;
 
         // align to world model coordinates
 
@@ -109,6 +146,8 @@ int main(int argc, char **argv) {
         target = inputs[i];
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+        std::cout << "aligning cloud " << i << " to cloud " << i - 1 << std::endl;
         pairAlign (source, target, temp, pairTransform);
 
         pcl::transformPointCloud (*temp, *result, GlobalTransform);
