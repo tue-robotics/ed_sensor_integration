@@ -14,8 +14,14 @@
 
 #include <boost/filesystem/convenience.hpp>
 
+#include <ed/io/json_reader.h>
+#include <ed/serialization/serialization.h>
+
+#include <tue/config/read.h>
+#include <tue/config/reader.h>
+#include <tue/config/data_pointer.h>
+
 #include <fstream>
-#include <jsoncpp/json/json.h>
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZRGB>::Ptr output, Eigen::Matrix4f &final_transform)
 {
@@ -104,13 +110,39 @@ int main(int argc, char **argv) {
 
     for (int i = 1; i < argc-1; ++i)
     {
+        std::cout << "iteration " << i << std::endl;
+
+        std::string pcd_filename = argv[i];
+        std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
         // read json metadata
-        /*
-        std::ifstream metadata_file(boost::filesystem::change_extension(argv[i-1], ".json").string(), std::ifstream::binary);
-        Json::Value metadata;
-        metadata_file >> metadata;
-        */
-        float x, y, z, qx, qy, qz, qw;
+        tue::config::DataPointer meta_data;
+
+        try
+        {
+            meta_data = tue::config::fromFile(json_filename);
+        }
+        catch (tue::config::ParseException& e)
+        {
+            std::cerr << "Could not open '" << json_filename << "'.\n\n" << e.what() << std::endl;
+            return 0;
+        }
+
+        tue::config::Reader r(meta_data);
+        // Read sensor pose
+        geo::Pose3D sensor_pose;
+        if (!ed::deserialize(r, "sensor_pose", sensor_pose))
+        {
+            std::cerr << "No field 'sensor_pose' specified." << std::endl;
+            return 0;
+        }
+
+        std::cout << "x: " << sensor_pose.t.x << ", y: " << sensor_pose.t.y << std::endl;
+        float x = sensor_pose.t.x;
+        float y = sensor_pose.t.y;
+        float z = sensor_pose.t.z;
+
+
+        float qx, qy, qz, qw;
 
         const float n = 2.0f/(qx*qx+qy*qy+qz*qz+qw*qw);
         Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();/* {
