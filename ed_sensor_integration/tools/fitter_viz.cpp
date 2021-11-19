@@ -104,7 +104,8 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
 
 }
 
-cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_pose, geo::Transform2 entity_pose, geo::Transform2 fitted_pose, FitterData fitterdata, bool estimateEntityPose)
+cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_pose, geo::Transform2 entity_pose,
+                         geo::Transform2 fitted_pose, FitterData fitterdata, bool estimateEntityPose)
 {
     // visualize fitting
     cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -113,8 +114,7 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     cv::circle(canvas, sensorlocation, 3, sensor_colour, cv::FILLED);
 
     // paint entity (from worldmodel)
-
-    geo::Transform2 relpose = sensor_pose * entity_pose;
+    geo::Transform2 relpose = sensor_pose.inverse() * entity_pose;
     drawShape2D(canvas, entity.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entity_colour);
 
     if (estimateEntityPose)
@@ -129,10 +129,12 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     }
 
     // paint sensor_ranges
-    for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i)
+    uint nranges = fitterdata.sensor_ranges.size();
+    uint half_nranges = nranges/2;
+    float fx = 2.0 * nranges / 4;  // #TODO remove semi hardcoded focal length
+    for (unsigned int i = 0; i < nranges; ++i)
     {
-        float fx_ = 2 * fitterdata.sensor_ranges.size() / 4;
-        float x_m = fitterdata.sensor_ranges[i] * ((static_cast<int>(i) - (fitterdata.sensor_ranges.size() / 2)) / fx_);
+        float x_m = fitterdata.sensor_ranges[i] * ((static_cast< float >(i) - half_nranges) / fx);
         float y_m = fitterdata.sensor_ranges[i];
 
         // postion to pixels
@@ -150,6 +152,8 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
         cv::Point centerCircle(x_p, y_p);
         cv::circle(canvas, centerCircle, 2, measurement_colour, cv::FILLED);
     }
+
+    return canvas;
 }
 
 int main(int argc, char **argv)
@@ -234,10 +238,6 @@ int main(int argc, char **argv)
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
                     continue;
-                }
-                else
-                {
-//                    std::cout << "Successfully loaded " << filename << std::endl;
                 }
             }
             else
