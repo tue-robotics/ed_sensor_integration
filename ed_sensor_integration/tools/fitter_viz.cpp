@@ -35,6 +35,20 @@
 #include "ed_sensor_integration/tools/snapshot.h"
 
 
+// visualization parameters
+int canvas_width = 600; //pixels
+int canvas_height = 600; // pixels
+float canvas_resolution = 100; //pixels per meter
+
+int sensor_x = canvas_width/2;
+int sensor_y = canvas_height * 8/10;
+cv::Point sensorlocation(sensor_x, sensor_y);
+
+cv::Scalar sensor_colour(0, 255, 0); // green
+cv::Scalar entity_colour(0, 255, 255); // yellow
+cv::Scalar fitted_colour(243, 192, 15); // blue
+cv::Scalar measurement_colour(161, 17, 187); // purple
+
 void usage()
 {
     std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME  ENTITY_ID" << std::endl;
@@ -89,7 +103,54 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
     cv::circle(canvas, Entity_center, 3, color, cv::FILLED);
 
 }
-// ----------------------------------------------------------------------------------------------------
+
+cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_pose, geo::Transform2 entity_pose, geo::Transform2 fitted_pose, FitterData fitterdata, bool estimateEntityPose)
+{
+    // visualize fitting
+    cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    // paint to screen the location of the sensor
+    cv::circle(canvas, sensorlocation, 3, sensor_colour, cv::FILLED);
+
+    // paint entity (from worldmodel)
+
+    geo::Transform2 relpose = sensor_pose * entity_pose;
+    drawShape2D(canvas, entity.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entity_colour);
+
+    if (estimateEntityPose)
+    {
+        // paint fitted entity
+        geo::Transform2 fitted_relpose = sensor_pose.inverse() * fitted_pose;
+        drawShape2D(canvas, entity.shape_2d, fitted_relpose, canvas_resolution, sensor_x, sensor_y, fitted_colour);
+    }
+    else
+    {
+        std::cout << "Fitted entity not printed in image because of a fitter error" << std::endl;
+    }
+
+    // paint sensor_ranges
+    for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i)
+    {
+        float fx_ = 2 * fitterdata.sensor_ranges.size() / 4;
+        float x_m = fitterdata.sensor_ranges[i] * ((static_cast<int>(i) - (fitterdata.sensor_ranges.size() / 2)) / fx_);
+        float y_m = fitterdata.sensor_ranges[i];
+
+        // postion to pixels
+        int x_p = sensor_x + (int)(x_m * canvas_resolution);
+        int y_p = sensor_y - (int)(y_m * canvas_resolution);
+
+        if (x_p < 0 || x_p >= canvas_width)
+            continue;
+        if (y_p < 0 || y_p >= canvas_height)
+            continue;
+        if (fitterdata.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
+            continue;
+
+        // paint to screen
+        cv::Point centerCircle(x_p, y_p);
+        cv::circle(canvas, centerCircle, 2, measurement_colour, cv::FILLED);
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -131,20 +192,6 @@ int main(int argc, char **argv)
         crawler.setRootPath(path);
     else
         crawler.setRootPath(path.parentPath());
-
-    // visualization parameters
-    int canvas_width = 600; //pixels
-    int canvas_height = 600; // pixels
-    float canvas_resolution = 100; //pixels per meter
-
-    int sensor_x = canvas_width/2;
-    int sensor_y = canvas_height * 8/10;
-    cv::Point sensorlocation(sensor_x, sensor_y);
-
-    cv::Scalar sensor_colour(0, 255, 0); // green
-    cv::Scalar entity_colour(0, 255, 255); // yellow
-    cv::Scalar fitted_colour(243, 192, 15); // blue
-    cv::Scalar measurement_colour(161, 17, 187); // purple
 
     Updater updater;
     Fitter fitter;
@@ -222,51 +269,8 @@ int main(int argc, char **argv)
         cv::Mat rgbcanvas = snapshot.image->getRGBImage().clone();
         cv::imshow("RGB", rgbcanvas);
 
-        // visualize fitting
-        cv::Mat canvas = cv::Mat(canvas_height, canvas_width, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        // paint to screen the location of the sensor
-        cv::circle(canvas, sensorlocation, 3, sensor_colour, cv::FILLED);
-
-        // paint entity (from worldmodel)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
-        geo::Transform2 relpose = sensor_pose2d.inverse() * entity_pose2d;
-        drawShape2D(canvas, entity_2d.shape_2d, relpose, canvas_resolution, sensor_x, sensor_y, entity_colour);
-
-        if (estimateEntityPose)
-        {
-            // paint fitted entity
-            geo::Transform2 fitted_relpose = sensor_pose2d.inverse() * fitted_pose2d;
-            drawShape2D(canvas, entity_2d.shape_2d, fitted_relpose, canvas_resolution, sensor_x, sensor_y, fitted_colour);
-        }
-        else
-        {
-            std::cout << "Fitted entity not printed in image because of a fitter error" << std::endl;
-        }
-
-        // paint sensor_ranges
-        for (unsigned int i = 0; i < fitterdata.sensor_ranges.size(); ++i)
-        {
-            float fx_ = 2 * fitterdata.sensor_ranges.size() / 4;
-            float x_m = fitterdata.sensor_ranges[i] * ((static_cast<int>(i) - (fitterdata.sensor_ranges.size() / 2)) / fx_);
-            float y_m = fitterdata.sensor_ranges[i];
-
-            // postion to pixels
-            int x_p = sensor_x + (int)(x_m * canvas_resolution);
-            int y_p = sensor_y - (int)(y_m * canvas_resolution);
-
-            if (x_p < 0 || x_p >= canvas_width)
-                continue;
-            if (y_p < 0 || y_p >= canvas_height)
-                continue;
-            if (fitterdata.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
-                continue;
-
-            // paint to screen
-            cv::Point centerCircle(x_p, y_p);
-            cv::circle(canvas, centerCircle, 2, measurement_colour, cv::FILLED);
-        }
-
+        cv::Mat canvas = visualizeFitting(entity_2d, sensor_pose2d, entity_pose2d, fitted_pose2d, fitterdata, estimateEntityPose);
         cv::imshow("Fitting", canvas);
         char key = cv::waitKey();
 
