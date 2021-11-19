@@ -133,7 +133,7 @@ void usage()
 // Getting roll, pitch and yaw from a quaternion,
 // copied from https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
 
-void drawLine( cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
+void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
     // computing points relative to the pose (in meters)
     geo::Vec2 rel_point1 = pose * point1;
@@ -162,7 +162,7 @@ void drawLine( cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transfo
     cv::line(canvas, point1_p, point2_p, color, 1);
 }
 
-void drawShape2D(cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
+void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
     for (unsigned int i=0; i < shape.size(); i++)
     {
