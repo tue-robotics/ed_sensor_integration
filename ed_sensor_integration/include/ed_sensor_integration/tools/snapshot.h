@@ -1,5 +1,5 @@
-#ifndef SNAPSHOT_H
-#define SNAPSHOT_H
+#ifndef ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_
+#define ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_
 
 #include <ed/models/model_loader.h>
 #include <ed/world_model.h>
