@@ -89,7 +89,7 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     ed::models::ModelLoader model_loader;
 
     std::stringstream error;
-    if (!model_loader.create("_root", model_name, req, error))
+    if (!model_loader.create("_root", model_name, req, error, true))
     {
         std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
         std::cerr << error.str() << std::endl;
