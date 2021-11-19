@@ -105,4 +105,4 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     return true;
 }
 
-#endif // SNAPSHOT_H
+#endif // ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_
