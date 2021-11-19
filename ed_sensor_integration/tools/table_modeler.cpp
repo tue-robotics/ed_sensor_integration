@@ -71,6 +71,73 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     final_transform = targetToSource;
  }
 
+Eigen::Matrix4f ReadJson(std::string pcd_filename) {
+
+    std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
+    // read json metadata
+    tue::config::DataPointer meta_data;
+
+    try
+    {
+        meta_data = tue::config::fromFile(json_filename);
+    }
+    catch (tue::config::ParseException& e)
+    {
+        std::cerr << "Could not open '" << json_filename << "'.\n\n" << e.what() << std::endl;
+        //return 0;
+    }
+
+    tue::config::Reader r(meta_data);
+    // Read sensor pose
+    geo::Pose3D sensor_pose;
+    if (!ed::deserialize(r, "sensor_pose", sensor_pose))
+    {
+        std::cerr << "No field 'sensor_pose' specified." << std::endl;
+        //return 0;
+    }
+
+    std::cout << "x: " << sensor_pose.t.x << ", y: " << sensor_pose.t.y << std::endl;
+    float x = sensor_pose.t.x;
+    float y = sensor_pose.t.y;
+    float z = sensor_pose.t.z;
+    float xx = sensor_pose.R.xx;
+    float xy = sensor_pose.R.xy;
+    float xz = sensor_pose.R.xz;
+    float yx = sensor_pose.R.yx;
+    float yy = sensor_pose.R.yy;
+    float yz = sensor_pose.R.yz;
+    float zx = sensor_pose.R.zx;
+    float zy = sensor_pose.R.zy;
+    float zz = sensor_pose.R.zz;
+
+
+    //float qx, qy, qz, qw;
+
+    //const float n = 2.0f/(qx*qx+qy*qy+qz*qz+qw*qw);
+    Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();/* {
+        {1.0f - n*qy*qy - n*qz*qz, n*qx*qy - n*qz*qw, n*qx*qz + n*qy*qw, x},
+        {n*qx*qy + n*qz*qw, 1.0f - n*qx*qx - n*qz*qz, n*qy*qz - n*qx*qw, y},
+        {n*qx*qz - n*qy*qw, n*qy*qz + n*qx*qw, 1.0f - n*qx*qx - n*qy*qy, z},
+        {0.0f, 0.0f, 0.0f, 1.0f}}; */
+
+    Transform(0,0) = xx;//1.0f - n*qy*qy - n*qz*qz;
+    Transform(0,1) = xy;//n*qx*qy - n*qz*qw;
+    Transform(0,2) = xz;//n*qx*qz + n*qy*qw;
+    Transform(0,3) = x;
+    Transform(1,0) = yx;//n*qx*qy + n*qz*qw;
+    Transform(1,1) = yy;//1.0f - n*qx*qx - n*qz*qz;
+    Transform(1,2) = yz;//n*qy*qz - n*qx*qw;
+    Transform(1,3) = y;
+    Transform(2,0) = zx;//n*qx*qz - n*qy*qw;
+    Transform(2,1) = zy;//n*qy*qz + n*qx*qw;
+    Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
+    Transform(2,3) = z;
+
+    Transform = Transform.inverse();
+
+    return Transform;
+}
+
 
 int main(int argc, char **argv) {
 
@@ -108,65 +175,15 @@ int main(int argc, char **argv) {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
     Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
 
+    pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1]));
+
+    *result = *inputs[0];
+
     for (int i = 1; i < argc-1; ++i)
     {
-        std::cout << "iteration " << i << std::endl;
+        std::cout << "iteration " << i << std::endl;   
 
-        std::string pcd_filename = argv[i];
-        std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
-        // read json metadata
-        tue::config::DataPointer meta_data;
-
-        try
-        {
-            meta_data = tue::config::fromFile(json_filename);
-        }
-        catch (tue::config::ParseException& e)
-        {
-            std::cerr << "Could not open '" << json_filename << "'.\n\n" << e.what() << std::endl;
-            return 0;
-        }
-
-        tue::config::Reader r(meta_data);
-        // Read sensor pose
-        geo::Pose3D sensor_pose;
-        if (!ed::deserialize(r, "sensor_pose", sensor_pose))
-        {
-            std::cerr << "No field 'sensor_pose' specified." << std::endl;
-            return 0;
-        }
-
-        std::cout << "x: " << sensor_pose.t.x << ", y: " << sensor_pose.t.y << std::endl;
-        float x = sensor_pose.t.x;
-        float y = sensor_pose.t.y;
-        float z = sensor_pose.t.z;
-
-
-        float qx, qy, qz, qw;
-
-        const float n = 2.0f/(qx*qx+qy*qy+qz*qz+qw*qw);
-        Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();/* {
-            {1.0f - n*qy*qy - n*qz*qz, n*qx*qy - n*qz*qw, n*qx*qz + n*qy*qw, x},
-            {n*qx*qy + n*qz*qw, 1.0f - n*qx*qx - n*qz*qz, n*qy*qz - n*qx*qw, y},
-            {n*qx*qz - n*qy*qw, n*qy*qz + n*qx*qw, 1.0f - n*qx*qx - n*qy*qy, z},
-            {0.0f, 0.0f, 0.0f, 1.0f}}; */
-
-        Transform(0,0) = 1.0f - n*qy*qy - n*qz*qz;
-        Transform(0,1) = n*qx*qy - n*qz*qw;
-        Transform(0,2) = n*qx*qz + n*qy*qw;
-        Transform(0,3) = x;
-        Transform(1,0) = n*qx*qy + n*qz*qw;
-        Transform(1,1) = 1.0f - n*qx*qx - n*qz*qz;
-        Transform(1,2) = n*qy*qz - n*qx*qw;
-        Transform(1,3) = y;
-        Transform(2,0) = n*qx*qz - n*qy*qw;
-        Transform(2,1) = n*qy*qz + n*qx*qw;
-        Transform(2,2) = 1.0f - n*qx*qx - n*qy*qy;
-        Transform(2,3) = z;
-
-        Transform = Transform.inverse();
-
-        pcl::transformPointCloud (*inputs[i], *inputs[i], Transform);
+        pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));
 
         //std::cout << metadata["rgbd_filename"] << std::endl;
 
@@ -185,9 +202,9 @@ int main(int argc, char **argv) {
         pcl::transformPointCloud (*temp, *result, GlobalTransform);
 
         GlobalTransform *= pairTransform;
-
-        pcl::io::savePCDFileASCII ("combined.pcd", *result);
     }
+
+    pcl::io::savePCDFileASCII ("combined.pcd", *result);
 
     return 0;
 }
