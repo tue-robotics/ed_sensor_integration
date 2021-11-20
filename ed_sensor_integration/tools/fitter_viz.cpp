@@ -131,7 +131,7 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     // paint sensor_ranges
     uint nranges = fitterdata.sensor_ranges.size();
     uint half_nranges = nranges/2;
-    float fx = 2.0 * nranges / 4;  // #TODO remove semi hardcoded focal length
+    float fx = fitterdata.fx;
     for (unsigned int i = 0; i < nranges; ++i)
     {
         float x_m = fitterdata.sensor_ranges[i] * ((static_cast< float >(i) - half_nranges) / fx);

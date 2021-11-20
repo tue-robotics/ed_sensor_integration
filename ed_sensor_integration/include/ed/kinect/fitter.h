@@ -68,6 +68,7 @@ struct EntityRepresentation2D
 struct FitterData
 {
     std::vector<double> sensor_ranges;
+    float fx;
     geo::Pose3D sensor_pose;
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
@@ -114,9 +115,9 @@ public:
     /**
      * @brief processSensorData pre-processes sensor data, i.e., performs a downprojection of the input
      * depth image based on the provided sensor pose and stores the result in the FitterData struct
-     * @param image input (depth) image
-     * @param sensor_pose pose of the sensor in the world while taking the image
-     * @param data processed data is stored here
+     * @param[in] image input (depth) image
+     * @param[in] sensor_pose pose of the sensor in the world while taking the image
+     * @param[out] data processed data is stored here
      */
     void processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const;
 

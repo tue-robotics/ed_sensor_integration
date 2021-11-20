@@ -483,6 +483,8 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
     if (ranges.size() != beam_model_.num_beams())
         ranges.resize(beam_model_.num_beams(), 0);
 
+    data.fx = beam_model_.fx();
+
     for(int x = 0; x < depth.cols; ++x)
     {
         for(int y = 0; y < depth.rows; ++y)
