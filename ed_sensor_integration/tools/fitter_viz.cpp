@@ -36,7 +36,7 @@
 
 
 // visualization parameters
-int canvas_width = 600; //pixels
+int canvas_width = 800; //pixels
 int canvas_height = 600; // pixels
 float canvas_resolution = 100; //pixels per meter
 
@@ -154,6 +154,20 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     }
 
     return canvas;
+}
+
+void zoomIn()
+{
+    canvas_resolution = canvas_resolution - 10;
+    if (canvas_resolution < 10)
+    {
+        canvas_resolution = 10;
+    }
+}
+
+void zoomOut()
+{
+    canvas_resolution = canvas_resolution + 10;
 }
 
 int main(int argc, char **argv)
@@ -282,6 +296,14 @@ int main(int argc, char **argv)
         else if (key == 83) // Right arrow
         {
             ++i_snapshot;
+        }
+        else if (key == 82) // Up arrow
+        {
+            zoomOut();
+        }
+        else if (key == 84) // Down arrow
+        {
+            zoomIn();
         }
         else if (key == 'q')
         {
