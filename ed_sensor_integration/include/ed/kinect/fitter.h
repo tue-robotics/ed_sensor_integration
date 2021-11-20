@@ -154,10 +154,9 @@ public:
 
     /**
      * @brief configure the beam model (nr of data points and focal length) according to the camera you are using.
-     * @param caminfo camera info
-     * @return
+     * @param cammodel camera model
      */
-    void configureBeamModel(const image_geometry::PinholeCameraModel& caminfo);
+    void configureBeamModel(const image_geometry::PinholeCameraModel& cammodel);
 
 private:
 
