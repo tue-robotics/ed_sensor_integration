@@ -133,8 +133,8 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename) {
     Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
     Transform(2,3) = z;
 
-    Transform = Transform.inverse();
-
+    //Transform = Transform.inverse();
+    std::cout << Transform << std::endl;
     return Transform;
 }
 
@@ -183,9 +183,7 @@ int main(int argc, char **argv) {
     {
         std::cout << "iteration " << i << std::endl;   
 
-        pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));
-
-        //std::cout << metadata["rgbd_filename"] << std::endl;
+        pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));
 
         // align to world model coordinates
 
