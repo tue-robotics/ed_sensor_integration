@@ -230,10 +230,11 @@ geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityCons
 
 // ----------------------------------------------------------------------------------------------------
 
-Fitter::Fitter(uint nr_data_points) :
+Fitter::Fitter(uint nr_data_points, float fx) :
     nr_data_points_(nr_data_points)
 {
-    beam_model_.initialize(4, nr_data_points);
+    double w = 2 * nr_data_points / fx;
+    beam_model_.initialize(w, nr_data_points);
     configured_ = false;
 }
 
@@ -465,7 +466,6 @@ void Fitter::configureBeamModel(const image_geometry::PinholeCameraModel& cammod
     double w = 2 * nr_beams / fx_resize; // reverse calculation of the width of the beam model.
     beam_model_.initialize(w, nr_beams);
     nr_data_points_ = nr_beams;
-    ROS_INFO("Configured fitter with %i beams and a focal length of %f", nr_beams, fx);
     configured_ = true;
 }
 

@@ -102,11 +102,13 @@ class Fitter
 
 public:
 
+    Fitter();
     /**
      * @brief Fitter constructor
      * @param nr_data_points nr_data_points for the beam model
+     * @param fx focal length for the beam model
      */
-    Fitter(uint nr_data_points = 200);  // TODO: remove hard-coded values
+    Fitter(uint nr_data_points, float fx);
 
     ~Fitter();
 
@@ -249,7 +251,7 @@ private:
     ed::models::ModelLoader model_loader_;
 
     uint nr_data_points_;
-    bool configured_;
+    bool configured_ = false;
 
 };
 
