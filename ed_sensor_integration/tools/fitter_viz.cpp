@@ -156,20 +156,6 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     return canvas;
 }
 
-void zoomIn()
-{
-    canvas_resolution = canvas_resolution - 10;
-    if (canvas_resolution < 10)
-    {
-        canvas_resolution = 10;
-    }
-}
-
-void zoomOut()
-{
-    canvas_resolution = canvas_resolution + 10;
-}
-
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "ed_fitter");
@@ -299,11 +285,11 @@ int main(int argc, char **argv)
         }
         else if (key == 82) // Up arrow
         {
-            zoomOut();
+            canvas_resolution = canvas_resolution + 10;
         }
         else if (key == 84) // Down arrow
         {
-            zoomIn();
+            canvas_resolution = std::max(canvas_resolution - 10.0, 10.0);
         }
         else if (key == 'q')
         {
