@@ -1,6 +1,3 @@
-#include <ros/init.h>
-#include <ros/node_handle.h>
-
 #include <ed/models/model_loader.h>
 #include <ed/world_model.h>
 #include <ed/update_request.h>
@@ -85,9 +82,6 @@ void usage()
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ed_segmenter");
-    ros::NodeHandle nh;
-
     if (argc != 2)
     {
         usage();
@@ -119,7 +113,7 @@ int main(int argc, char **argv)
     std::vector<ed_sensor_integration::Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
-    while(ros::ok())
+    while(true)
     {
         if (i_snapshot >= snapshots.size())
         {

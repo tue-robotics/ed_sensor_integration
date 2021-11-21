@@ -1,6 +1,3 @@
-#include <ros/init.h>
-#include <ros/node_handle.h>
-
 #include <ed/models/model_loader.h>
 #include <ed/world_model.h>
 #include <ed/update_request.h>
@@ -158,9 +155,6 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ed_fitter");
-    ros::NodeHandle nh;
-
     if (argc != 4)
     {
         usage();
@@ -203,7 +197,7 @@ int main(int argc, char **argv)
     std::vector<ed_sensor_integration::Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
-    while(ros::ok())
+    while(true)
     {
         if (i_snapshot >= snapshots.size())
         {
