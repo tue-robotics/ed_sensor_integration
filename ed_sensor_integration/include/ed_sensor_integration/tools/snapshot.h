@@ -75,7 +75,6 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
     return true;
 }
 
-
 bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 {
     ed::UpdateRequest req;
@@ -98,6 +97,98 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
     return true;
 }
+
+class SnapshotCrawler
+{
+    SnapshotCrawler(tue::filesystem::Path path)
+    {
+        if (path.isDirectory())
+            crawler.setRootPath(path);
+        else
+            crawler.setRootPath(path.parentPath());
+
+        // load first snapshot
+        if (path.isRegularFile())
+            loadSnapshot(path);
+        else
+            loadNewSnapshot();
+    }
+
+    inline Snapshot current() { return snapshots[i_current]; } //TODO pass by reference
+    inline Snapshot getSnapshot(uint i) { return snapshots[i]; } //TODO replace with overloading of indexing notation []
+
+    void setWorldModel(ed::WorldModel model)
+    {
+        world_model = model;
+    }
+
+    void previous()
+    {
+        if (i_current >0)
+            --i_current;
+    }
+
+    void next()
+    {
+        ++i_current;
+
+        //load new image if size of vector is exceeded
+        if (i_current >= snapshots.size())
+        {
+            if (!loadNewSnapshot())
+            {
+                i_current = snapshots.size() - 1;
+            }
+        }
+    }
+
+    bool loadNewSnapshot()
+    {
+        bool file_found = false;
+        tue::filesystem::Path filename;
+
+        while (crawler.nextPath(filename))
+        {
+            if (filename.extension() == ".json")
+            {
+                file_found = true;
+                break;
+            }
+        }
+
+        if (!file_found)
+            return false;
+
+
+        if (!loadSnapshot(filename))
+            return false;
+
+        return true;
+    }
+
+    bool loadSnapshot(tue::filesystem::Path filename)
+    {
+        i_current = snapshots.size();
+        snapshots.push_back(ed_sensor_integration::Snapshot());
+        ed_sensor_integration::Snapshot& snapshot = snapshots.back();
+        snapshot.world_model = world_model;
+
+        if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
+        {
+            std::cerr << "Could not read " << filename << std::endl;
+            snapshots.pop_back();
+            return false;
+        }
+        return true;
+    }
+
+    uint i_current;
+    std::vector<Snapshot> snapshots;
+    ed::WorldModel world_model;
+
+    tue::filesystem::Crawler crawler;
+};
+
 
 }
 #endif // ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_
