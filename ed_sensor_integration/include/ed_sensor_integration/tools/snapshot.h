@@ -28,8 +28,7 @@ struct Snapshot
     ed::WorldModel world_model;
 };
 
-bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose,
-               ed::WorldModel& world_model, std::string& area_description)
+bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose)
 {
     tue::config::DataPointer meta_data;
 

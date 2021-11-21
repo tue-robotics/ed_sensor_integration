@@ -232,8 +232,7 @@ int main(int argc, char **argv)
                 ed_sensor_integration::Snapshot& snapshot = snapshots.back();
                 snapshot.world_model = world_model;
 
-                if (!ed_sensor_integration::readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
-                               snapshot.world_model, snapshot.area_description))
+                if (!ed_sensor_integration::readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
                     snapshots.pop_back();
