@@ -18,6 +18,7 @@
 
 #include <vector>
 
+namespace ed_sensor_integration {
 
 struct Snapshot
 {
@@ -72,12 +73,6 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
         return false;
     }
 
-//    if (r.hasError())
-//    {
-//        std::cout << "Error while reading file '" << filename << "':\n\n" << r.error() << std::endl;
-//        return false;
-//    }
-
     return true;
 }
 
@@ -105,4 +100,5 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     return true;
 }
 
+}
 #endif // ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_

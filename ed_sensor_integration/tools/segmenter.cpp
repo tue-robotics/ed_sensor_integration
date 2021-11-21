@@ -33,7 +33,7 @@
  * @param[in] res segmentation result on the image
  * @param[out] canvas canvas to paint to.
  */
-void visualizeSegmentation(const Snapshot& snapshot, const UpdateResult& res, cv::Mat canvas)
+void visualizeSegmentation(const ed_sensor_integration::Snapshot& snapshot, const UpdateResult& res, cv::Mat canvas)
 {
     cv::Vec3b fill_colour(0, 0, 255); // red
     cv::Scalar outline_colour_1(255, 255, 255); // white
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
 //    std::string model_name = argv[2];
 
 //    ed::WorldModel world_model;
-//    if (!loadWorldModel(model_name, world_model))
+//    if (!ed_sensor_integration::loadWorldModel(model_name, world_model))
 //        return 1;
 
     tue::filesystem::Path path = argv[1];
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 
     Updater updater;
 
-    std::vector<Snapshot> snapshots;
+    std::vector<ed_sensor_integration::Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
     while(ros::ok())
@@ -144,10 +144,10 @@ int main(int argc, char **argv)
             if (file_found)
             {
                 i_snapshot = snapshots.size();
-                snapshots.push_back(Snapshot());
-                Snapshot& snapshot = snapshots.back();
+                snapshots.push_back(ed_sensor_integration::Snapshot());
+                ed_sensor_integration::Snapshot& snapshot = snapshots.back();
 
-                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
+                if (!ed_sensor_integration::readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
                                snapshot.world_model, snapshot.area_description))
                 {
                     std::cerr << "Could not read " << filename << std::endl;
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
             }
         }
 
-        Snapshot& snapshot = snapshots[i_snapshot];
+        ed_sensor_integration::Snapshot& snapshot = snapshots[i_snapshot];
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
