@@ -128,6 +128,8 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename) {
         std::cerr << "No field 'sensor_pose' specified." << std::endl;
         //return 0;
     }
+    // convert from geolib coordinates to ros coordinates #TODO remove geolib coordinates for camera pose
+    sensor_pose.R = sensor_pose.R * geo::Mat3(1, 0, 0, 0, -1, 0, 0, 0, -1);
 
     std::cout << "x: " << sensor_pose.t.x << ", y: " << sensor_pose.t.y << std::endl;
     float x = sensor_pose.t.x;
