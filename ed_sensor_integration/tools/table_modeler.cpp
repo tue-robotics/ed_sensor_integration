@@ -70,7 +70,40 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
 
     final_transform = targetToSource;
  }
+/*
+void Segment (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud) {
 
+    // Creating the KdTree object for the search method of the extraction
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+    tree->setInputCloud (cloud);
+
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+    ec.setClusterTolerance (0.02); // 2cm
+    ec.setMinClusterSize (100);
+    ec.setMaxClusterSize (25000);
+    ec.setSearchMethod (tree);
+    ec.setInputCloud (cloud_filtered);
+    ec.extract (cluster_indices);
+
+    int j = 0;
+    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+    {
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+        for (const auto& idx : it->indices)
+        cloud_cluster->push_back ((*cloud_filtered)[idx]); //*
+        cloud_cluster->width = cloud_cluster->size ();
+        cloud_cluster->height = 1;
+        cloud_cluster->is_dense = true;
+
+        std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size () << " data points." << std::endl;
+        std::stringstream ss;
+        ss << "cloud_cluster_" << j << ".pcd";
+        writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
+        j++;
+     }
+}
+*/
 Eigen::Matrix4f ReadJson(std::string pcd_filename) {
 
     std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
@@ -133,7 +166,12 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename) {
     Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
     Transform(2,3) = z;
 
-    //Transform = Transform.inverse();
+    //Temporary fix for wrong rotational matrix
+    Eigen::Matrix4f Correction = Eigen::Matrix4f::Identity();
+    Correction(1,1) = -1;
+    Correction(2,2) = -1;
+    Transform = Transform * Correction.inverse();
+
     std::cout << Transform << std::endl;
     return Transform;
 }
