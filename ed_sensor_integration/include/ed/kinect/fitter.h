@@ -95,20 +95,19 @@ struct EstimationInputData
 // ----------------------------------------------------------------------------------------------------
 
 /**
- * @brief The Fitter class contains the algorithm to do the 2D fit
+ * @brief The Fitter class contains the algorithm to do the 2D fit of an ed entity.
  */
 class Fitter
 {
 
 public:
 
-    Fitter(){};
     /**
      * @brief Fitter constructor
      * @param nr_data_points nr_data_points for the beam model
      * @param fx focal length for the beam model
      */
-    Fitter(uint nr_data_points, float fx);
+    Fitter(uint nr_data_points = 200, float fx = 100);
     Fitter(const image_geometry::PinholeCameraModel& cammodel) { configureBeamModel(cammodel); }
 
     ~Fitter();
