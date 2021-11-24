@@ -1,33 +1,11 @@
-#include <ed/models/model_loader.h>
+#include <ed/entity.h>
 #include <ed/world_model.h>
-#include <ed/update_request.h>
-#include <ed/serialization/serialization.h>
-#include <ed/io/json_reader.h>
-#include <ed/kinect/updater.h>
+
 #include <ed/kinect/fitter.h>
 
-#include <tue/filesystem/crawler.h>
-
-#include <rgbd/image.h>
-#include <rgbd/serialization.h>
-#include <rgbd/view.h>
+#include <geolib/math_types.h>
 
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-
-#include <tue/config/read.h>
-#include <tue/config/reader.h>
-#include <tue/config/data_pointer.h>
-
-#include <ed/entity.h>
-
-#include "geolib/math_types.h"
-#include <tf2/convert.h>
-#include <tf2/utils.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-#include <fstream>
-#include <vector>
 
 #include "ed_sensor_integration/tools/snapshot.h"
 
@@ -186,7 +164,6 @@ int main(int argc, char **argv)
 
     ed_sensor_integration::SnapshotCrawler crawler(path);
 
-    Updater updater;
     Fitter fitter;
 
     while(true)
@@ -195,7 +172,6 @@ int main(int argc, char **argv)
 
         FitterData fitterdata;
         geo::Pose3D fitted_pose;
-        EstimationInputData result;
 
         fitter.configureBeamModel(snapshot.image->getCameraModel());
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, fitterdata);
