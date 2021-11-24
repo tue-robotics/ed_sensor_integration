@@ -184,65 +184,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    tue::filesystem::Crawler crawler;
-
-    if (path.isDirectory())
-        crawler.setRootPath(path);
-    else
-        crawler.setRootPath(path.parentPath());
+    ed_sensor_integration::SnapshotCrawler crawler(path);
 
     Updater updater;
     Fitter fitter;
 
-    std::vector<ed_sensor_integration::Snapshot> snapshots;
-    unsigned int i_snapshot = 0;
-
     while(true)
     {
-        if (i_snapshot >= snapshots.size())
-        {
-            bool file_found = true;
-            tue::filesystem::Path filename;
-
-            if (path.isRegularFile() && snapshots.empty())
-                filename = path;
-            else
-            {
-                file_found = false;
-                while (crawler.nextPath(filename))
-                {
-                    if (filename.extension() == ".json")
-                    {
-                        file_found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (file_found)
-            {
-                i_snapshot = snapshots.size();
-                snapshots.push_back(ed_sensor_integration::Snapshot());
-                ed_sensor_integration::Snapshot& snapshot = snapshots.back();
-                snapshot.world_model = world_model;
-
-                if (!ed_sensor_integration::readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
-                {
-                    std::cerr << "Could not read " << filename << std::endl;
-                    snapshots.pop_back();
-                    continue;
-                }
-            }
-            else
-            {
-                if (snapshots.empty())
-                    break;
-
-                i_snapshot = snapshots.size() - 1;
-            }
-        }
-
-        ed_sensor_integration::Snapshot& snapshot = snapshots[i_snapshot];
+        ed_sensor_integration::Snapshot& snapshot = crawler.current();
 
         FitterData fitterdata;
         geo::Pose3D fitted_pose;
@@ -251,7 +200,7 @@ int main(int argc, char **argv)
         fitter.configureBeamModel(snapshot.image->getCameraModel());
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, fitterdata);
 
-        bool estimateEntityPose = fitter.estimateEntityPose(fitterdata, snapshot.world_model, entity_id, e->pose(), fitted_pose);
+        bool estimateEntityPose = fitter.estimateEntityPose(fitterdata, world_model, entity_id, e->pose(), fitted_pose);
 
         // poses for visualization
         geo::Transform2 sensor_pose2d = fitterdata.sensor_pose_xya.projectTo2d();
@@ -269,12 +218,11 @@ int main(int argc, char **argv)
 
         if (key == 81)  // Left arrow
         {
-            if (i_snapshot > 0)
-                --i_snapshot;
+            crawler.previous();
         }
         else if (key == 83) // Right arrow
         {
-            ++i_snapshot;
+            crawler.next();
         }
         else if (key == 82) // Up arrow
         {

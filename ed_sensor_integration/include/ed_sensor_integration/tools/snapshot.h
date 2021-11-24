@@ -100,6 +100,9 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 
 class SnapshotCrawler
 {
+
+public:
+
     SnapshotCrawler(tue::filesystem::Path path)
     {
         if (path.isDirectory())
@@ -114,8 +117,8 @@ class SnapshotCrawler
             loadNewSnapshot();
     }
 
-    inline Snapshot current() { return snapshots[i_current]; } //TODO pass by reference
-    inline Snapshot getSnapshot(uint i) { return snapshots[i]; } //TODO replace with overloading of indexing notation []
+    inline Snapshot& current() { return snapshots[i_current]; } //TODO pass by reference
+    inline Snapshot& getSnapshot(uint i) { return snapshots[i]; } //TODO replace with overloading of indexing notation []
 
     void setWorldModel(ed::WorldModel model)
     {
@@ -173,6 +176,7 @@ class SnapshotCrawler
         ed_sensor_integration::Snapshot& snapshot = snapshots.back();
         snapshot.world_model = world_model;
 
+        std::cout << "loading " << filename << std::endl;
         if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
         {
             std::cerr << "Could not read " << filename << std::endl;
