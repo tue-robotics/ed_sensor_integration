@@ -76,29 +76,56 @@ void visualizeSegmentation(const ed_sensor_integration::Snapshot& snapshot, cons
  */
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY [WORLDMODEL-NAME] [ENTITY-ID]" << std::endl;
 }
 
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
+    if (argc != 4)
     {
-        usage();
-        return 1;
+        if (argc == 2)
+        {
+            std::cout << "No worldmodel provided! Using empty worldmodel and no segmentation area" << std::endl;
+        }
+        else
+        {
+            usage();
+            return 1;
+        }
     }
-
-//    std::string model_name = argv[2];
-
-//    ed::WorldModel world_model;
-//    if (!ed_sensor_integration::loadWorldModel(model_name, world_model))
-//        return 1;
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
     {
         std::cerr << "Path '" << path << "' does not exist." << std::endl;
         return 1;
+    }
+
+    std::string model_name;
+    ed::WorldModel world_model;
+    std::string entity_id;
+    ed::EntityConstPtr e;
+    std::string area_description;
+
+    if (argc == 4)
+    {
+        model_name = argv[2];
+
+        if (!ed_sensor_integration::loadWorldModel(model_name, world_model))
+        {
+            std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
+            return 1;
+        }
+
+        entity_id = argv[3];
+        area_description = "on_top_of " + entity_id;
+        e = world_model.getEntity(entity_id);
+        if (!e)
+        {
+            std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
+            return 1;
+        }
     }
 
     ed_sensor_integration::SnapshotCrawler crawler(path);
@@ -116,8 +143,8 @@ int main(int argc, char **argv)
         UpdateResult res(update_req);
 
         UpdateRequest kinect_update_request;
-        kinect_update_request.area_description = snapshot.area_description;
-        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+        kinect_update_request.area_description = area_description;
+        updater.update(world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
 
@@ -149,8 +176,6 @@ int main(int argc, char **argv)
         {
             break;
         }
-
-//        std::cout << (int)key << std::endl;
     }
 
     return 0;
