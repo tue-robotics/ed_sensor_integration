@@ -24,8 +24,6 @@ struct Snapshot
 {
     rgbd::ImagePtr image;
     geo::Pose3D sensor_pose;
-    std::string area_description;
-    ed::WorldModel world_model;
 };
 
 bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose)
@@ -120,11 +118,6 @@ public:
     inline Snapshot& current() { return snapshots[i_current]; } //TODO pass by reference
     inline Snapshot& getSnapshot(uint i) { return snapshots[i]; } //TODO replace with overloading of indexing notation []
 
-    void setWorldModel(ed::WorldModel model)
-    {
-        world_model = model;
-    }
-
     void previous()
     {
         if (i_current >0)
@@ -174,7 +167,6 @@ public:
         i_current = snapshots.size();
         snapshots.push_back(ed_sensor_integration::Snapshot());
         ed_sensor_integration::Snapshot& snapshot = snapshots.back();
-        snapshot.world_model = world_model;
 
         std::cout << "loading " << filename << std::endl;
         if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
@@ -188,7 +180,6 @@ public:
 
     uint i_current;
     std::vector<Snapshot> snapshots;
-    ed::WorldModel world_model;
 
     tue::filesystem::Crawler crawler;
 };
