@@ -181,11 +181,13 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
     Transform(2,3) = z;
 
+    /*
     //Temporary fix for wrong rotational matrix
     Eigen::Matrix4f Correction = Eigen::Matrix4f::Identity();
     Correction(1,1) = -1;
     Correction(2,2) = -1;
     Transform = Transform * Correction.inverse();
+    */
 
     std::cout << Transform << std::endl;
     return Transform;
