@@ -5,12 +5,16 @@
 #include <pcl/io/pcd_io.h>
 
 #include <pcl/filters/filter.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/conditional_removal.h>
 
 #include <pcl/features/normal_3d.h>
 
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/transforms.h>
+
+#include <pcl/segmentation/extract_clusters.h>
 
 #include <boost/filesystem/convenience.hpp>
 
@@ -23,13 +27,13 @@
 
 #include <fstream>
 
-void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZRGB>::Ptr output, Eigen::Matrix4f &final_transform)
+void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src (new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    src = cloud_src;
-    tgt = cloud_tgt;
+    *src = *cloud_src;
+    *tgt = *cloud_tgt;
 
 
     //
@@ -57,54 +61,61 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
 
         //
     // Get the transformation from target to source
-    targetToSource = reg.getFinalTransformation().inverse();
-
-    //
-    // Transform target back in source frame
-    pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
-
-
-
-    //add the source to the transformed target
-    *output += *cloud_src;
+    targetToSource = reg.getFinalTransformation();//.inverse();
 
     final_transform = targetToSource;
  }
-/*
-void Segment (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud) {
+
+void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z) {
+    std::cout << "starting segmentation" << std::endl;
+    std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
     // Creating the KdTree object for the search method of the extraction
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
     tree->setInputCloud (cloud);
 
     std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance (0.02); // 2cm
-    ec.setMinClusterSize (100);
-    ec.setMaxClusterSize (25000);
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    ec.setClusterTolerance (0.1);
+    ec.setMinClusterSize ((*cloud).size()/100);
+    ec.setMaxClusterSize ((*cloud).size());
     ec.setSearchMethod (tree);
-    ec.setInputCloud (cloud_filtered);
+    ec.setInputCloud (cloud);
     ec.extract (cluster_indices);
 
-    int j = 0;
+    std::cout << "obtained cluster indices" <<std::endl;
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
+    float mindist = -1;
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
     {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
         for (const auto& idx : it->indices)
-        cloud_cluster->push_back ((*cloud_filtered)[idx]); //*
+        cloud_cluster->push_back ((*cloud)[idx]); //*
         cloud_cluster->width = cloud_cluster->size ();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
-
-        std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size () << " data points." << std::endl;
-        std::stringstream ss;
-        ss << "cloud_cluster_" << j << ".pcd";
-        writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
-        j++;
-     }
+        float sumx = 0, sumy = 0, sumz = 0, dist = 0;
+        for (uint j=0; j < (*cloud_cluster).width; ++j)
+        {
+            sumx += (*cloud_cluster)[j].x;
+            sumy += (*cloud_cluster)[j].y;
+            sumz += (*cloud_cluster)[j].z;
+        }
+        dist = pow((sumx/(*cloud_cluster).width-x),2) + pow((sumy/(*cloud_cluster).width-y),2) + pow((sumz/(*cloud_cluster).width-z),2);
+        std::cout << "distance is " << sqrt(dist) << std::endl;
+        if ((dist < mindist)||(mindist<0))
+        {
+            std::cout << "updating closest cluster" << std::endl;
+            mindist = dist;
+            cloud_out = cloud_cluster;
+        }
+    }
+    std::cout << "writing closest cluster" << std::endl;
+    *cloud = *cloud_out;
 }
-*/
-Eigen::Matrix4f ReadJson(std::string pcd_filename) {
+
+Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, float *zout) {
 
     std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
     // read json metadata
@@ -129,7 +140,6 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename) {
         //return 0;
     }
 
-    std::cout << "x: " << sensor_pose.t.x << ", y: " << sensor_pose.t.y << std::endl;
     float x = sensor_pose.t.x;
     float y = sensor_pose.t.y;
     float z = sensor_pose.t.z;
@@ -143,6 +153,9 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename) {
     float zy = sensor_pose.R.zy;
     float zz = sensor_pose.R.zz;
 
+    *xout = x;
+    *yout = y;
+    *zout = z;
 
     //float qx, qy, qz, qw;
 
@@ -213,7 +226,24 @@ int main(int argc, char **argv) {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
     Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
 
-    pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1]));
+
+    float x, y, z;//used to store camera position
+    pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1], &x, &y, &z));
+
+    // Filter out floor
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
+    // build the filter
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    condrem.setCondition (range_cond);
+    condrem.setInputCloud (inputs[0]);
+    condrem.setKeepOrganized(true);
+    // apply filter
+    condrem.filter (*inputs[0]);
+    (*inputs[0]).is_dense = false;
+    pcl::removeNaNFromPointCloud(*inputs[0], *inputs[0], indices);
+
+    Segment(inputs[0], x, y, z);
 
     *result = *inputs[0];
 
@@ -221,23 +251,35 @@ int main(int argc, char **argv) {
     {
         std::cout << "iteration " << i << std::endl;   
 
-        pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1]));
+        pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1], &x, &y, &z));
+
+        //filter out floor
+        condrem.setInputCloud (inputs[i]);
+        // apply filter
+        condrem.filter (*inputs[i]);
+        (*inputs[i]).is_dense = false;
+        pcl::removeNaNFromPointCloud(*inputs[i], *inputs[i], indices);
+
+        Segment(inputs[i], x, y, z);
 
         // align to world model coordinates
 
         // align to previous file
 
-        source = inputs[i-1];
-        target = inputs[i];
+        source = inputs[i];
+        //target = inputs[i];
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp (new pcl::PointCloud<pcl::PointXYZRGB>);
 
         std::cout << "aligning cloud " << i << " to cloud " << i - 1 << std::endl;
-        pairAlign (source, target, temp, pairTransform);
-
-        pcl::transformPointCloud (*temp, *result, GlobalTransform);
+        pairAlign (source, result, pairTransform);
+        std::cout << "transformation matrix =" << std::endl << pairTransform << std::endl;
 
         GlobalTransform *= pairTransform;
+
+        pcl::transformPointCloud (*source, *temp, pairTransform);
+
+        *result += *temp;
     }
 
     pcl::io::savePCDFileASCII ("combined.pcd", *result);
