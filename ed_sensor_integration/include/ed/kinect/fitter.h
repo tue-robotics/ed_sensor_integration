@@ -107,7 +107,8 @@ public:
      * @param nr_data_points nr_data_points for the beam model
      * @param fx focal length for the beam model
      */
-    Fitter(uint nr_data_points = 200, float fx = 100);
+    Fitter();
+    Fitter(uint nr_data_points, float fx);
     Fitter(const image_geometry::PinholeCameraModel& cammodel) { configureBeamModel(cammodel); }
 
     ~Fitter();

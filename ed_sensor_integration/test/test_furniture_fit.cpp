@@ -266,6 +266,7 @@ public:
         createWorldModel();
         setupRasterizer();
         setupCamPose();
+        fitter_ = Fitter(200, 100);
     }
 
     ~TestSetup(){}
