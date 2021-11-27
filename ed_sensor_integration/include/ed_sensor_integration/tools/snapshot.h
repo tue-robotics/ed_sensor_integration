@@ -121,7 +121,7 @@ public:
 
     void previous()
     {
-        if (i_current >0)
+        if (i_current > 0)
             --i_current;
     }
 
