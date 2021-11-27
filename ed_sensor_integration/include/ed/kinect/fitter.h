@@ -95,7 +95,7 @@ struct EstimationInputData
 // ----------------------------------------------------------------------------------------------------
 
 /**
- * @brief The Fitter class contains the algorithm to do the 2D fit of an ed entity.
+ * @brief The Fitter class contains the algorithm to do the 2D fit of an entity.
  */
 class Fitter
 {
