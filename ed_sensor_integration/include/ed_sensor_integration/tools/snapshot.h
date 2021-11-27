@@ -156,7 +156,6 @@ public:
         if (!file_found)
             return false;
 
-
         if (!loadSnapshot(filename))
             return false;
 
@@ -184,7 +183,6 @@ public:
 
     tue::filesystem::Crawler crawler;
 };
-
 
 }
 #endif // ED_SENSOR_INTEGRATION_TOOLS_SNAPSHOT_H_
