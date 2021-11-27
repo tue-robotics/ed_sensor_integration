@@ -18,7 +18,8 @@
 
 #include <vector>
 
-namespace ed_sensor_integration {
+namespace ed_sensor_integration
+{
 
 struct Snapshot
 {
