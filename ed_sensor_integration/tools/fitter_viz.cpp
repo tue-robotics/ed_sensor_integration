@@ -186,14 +186,20 @@ int main(int argc, char **argv)
 
     std::string model_name = argv[2];
 
-    ed::WorldModel world_model;
-    if (!ed_sensor_integration::loadWorldModel(model_name, world_model)){
+    ed::WorldModelPtr world_model;
+    try
+    {
+        world_model = ed_sensor_integration::loadWorldModel(model_name);
+    }
+    catch (ed_sensor_integration::ModelNotFoundException e)
+    {
         std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
+        std::cerr << e.what() << std::endl;
         return 1;
     }
 
     std::string entity_id = argv[3];
-    ed::EntityConstPtr e = world_model.getEntity(entity_id);
+    ed::EntityConstPtr e = world_model->getEntity(entity_id);
     if (!e)
     {
         std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
@@ -221,7 +227,7 @@ int main(int argc, char **argv)
         fitter.configureBeamModel(snapshot.image->getCameraModel());
         fitter.processSensorData(*snapshot.image, snapshot.sensor_pose, fitterdata);
 
-        bool estimateEntityPose = fitter.estimateEntityPose(fitterdata, world_model, entity_id, e->pose(), fitted_pose);
+        bool estimateEntityPose = fitter.estimateEntityPose(fitterdata, *world_model, entity_id, e->pose(), fitted_pose);
 
         // poses for visualization
         geo::Transform2 sensor_pose2d = fitterdata.sensor_pose_xya.projectTo2d();

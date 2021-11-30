@@ -7,6 +7,8 @@
 #include <ed/serialization/serialization.h>
 #include <ed/io/json_reader.h>
 
+#include <exception>
+
 #include <tue/filesystem/crawler.h>
 
 #include <tue/config/read.h>
@@ -20,6 +22,21 @@
 
 namespace ed_sensor_integration
 {
+
+class ModelNotFoundException : public std::exception {
+    std::string model_name_;
+    std::string message_;
+
+public:
+    ModelNotFoundException(const std::string model_name, const std::string message)
+    {
+        model_name_ = model_name;
+        message_ = message;
+    }
+    const char * what () const throw () {
+        return message_.c_str();
+    }
+};
 
 /**
  * @brief The Snapshot struct, of a camera image taken at a single point in time.
@@ -92,7 +109,7 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
  * @param[out] world_model worldmodel to write to
  * @return bool whether model is successfully loaded
  */
-bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
+ed::WorldModelPtr loadWorldModel(const std::string& model_name)
 {
     ed::UpdateRequest req;
 
@@ -101,18 +118,17 @@ bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
     std::stringstream error;
     if (!model_loader.create("_root", model_name, req, error, true))
     {
-        std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
-        std::cerr << error.str() << std::endl;
-        return false;
+        std::string message = "loadWorldModel: Model '" + model_name +
+                "' could not be loaded. ModelLoader error: " + error.str();
+        throw ModelNotFoundException(model_name.c_str(), message.c_str());
     }
 
-    // Reset world
-    world_model = ed::WorldModel();
+    ed::WorldModelPtr world_model_ptr = ed::make_shared<ed::WorldModel>();
 
     // Update world
-    world_model.update(req);
+    world_model_ptr->update(req);
 
-    return true;
+    return world_model_ptr;
 }
 
 class SnapshotCrawler

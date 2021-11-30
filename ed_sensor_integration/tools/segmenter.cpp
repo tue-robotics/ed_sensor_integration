@@ -103,7 +103,7 @@ int main(int argc, char **argv)
     }
 
     std::string model_name;
-    ed::WorldModel world_model;
+    ed::WorldModelPtr world_model;
     std::string entity_id;
     ed::EntityConstPtr e;
     std::string area_description;
@@ -112,15 +112,20 @@ int main(int argc, char **argv)
     {
         model_name = argv[2];
 
-        if (!ed_sensor_integration::loadWorldModel(model_name, world_model))
+        try
+        {
+            world_model = ed_sensor_integration::loadWorldModel(model_name);
+        }
+        catch (ed_sensor_integration::ModelNotFoundException e)
         {
             std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
+            std::cerr << e.what() << std::endl;
             return 1;
         }
 
         entity_id = argv[3];
         area_description = "on_top_of " + entity_id;
-        e = world_model.getEntity(entity_id);
+        e = world_model->getEntity(entity_id);
         if (!e)
         {
             std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
@@ -144,7 +149,7 @@ int main(int argc, char **argv)
 
         UpdateRequest kinect_update_request;
         kinect_update_request.area_description = area_description;
-        updater.update(world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+        updater.update(*world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
 
