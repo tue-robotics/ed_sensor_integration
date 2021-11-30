@@ -224,6 +224,7 @@ public:
         return true;
     }
 
+private:
     uint i_current;
     std::vector<Snapshot> snapshots;
 
