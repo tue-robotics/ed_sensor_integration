@@ -21,12 +21,23 @@
 namespace ed_sensor_integration
 {
 
+/**
+ * @brief The Snapshot struct, of a camera image taken at a single point in time.
+ */
 struct Snapshot
 {
     rgbd::ImagePtr image;
     geo::Pose3D sensor_pose;
 };
 
+/**
+ * read an rgbd image from file
+ *
+ * @param[in] filename name of the json file that describes the image
+ * @param[out] image image to write to
+ * @param[out] sensor_pose pose to write to
+ * @return bool whether image was successfully loaded
+ */
 bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose)
 {
     tue::config::DataPointer meta_data;
@@ -74,6 +85,13 @@ bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& 
     return true;
 }
 
+/**
+ * Load a worldmodel from file using its name.
+ *
+ * @param[in] model_name name of the worldmodel
+ * @param[out] world_model worldmodel to write to
+ * @return bool whether model is successfully loaded
+ */
 bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
 {
     ed::UpdateRequest req;
@@ -125,6 +143,9 @@ public:
             --i_current;
     }
 
+    /**
+     * @brief next, proceed to next index of the snapshot list. If index is out of bounds, try to load a new snapshot.
+     */
     void next()
     {
         ++i_current;
@@ -139,6 +160,10 @@ public:
         }
     }
 
+    /**
+     * @brief loadNewSnapshot, find next file to load snapshot from and load snapshot.
+     * @return whether or not loading the new snapshot succeeded.
+     */
     bool loadNewSnapshot()
     {
         bool file_found = false;
@@ -162,6 +187,11 @@ public:
         return true;
     }
 
+    /**
+     * @brief loadSnapshot, load snapshot data and extend the snapshots list.
+     * @param filename: name of the json file to load
+     * @return whether or not loading the snapshot was successful.
+     */
     bool loadSnapshot(tue::filesystem::Path filename)
     {
         i_current = snapshots.size();

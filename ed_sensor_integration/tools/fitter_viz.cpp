@@ -24,11 +24,25 @@ cv::Scalar entity_colour(0, 255, 255); // yellow
 cv::Scalar fitted_colour(243, 192, 15); // blue
 cv::Scalar measurement_colour(161, 17, 187); // purple
 
+/**
+ * @brief usage, print how the executable should be used and explain the input
+ */
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME  ENTITY_ID" << std::endl;
+    std::cout << "Usage: ed_fitter IMAGE-FILE-OR-DIRECTORY  WORLDMODEL_NAME  ENTITY_ID" << std::endl;
 }
 
+/**
+ * @brief drawLine, draw a line in 2D metric space on a canvas
+ * @param canvas: canvas to draw the line to
+ * @param point1: first point defining the line in map frame
+ * @param point2: second point defining the line in map frame
+ * @param pose: position of the sensor in map frame.
+ * @param resolution: pixels per meter
+ * @param origin_x: location in pixels of the sensor on the canvas
+ * @param origin_y: location in pixels of the sensor on the canvas
+ * @param color: color to draw the line
+ */
 void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
     // computing points relative to the pose (in meters)
@@ -58,6 +72,16 @@ void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Tr
     cv::line(canvas, point1_p, point2_p, color, 1);
 }
 
+/**
+ * @brief drawShape2D draw a 2D shape defined in 2D metric space on a canvas.
+ * @param canvas: canvas to draw to
+ * @param shape: 2D shape to draw
+ * @param pose: pose in meters of the center of the shape.
+ * @param resolution: pixels per meter
+ * @param origin_x: postion of the origin in pixels
+ * @param origin_y: position of the origin in pixels
+ * @param color: color to draw the shape in.
+ */
 void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
 {
     for (unsigned int i=0; i < shape.size(); i++)
@@ -79,6 +103,22 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
 
 }
 
+/**
+ * create an image displaying the fitted entity along with the information used in fitting.
+ *
+ * Displays the fitted entity, sensor data used in fitting and the original
+ * pose of the entity prior to fitting.
+ *
+ * Note that sensor_pose,
+ * entity_pose and fitted_pose must be expressed in the same coordinate frame
+ * @param entity: shape of the entity that was fitted
+ * @param sensor_pose: pose of the sensor
+ * @param entity_pose: estimated pose of the entity prior to fitting
+ * @param fitted_pose: estimated pose of the entity after fitting
+ * @param fitterdata: fitterdata used in fitting the entity.
+ * @param estimateEntityPose: whether or not the fitting encountered errors
+ * @return
+ */
 cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_pose, geo::Transform2 entity_pose,
                          geo::Transform2 fitted_pose, FitterData fitterdata, bool estimateEntityPose)
 {
@@ -131,6 +171,11 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
     return canvas;
 }
 
+/**
+ * @brief main executable to visualise the fitting process of stored images.
+ * @param argc: should be 4
+ * @return
+ */
 int main(int argc, char **argv)
 {
     if (argc != 4)
