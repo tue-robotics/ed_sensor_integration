@@ -229,10 +229,13 @@ geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityCons
 }
 
 // ----------------------------------------------------------------------------------------------------
+
 Fitter::Fitter()
 {
     configured_ = false;
 }
+
+// ----------------------------------------------------------------------------------------------------
 
 Fitter::Fitter(uint nr_data_points, float fx) :
     nr_data_points_(nr_data_points)
