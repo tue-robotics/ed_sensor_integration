@@ -23,6 +23,9 @@
 namespace ed
 {
 
+/**
+ *  Exception thrown when no model with the specified name could be found
+ */
 class ModelNotFoundException : public std::exception {
     std::string model_name_;
     std::string message_;
