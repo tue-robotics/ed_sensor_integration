@@ -41,9 +41,9 @@ void usage()
  * @param resolution: pixels per meter
  * @param origin_x: location in pixels of the sensor on the canvas
  * @param origin_y: location in pixels of the sensor on the canvas
- * @param color: color to draw the line
+ * @param colour: colour to draw the line
  */
-void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
+void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar colour)
 {
     // computing points relative to the pose (in meters)
     geo::Vec2 rel_point1 = pose * point1;
@@ -69,7 +69,7 @@ void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Tr
     // paint to screen
     cv::Point point1_p(x_p1, y_p1);
     cv::Point point2_p(x_p2, y_p2);
-    cv::line(canvas, point1_p, point2_p, color, 1);
+    cv::line(canvas, point1_p, point2_p, colour, 1);
 }
 
 /**
@@ -80,17 +80,17 @@ void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Tr
  * @param resolution: pixels per meter
  * @param origin_x: postion of the origin in pixels
  * @param origin_y: position of the origin in pixels
- * @param color: color to draw the shape in.
+ * @param colour: colour to draw the shape in.
  */
-void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar color)
+void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 pose, float resolution, int origin_x, int origin_y, cv::Scalar colour)
 {
     for (unsigned int i=0; i < shape.size(); i++)
     {
         for (unsigned int j=0; j < shape[i].size()-1; j++)
         {
-            drawLine(canvas, shape[i][j], shape[i][j+1], pose, resolution, origin_x, origin_y, color);
+            drawLine(canvas, shape[i][j], shape[i][j+1], pose, resolution, origin_x, origin_y, colour);
         }
-        drawLine(canvas, shape[i][0], shape[i][shape[0].size()-1], pose, resolution, origin_x, origin_y, color);
+        drawLine(canvas, shape[i][0], shape[i][shape[0].size()-1], pose, resolution, origin_x, origin_y, colour);
     }
 
     // paint entity center
@@ -99,7 +99,7 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
     int y_p_ent = origin_y - (int)(pose.t.y * resolution);
 
     cv::Point Entity_center(x_p_ent, y_p_ent);
-    cv::circle(canvas, Entity_center, 3, color, cv::FILLED);
+    cv::circle(canvas, Entity_center, 3, colour, cv::FILLED);
 
 }
 
