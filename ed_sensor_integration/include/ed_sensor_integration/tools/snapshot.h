@@ -150,8 +150,8 @@ public:
             loadNewSnapshot();
     }
 
-    inline Snapshot& current() { return snapshots[i_current]; } //TODO pass by reference
-    inline Snapshot& getSnapshot(uint i) { return snapshots[i]; } //TODO replace with overloading of indexing notation []
+    inline Snapshot& current() { return snapshots[i_current]; }
+    inline Snapshot& getSnapshot(uint i) { return snapshots[i]; }
 
     void previous()
     {
