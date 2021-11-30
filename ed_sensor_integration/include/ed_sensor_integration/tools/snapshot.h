@@ -20,7 +20,7 @@
 
 #include <vector>
 
-namespace ed_sensor_integration
+namespace ed
 {
 
 class ModelNotFoundException : public std::exception {

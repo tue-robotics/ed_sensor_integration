@@ -30,7 +30,7 @@
  * @param[in] res segmentation result on the image
  * @param[out] canvas canvas to paint to.
  */
-void visualizeSegmentation(const ed_sensor_integration::Snapshot& snapshot, const UpdateResult& res, cv::Mat canvas)
+void visualizeSegmentation(const ed::Snapshot& snapshot, const UpdateResult& res, cv::Mat canvas)
 {
     cv::Vec3b fill_colour(0, 0, 255); // red
     cv::Scalar outline_colour_1(255, 255, 255); // white
@@ -114,9 +114,9 @@ int main(int argc, char **argv)
 
         try
         {
-            world_model = ed_sensor_integration::loadWorldModel(model_name);
+            world_model = ed::loadWorldModel(model_name);
         }
-        catch (ed_sensor_integration::ModelNotFoundException e)
+        catch (ed::ModelNotFoundException e)
         {
             std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
             std::cerr << e.what() << std::endl;
@@ -133,16 +133,16 @@ int main(int argc, char **argv)
         }
     }
 
-    ed_sensor_integration::SnapshotCrawler crawler(path);
+    ed::SnapshotCrawler crawler(path);
 
     Updater updater;
 
-    std::vector<ed_sensor_integration::Snapshot> snapshots;
+    std::vector<ed::Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
     while(true)
     {
-        ed_sensor_integration::Snapshot& snapshot = crawler.current();
+        ed::Snapshot& snapshot = crawler.current();
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);

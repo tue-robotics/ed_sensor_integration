@@ -189,9 +189,9 @@ int main(int argc, char **argv)
     ed::WorldModelPtr world_model;
     try
     {
-        world_model = ed_sensor_integration::loadWorldModel(model_name);
+        world_model = ed::loadWorldModel(model_name);
     }
-    catch (ed_sensor_integration::ModelNotFoundException e)
+    catch (ed::ModelNotFoundException e)
     {
         std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
         std::cerr << e.what() << std::endl;
@@ -213,13 +213,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    ed_sensor_integration::SnapshotCrawler crawler(path);
+    ed::SnapshotCrawler crawler(path);
 
     Fitter fitter;
 
     while(true)
     {
-        ed_sensor_integration::Snapshot& snapshot = crawler.current();
+        ed::Snapshot& snapshot = crawler.current();
 
         FitterData fitterdata;
         geo::Pose3D fitted_pose;
