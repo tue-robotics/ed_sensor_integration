@@ -211,8 +211,8 @@ public:
     bool loadSnapshot(tue::filesystem::Path filename)
     {
         i_current = snapshots.size();
-        snapshots.push_back(ed_sensor_integration::Snapshot());
-        ed_sensor_integration::Snapshot& snapshot = snapshots.back();
+        snapshots.push_back(Snapshot());
+        Snapshot& snapshot = snapshots.back();
 
         std::cout << "loading " << filename << std::endl;
         if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
