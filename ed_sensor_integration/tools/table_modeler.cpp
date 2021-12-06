@@ -16,6 +16,9 @@
 
 #include <pcl/segmentation/extract_clusters.h>
 
+#include <pcl/surface/convex_hull.h>
+#include <pcl/surface/concave_hull.h>
+
 #include <boost/filesystem/convenience.hpp>
 
 #include <ed/io/json_reader.h>
@@ -66,7 +69,7 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     final_transform = targetToSource;
  }
 
-void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z) {
+void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, float* tableHeight) {
     std::cout << "starting segmentation" << std::endl;
     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
@@ -86,7 +89,7 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     std::cout << "obtained cluster indices" <<std::endl;
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
-    float mindist = -1;
+    float mindist = INFINITY;
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
     {
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -95,20 +98,28 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
         cloud_cluster->width = cloud_cluster->size ();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
-        float sumx = 0, sumy = 0, sumz = 0, dist = 0;
+        float sumx = 0, sumy = 0, sumz = 0, dist = 0, maxz = -INFINITY;
         for (uint j=0; j < (*cloud_cluster).width; ++j)
         {
             sumx += (*cloud_cluster)[j].x;
             sumy += (*cloud_cluster)[j].y;
             sumz += (*cloud_cluster)[j].z;
+            if ((*cloud_cluster)[j].z > maxz)
+            {
+                maxz = (*cloud_cluster)[j].z;
+            }
         }
         dist = pow((sumx/(*cloud_cluster).width-x),2) + pow((sumy/(*cloud_cluster).width-y),2) + pow((sumz/(*cloud_cluster).width-z),2);
         std::cout << "distance is " << sqrt(dist) << std::endl;
-        if ((dist < mindist)||(mindist<0))
+        if (dist < mindist)
         {
             std::cout << "updating closest cluster" << std::endl;
             mindist = dist;
             cloud_out = cloud_cluster;
+            if (maxz < *tableHeight)
+            {
+                *tableHeight = maxz;
+            }
         }
     }
     std::cout << "writing closest cluster" << std::endl;
@@ -193,6 +204,36 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     return Transform;
 }
 
+pcl::PointCloud<pcl::PointXYZ> Fit(pcl::PointCloud<pcl::PointXYZRGB> cloud) {
+    float totx = 0, toty = 0, avgx, avgy;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr flat(new pcl::PointCloud<pcl::PointXYZ>);
+    Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity ();
+    std::cout << "Cloud width = " << (cloud).width << std::endl;
+    (*flat).width = (cloud).width;
+    (*flat).resize((*flat).width);
+    for (uint i=0; i < (cloud).width; ++i)
+    {
+        //std::cout << "Writing point " << i << std::endl;
+        (*flat)[i].x = cloud[i].x;
+        (*flat)[i].y = cloud[i].y;
+        (*flat)[i].z = 0;
+
+        totx += (*flat)[i].x;
+        toty += (*flat)[i].y;
+    }
+    Transform(0,3) = -totx/(*flat).width;
+    Transform(1,3) = -toty/(*flat).width;
+
+    pcl::transformPointCloud (*flat, *flat, Transform);
+
+    pcl::ConcaveHull<pcl::PointXYZ> CHull;
+    CHull.setInputCloud(flat);
+    CHull.setAlpha (0.1);
+    CHull.setDimension(2);
+    CHull.reconstruct(*flat);
+    return *flat;
+}
 
 int main(int argc, char **argv) {
 
@@ -230,6 +271,7 @@ int main(int argc, char **argv) {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
     Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
 
+    float tableHeight = INFINITY;//used to keep track of the table height
 
     float x, y, z;//used to store camera position
     pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1], &x, &y, &z));
@@ -247,7 +289,7 @@ int main(int argc, char **argv) {
     (*inputs[0]).is_dense = false;
     pcl::removeNaNFromPointCloud(*inputs[0], *inputs[0], indices);
 
-    Segment(inputs[0], x, y, z);
+    Segment(inputs[0], x, y, z, &tableHeight);
 
     *result = *inputs[0];
 
@@ -255,6 +297,7 @@ int main(int argc, char **argv) {
     {
         std::cout << "iteration " << i << std::endl;   
 
+        // align to world model coordinates
         pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1], &x, &y, &z));
 
         //filter out floor
@@ -264,9 +307,7 @@ int main(int argc, char **argv) {
         (*inputs[i]).is_dense = false;
         pcl::removeNaNFromPointCloud(*inputs[i], *inputs[i], indices);
 
-        Segment(inputs[i], x, y, z);
-
-        // align to world model coordinates
+        Segment(inputs[i], x, y, z, &tableHeight);
 
         // align to previous file
 
@@ -286,7 +327,14 @@ int main(int argc, char **argv) {
         *result += *temp;
     }
 
+    pcl::PointCloud<pcl::PointXYZ> flat;
+    flat = Fit(*result);
+    std::cout << flat.width << std::endl;
+
+    std::cout << "Writing clouds" << std::endl;
     pcl::io::savePCDFileASCII ("combined.pcd", *result);
+    pcl::io::savePCDFileASCII ("flat.pcd", flat);
+    std::cout << "The table is " << tableHeight << "m tall" << std::endl;
 
     return 0;
 }
