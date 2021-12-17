@@ -14,6 +14,8 @@
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/transforms.h>
 
+#include <pcl/sample_consensus/ransac.h>
+
 #include <pcl/segmentation/extract_clusters.h>
 
 #include <pcl/surface/convex_hull.h>
@@ -29,6 +31,8 @@
 #include <tue/config/data_pointer.h>
 
 #include <fstream>
+
+#include "ed_sensor_integration/sac_model_rectangle.h"
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
@@ -204,7 +208,7 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     return Transform;
 }
 
-pcl::PointCloud<pcl::PointXYZ> Fit(pcl::PointCloud<pcl::PointXYZRGB> cloud) {
+pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) {
     float totx = 0, toty = 0, avgx, avgy;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr flat(new pcl::PointCloud<pcl::PointXYZ>);
@@ -233,6 +237,31 @@ pcl::PointCloud<pcl::PointXYZ> Fit(pcl::PointCloud<pcl::PointXYZRGB> cloud) {
     CHull.setDimension(2);
     CHull.reconstruct(*flat);
     return *flat;
+}
+
+Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+	*cloud_ptr = cloud;
+	float threshold = 0.02;
+	// Create SAC model
+	pcl::SampleConsensusModelRectangle<pcl::PointXYZ>::Ptr model (new pcl::SampleConsensusModelRectangle<pcl::PointXYZ>(cloud_ptr));
+
+	// Create SAC method
+	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZ> (model, threshold));
+	sac->setMaxIterations(1000000);
+	//sac->setProbability (success_probability_);
+
+	// Fit model
+	sac->computeModel();
+
+	// Get inliers
+	std::vector<int> inliers;
+	sac->getInliers(inliers);
+
+	// Get the model coefficients
+	Eigen::VectorXf coeff;
+	sac->getModelCoefficients (coeff);
+	return (coeff);
 }
 
 int main(int argc, char **argv) {
@@ -328,13 +357,19 @@ int main(int argc, char **argv) {
     }
 
     pcl::PointCloud<pcl::PointXYZ> flat;
-    flat = Fit(*result);
+    flat = Flatten(*result);
     std::cout << flat.width << std::endl;
+    
+    Eigen::VectorXf model = Fit(flat);
+    
+    std::cout << "model coefficients: " << std::endl << model << std::endl;
 
     std::cout << "Writing clouds" << std::endl;
     pcl::io::savePCDFileASCII ("combined.pcd", *result);
     pcl::io::savePCDFileASCII ("flat.pcd", flat);
     std::cout << "The table is " << tableHeight << "m tall" << std::endl;
+    
+    
 
     return 0;
 }
