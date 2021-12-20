@@ -242,14 +242,14 @@ pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) 
 Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
 	*cloud_ptr = cloud;
-	float threshold = 0.02;
+	float threshold = 0.01;
 	// Create SAC model
 	pcl::SampleConsensusModelRectangle<pcl::PointXYZ>::Ptr model (new pcl::SampleConsensusModelRectangle<pcl::PointXYZ>(cloud_ptr));
 
 	// Create SAC method
 	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZ> (model, threshold));
-	sac->setMaxIterations(1000000);
-	//sac->setProbability (success_probability_);
+	sac->setMaxIterations(10000000);
+	sac->setProbability(1);
 
 	// Fit model
 	sac->computeModel();

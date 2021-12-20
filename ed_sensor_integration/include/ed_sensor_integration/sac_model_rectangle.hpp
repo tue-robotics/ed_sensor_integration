@@ -96,10 +96,9 @@
    
    float w = (c1(0)*c2(1)-c2(0)*c1(1))/l; //output: width defined as distance between c1 and point 3, signed
    
-   Eigen::Matrix2f transform = Eigen::Matrix2f::Identity().transpose();
+   Eigen::Matrix2f transform = Eigen::Matrix2f::Identity().colwise().reverse().eval();
    transform(1,0) = -1;
    transform = transform*w/l;
-   
    Eigen::Vector2f c3 = transform * c1; //vector perpendicular to c1 with length w, pointing from c1 to point 3
    
    // determine rotation:
@@ -139,6 +138,7 @@
    PCL_DEBUG ("[pcl::SampleConsensusModelRectangle::computeModelCoefficients] Model is (%g,%g,%g,%g,%g).\n",
               model_coefficients[0], model_coefficients[1], model_coefficients[2], model_coefficients[3],
               model_coefficients[4]);
+   //std::cout << "P1: " << std::endl << p1 << std::endl << "P2: " << std::endl << p2 << std::endl << "P3: " << std::endl << p3 << std::endl << model_coefficients << std::endl;
    return (true);
  }
   
@@ -226,8 +226,9 @@
 			Eigen::Vector2f v = in - p4;
 			distances[i] = sqrt(v.dot(v)); //distance between corner 4 and the point
 		}
+		//std::cout << distances[i] << std::endl;
    }
-   
+   //std::cout << std::accumulate(distances.begin(), distances.end(), 0.0) / distances.size() << ", ";
   /*
    Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0.0f);
    Eigen::Vector4f line_dir (model_coefficients[3], model_coefficients[4], model_coefficients[5], 0.0f);
@@ -322,6 +323,7 @@
    {
 	   if (distances[i] <= threshold) {count++;}
    }
+   //std::cout << count << std::endl;
    return (count);
    /*// Check if the model is valid given the user constraints
    if (!isModelValid (model_coefficients))
