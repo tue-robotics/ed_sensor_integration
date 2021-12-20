@@ -33,6 +33,7 @@
 #include <fstream>
 
 #include "ed_sensor_integration/sac_model_rectangle.h"
+#include "ed_sensor_integration/sac_model_double_line.h"
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
@@ -242,26 +243,69 @@ pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) 
 Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
 	*cloud_ptr = cloud;
-	float threshold = 0.01;
+	float threshold = 0.03;
 	// Create SAC model
-	pcl::SampleConsensusModelRectangle<pcl::PointXYZ>::Ptr model (new pcl::SampleConsensusModelRectangle<pcl::PointXYZ>(cloud_ptr));
+	pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line1 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud_ptr));
 
 	// Create SAC method
-	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZ> (model, threshold));
-	sac->setMaxIterations(10000000);
-	sac->setProbability(1);
+	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac1 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line1, threshold));
+	sac1->setMaxIterations(10000);
+	sac1->setProbability(1);
 
 	// Fit model
-	sac->computeModel();
+	sac1->computeModel();
 
 	// Get inliers
 	std::vector<int> inliers;
-	sac->getInliers(inliers);
+	sac1->getInliers(inliers);
 
 	// Get the model coefficients
 	Eigen::VectorXf coeff;
-	sac->getModelCoefficients (coeff);
-	return (coeff);
+	sac1->getModelCoefficients (coeff);
+	
+	float w = coeff[2];
+	float r = coeff[3];
+	
+	//extract the inliers and fit second set of lines perpendicular
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointIndices::Ptr line1_inliers (new pcl::PointIndices);
+	line1_inliers->indices = inliers;
+	pcl::ExtractIndices<pcl::PointXYZ> extract;
+	extract.setInputCloud (cloud_ptr);
+	extract.setIndices (line1_inliers);
+	extract.setNegative (true);
+	extract.filter (*cloud2);
+	// Create second SAC model
+	pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line2 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud2));
+	// Create SAC method
+	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac2 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line2, threshold));
+	sac2->setMaxIterations(10000);
+	sac2->setProbability(1);
+	// Fit model
+	sac2->computeModel();
+	// Get inliers
+	sac2->getInliers(inliers);
+	// Get the model coefficients
+	Eigen::VectorXf coeff2;
+	sac2->getModelCoefficients (coeff2);
+	
+	float l = coeff2[2];
+	r = r - coeff2[3]; //difference in angle: if not 90 degrees, model is a parallellogram	
+	pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
+	Eigen::VectorXf output;
+	output.resize(3);
+	output[0] = l;
+	output[1] = w;
+	output[2] = r;
+	
+	pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
+	line2_inliers->indices = inliers;
+	extract.setInputCloud (cloud2);
+	extract.setIndices (line2_inliers);
+	extract.filter (*cloud2);
+	pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
+	
+	return (output);
 }
 
 int main(int argc, char **argv) {
