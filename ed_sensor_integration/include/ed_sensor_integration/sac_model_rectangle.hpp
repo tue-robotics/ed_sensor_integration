@@ -180,10 +180,10 @@
 	   Eigen::Vector2f in ((*input_)[(*indices_)[i]].x, (*input_)[(*indices_)[i]].y);
 	   
 	   //compute distances to lines
-		d1 = ( c1(0)*(p1(1)-in(1))-( p1(0)-in(0))*c1(1))/l; //Distance between line 1 and the point
-		d2 = ( c2(0)*(p2(1)-in(1))-( p2(0)-in(0))*c1(1))/w; //Distance between line 2 and the point
-		d3 = (-c1(0)*(p3(1)-in(1))-(-p3(0)-in(0))*c1(1))/l; //Distance between line 3 and the point
-		d4 = (-c1(0)*(p4(1)-in(1))-(-p4(0)-in(0))*c1(1))/w; //Distance between line 4 and the point
+		d1 = ( c1(0)*(p1(1)-in(1))-(p1(0)-in(0))* c1(1))/l; //Distance between line 1 and the point
+		d2 = ( c2(0)*(p2(1)-in(1))-(p2(0)-in(0))* c1(1))/w; //Distance between line 2 and the point
+		d3 = (-c1(0)*(p3(1)-in(1))-(p3(0)-in(0))*-c1(1))/l; //Distance between line 3 and the point
+		d4 = (-c1(0)*(p4(1)-in(1))-(p4(0)-in(0))*-c1(1))/w; //Distance between line 4 and the point
 		//note: these distances are signed, such that points lying inside the rectangle have positive distance to all lines
 
 		if (d1>0 && d2>0 && d3>0 && d4>0) //inside the rectangle
