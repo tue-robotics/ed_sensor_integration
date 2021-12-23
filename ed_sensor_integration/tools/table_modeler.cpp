@@ -34,6 +34,7 @@
 
 #include "ed_sensor_integration/sac_model_rectangle.h"
 #include "ed_sensor_integration/sac_model_double_line.h"
+#include "ed_sensor_integration/sac_model_circle.h"
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
@@ -256,20 +257,18 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	sac1->computeModel();
 
 	// Get inliers
-	std::vector<int> inliers;
-	sac1->getInliers(inliers);
+	std::vector<int> inliers1;
+	sac1->getInliers(inliers1);
 
 	// Get the model coefficients
-	Eigen::VectorXf coeff;
-	sac1->getModelCoefficients (coeff);
+	Eigen::VectorXf coeff1;
+	sac1->getModelCoefficients (coeff1);
 	
-	float w = coeff[2];
-	float r = coeff[3];
 	
 	//extract the inliers and fit second set of lines perpendicular
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointIndices::Ptr line1_inliers (new pcl::PointIndices);
-	line1_inliers->indices = inliers;
+	line1_inliers->indices = inliers1;
 	pcl::ExtractIndices<pcl::PointXYZ> extract;
 	extract.setInputCloud (cloud_ptr);
 	extract.setIndices (line1_inliers);
@@ -284,27 +283,59 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	// Fit model
 	sac2->computeModel();
 	// Get inliers
-	sac2->getInliers(inliers);
+	std::vector<int> inliers2;
+	sac2->getInliers(inliers2);
 	// Get the model coefficients
 	Eigen::VectorXf coeff2;
 	sac2->getModelCoefficients (coeff2);
-	
-	float l = coeff2[2];
-	r = r - coeff2[3]; //difference in angle: if not 90 degrees, model is a parallellogram	
+
 	pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
-	Eigen::VectorXf output;
-	output.resize(3);
-	output[0] = l;
-	output[1] = w;
-	output[2] = r;
 	
 	pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
-	line2_inliers->indices = inliers;
+	line2_inliers->indices = inliers2;
 	extract.setInputCloud (cloud2);
 	extract.setIndices (line2_inliers);
 	extract.filter (*cloud2);
 	pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
 	
+	
+	//repeat above steps for a circle
+	pcl::SampleConsensusModelCircle<pcl::PointXYZ>::Ptr circle (new pcl::SampleConsensusModelCircle<pcl::PointXYZ>(cloud_ptr));
+
+	// Create SAC method
+	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr saccirc (new pcl::RandomSampleConsensus<pcl::PointXYZ> (circle, threshold));
+	saccirc->setMaxIterations(10000);
+	saccirc->setProbability(1);
+
+	// Fit model
+	saccirc->computeModel();
+
+	// Get inliers
+	std::vector<int> inliers3;
+	saccirc->getInliers(inliers3);
+
+	// Get the model coefficients
+	Eigen::VectorXf coeff3;
+	saccirc->getModelCoefficients (coeff3);
+	
+	float min_inliers = 0.0;
+	Eigen::VectorXf output;
+	if ((inliers1.size()+inliers2.size() >= inliers3.size()) && (static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) > min_inliers))
+	{
+		float w = coeff1[2];
+		float l = coeff2[2];
+		float r = coeff1[3] - coeff2[3];//difference in angle: if not 90 degrees, model is a parallellogram	
+		
+		output.resize(3);
+		output[0] = l;
+		output[1] = w;
+		output[2] = r;
+	}
+	else if ((inliers1.size()+inliers2.size() < inliers3.size()) && (static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) > min_inliers))
+	{
+		output.resize(1);
+		output[0] = coeff3[2];
+	}
 	return (output);
 }
 

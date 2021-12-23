@@ -38,21 +38,21 @@
   *
   */
   
- #ifndef PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_DOUBLE_LINE_H_
- #define PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_DOUBLE_LINE_H_
+ #ifndef PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_CIRCLE_H_
+ #define PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_CIRCLE_H_
   
  #include <unsupported/Eigen/NonLinearOptimization> // for LevenbergMarquardt
- #include "ed_sensor_integration/sac_model_double_line.h"
+ #include "ed_sensor_integration/sac_model_circle.h"
  #include <pcl/common/common.h> // for getAngle3D
  #include <pcl/common/concatenate.h>
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> bool
- pcl::SampleConsensusModelDoubleLine<PointT>::isSampleGood (const Indices &samples) const
+ pcl::SampleConsensusModelCircle<PointT>::isSampleGood (const Indices &samples) const
  {
    if (samples.size () != sample_size_)
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine::isSampleGood] Wrong number of samples (is %lu, should be %lu)!\n", samples.size (), sample_size_);
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle::isSampleGood] Wrong number of samples (is %lu, should be %lu)!\n", samples.size (), sample_size_);
      return (false);
    }
    return (true);
@@ -60,13 +60,13 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> bool
- pcl::SampleConsensusModelDoubleLine<PointT>::computeModelCoefficients (
+ pcl::SampleConsensusModelCircle<PointT>::computeModelCoefficients (
        const Indices &samples, Eigen::VectorXf &model_coefficients) const
  {
    // Need 3 samples
    if (samples.size () != sample_size_)
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine::computeModelCoefficients] Invalid set of samples given (%lu)!\n", samples.size ());
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle::computeModelCoefficients] Invalid set of samples given (%lu)!\n", samples.size ());
      return (false);
    }
   
@@ -86,47 +86,32 @@
    Eigen::Vector2f p2 ((*input_)[samples[1]].x, (*input_)[samples[1]].y);
    Eigen::Vector2f p3 ((*input_)[samples[2]].x, (*input_)[samples[2]].y);
    
-   float x, y, l, w, r;
+   float x, y, l, r;
    
-   x = p1(0), y = p1(1); //output: x and y values
+   float denominator = 2*(p1(0)*(p2(1)-p3(1)) - p1(1)*(p2(0)-p3(0)) + p2(0)*p3(1) - p3(0)*p2(1));
+   x = (p1.dot(p1)*(p2(1)-p3(1)) + p2.dot(p2)*(p3(1)-p1(1)) + p3.dot(p3)*(p1(1)-p2(1))) / denominator;
+   y = (p1.dot(p1)*(p2(0)-p3(0)) + p2.dot(p2)*(p3(0)-p1(0)) + p3.dot(p3)*(p1(0)-p2(0))) / denominator;
    
-   Eigen::Vector2f c1, c2;
-   
-   if (/*eps_angle_ == INFINITY*/true) //if angle is given, only 2 points are required
-   {
-	   c1 = p2 - p1; //vector between point 1 and 2
-	   l = sqrt(c1.dot(c1)); //define length as distance between point 1 and 2
-	   // determine rotation:
-	   r = std::atan2(c1(1), c1(0)); //output: rotation of the double_line
-   }
-   else
-   {
-	   r = eps_angle_; //output: rotation of the double_line
-	   c1(0)=std::cos(r);
-	   c1(1)=std::sin(r);
-	   l = 1;
-   }
-   c2 = p1 - p3; //vector between point 3 and 1
-   w = (c1(0)*c2(1)-c2(0)*c1(1))/l; //output: width defined as distance between c1 and point 3, signed
+   Eigen::Vector2f d;
+   d(0) = x-p1(0);
+   d(1) = y-p1(1);
+   r = sqrt(d.dot(d));
 	   
    //save model coefficients
    model_coefficients.resize (model_size_);
    model_coefficients[0] = x;
    model_coefficients[1] = y;
-   model_coefficients[2] = w;
-   model_coefficients[3] = r;
+   model_coefficients[2] = r;
    
-   //std::cout << w << std::endl;
-   
-   PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::computeModelCoefficients] Model is (%g,%g,%g,%g,%g).\n",
-              model_coefficients[0], model_coefficients[1], model_coefficients[2], model_coefficients[3]);
+   PCL_DEBUG ("[pcl::SampleConsensusModelCircle::computeModelCoefficients] Model is (%g,%g,%g).\n",
+              model_coefficients[0], model_coefficients[1], model_coefficients[2]);
    //std::cout << "P1: " << std::endl << p1 << std::endl << "P2: " << std::endl << p2 << std::endl << "P3: " << std::endl << p3 << std::endl << model_coefficients << std::endl;
    return (true);
  }
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> void
- pcl::SampleConsensusModelDoubleLine<PointT>::getDistancesToModel (
+ pcl::SampleConsensusModelCircle<PointT>::getDistancesToModel (
        const Eigen::VectorXf &model_coefficients, std::vector<double> &distances) const
  {
    // Check if the model is valid given the user constraints
@@ -138,36 +123,17 @@
   
    distances.resize (indices_->size ());
    
-   float x = model_coefficients[0], y = model_coefficients[1], w = model_coefficients[2], r = model_coefficients[3];
-   float d1, d2;
+   float x = model_coefficients[0], y = model_coefficients[1], r = model_coefficients[2];
 
-   Eigen::Vector2f p1, p2, p3, p4, c1, c2;
-   
-   //define edge vectors
-   c1(0)=std::cos(r);
-   c1(1)=std::sin(r);
-
-   c2(0)= std::sin(r)*w;
-   c2(1)=-std::cos(r)*w;
-   
-   //std::cout << "c2 = " << std::endl << c2 << std::endl;
-
-   //define corner vectors
-   p1(0)=x;
-   p1(1)=y;
-   p2 = p1 + c1;
-   p3 = p2 + c2;
-   p4 = p1 + c2;
+   Eigen::Vector2f p1, c1;
+   p1(0) = x;
+   p1(1) = y;
    
    for (std::size_t i = 0; i < indices_->size (); ++i)
    {
 	   Eigen::Vector2f in ((*input_)[(*indices_)[i]].x, (*input_)[(*indices_)[i]].y);
-	   
-	   //compute distances to lines
-		d1 = std::abs(c1(0)*(p1(1)-in(1))-(p1(0)-in(0))*c1(1)); //Distance between line 1 and the point
-		d2 = std::abs(c1(0)*(p3(1)-in(1))-(p3(0)-in(0))*c1(1)); //Distance between line 2 and the point
-
-		distances[i] = std::min(d1, d2); //smallest of d1 and d2
+	   c1 = p1 - in;
+	   distances[i] = std::abs(sqrt(c1.dot(c1))-r);
 		
 		//std::cout << distances[i] << std::endl;
    }
@@ -203,7 +169,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> void
- pcl::SampleConsensusModelDoubleLine<PointT>::selectWithinDistance (
+ pcl::SampleConsensusModelCircle<PointT>::selectWithinDistance (
        const Eigen::VectorXf &model_coefficients, const double threshold, Indices &inliers)
  {
    std::vector<double> distances;
@@ -264,7 +230,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> std::size_t
- pcl::SampleConsensusModelDoubleLine<PointT>::countWithinDistance (
+ pcl::SampleConsensusModelCircle<PointT>::countWithinDistance (
        const Eigen::VectorXf &model_coefficients, const double threshold) const
  {
    std::vector<double> distances;
@@ -316,7 +282,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> void
- pcl::SampleConsensusModelDoubleLine<PointT>::optimizeModelCoefficients (
+ pcl::SampleConsensusModelCircle<PointT>::optimizeModelCoefficients (
        const Indices &inliers, const Eigen::VectorXf &model_coefficients, Eigen::VectorXf &optimized_coefficients) const
  {
    optimized_coefficients = model_coefficients;
@@ -324,14 +290,14 @@
    // Needs a set of valid model coefficients
    if (!isModelValid (model_coefficients))
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine::optimizeModelCoefficients] Given model is invalid!\n");
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle::optimizeModelCoefficients] Given model is invalid!\n");
      return;
    }
   
    // Need more than the minimum sample size to make a difference
    if (inliers.size () <= sample_size_)
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine:optimizeModelCoefficients] Not enough inliers found to optimize model coefficients (%lu)! Returning the same coefficients.\n", inliers.size ());
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle:optimizeModelCoefficients] Not enough inliers found to optimize model coefficients (%lu)! Returning the same coefficients.\n", inliers.size ());
      return;
    }
   
@@ -341,7 +307,7 @@
    int info = lm.minimize (optimized_coefficients);
    
    // Compute the L2 norm of the residuals
-   PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::optimizeModelCoefficients] LM solver finished with exit code %i, having a residual norm of %g. \nInitial solution: %g %g %g %g %g %g %g \nFinal solution: %g %g %g %g %g %g %g\n",
+   PCL_DEBUG ("[pcl::SampleConsensusModelCircle::optimizeModelCoefficients] LM solver finished with exit code %i, having a residual norm of %g. \nInitial solution: %g %g %g %g %g %g %g \nFinal solution: %g %g %g %g %g %g %g\n",
               info, lm.fvec.norm (), model_coefficients[0], model_coefficients[1], model_coefficients[2], model_coefficients[3],
               model_coefficients[4], model_coefficients[5], model_coefficients[6], optimized_coefficients[0], optimized_coefficients[1], optimized_coefficients[2], optimized_coefficients[3], optimized_coefficients[4], optimized_coefficients[5], optimized_coefficients[6]);
      
@@ -354,13 +320,13 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> void
- pcl::SampleConsensusModelDoubleLine<PointT>::projectPoints (
+ pcl::SampleConsensusModelCircle<PointT>::projectPoints (
        const Indices &inliers, const Eigen::VectorXf &model_coefficients, PointCloud &projected_points, bool copy_data_fields) const
  {
    // Needs a valid set of model coefficients
    if (!isModelValid (model_coefficients))
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine::projectPoints] Given model is invalid!\n");
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle::projectPoints] Given model is invalid!\n");
      return;
    }
   
@@ -442,13 +408,13 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> bool
- pcl::SampleConsensusModelDoubleLine<PointT>::doSamplesVerifyModel (
+ pcl::SampleConsensusModelCircle<PointT>::doSamplesVerifyModel (
        const std::set<int> &indices, const Eigen::VectorXf &model_coefficients, const double threshold) const
  {
    // Needs a valid model coefficients
    if (!isModelValid (model_coefficients))
    {
-     PCL_ERROR ("[pcl::SampleConsensusModelDoubleLine::doSamplesVerifyModel] Given model is invalid!\n");
+     PCL_ERROR ("[pcl::SampleConsensusModelCircle::doSamplesVerifyModel] Given model is invalid!\n");
      return (false);
    }
   
@@ -467,7 +433,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> double
- pcl::SampleConsensusModelDoubleLine<PointT>::pointToLineDistance (
+ pcl::SampleConsensusModelCircle<PointT>::pointToLineDistance (
        const Eigen::Vector4f &pt, const Eigen::VectorXf &model_coefficients) const
  {
    Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0.0f);
@@ -477,7 +443,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> void
- pcl::SampleConsensusModelDoubleLine<PointT>::projectPointToRectangle (
+ pcl::SampleConsensusModelCircle<PointT>::projectPointToRectangle (
        const Eigen::Vector4f &pt, const Eigen::VectorXf &model_coefficients, Eigen::Vector4f &pt_proj) const
  {
    Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0.0f);
@@ -495,7 +461,7 @@
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  template <typename PointT> bool 
- pcl::SampleConsensusModelDoubleLine<PointT>::isModelValid (const Eigen::VectorXf &model_coefficients) const
+ pcl::SampleConsensusModelCircle<PointT>::isModelValid (const Eigen::VectorXf &model_coefficients) const
  {
    if (!SampleConsensusModel<PointT>::isModelValid (model_coefficients))
      return (false);
@@ -511,20 +477,20 @@
      // Check whether the current cylinder model satisfies our angle threshold criterion with respect to the given axis
      if (angle_diff > eps_angle_)
      {
-       PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Angle between cylinder direction and given axis is too large.\n");
+       PCL_DEBUG ("[pcl::SampleConsensusModelCircle::isModelValid] Angle between cylinder direction and given axis is too large.\n");
        return (false);
      }
    }
   
    if (radius_min_ != -std::numeric_limits<double>::max() && model_coefficients[6] < radius_min_)
    {
-     PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Radius is too small: should be larger than %g, but is %g.\n",
+     PCL_DEBUG ("[pcl::SampleConsensusModelCircle::isModelValid] Radius is too small: should be larger than %g, but is %g.\n",
                 radius_min_, model_coefficients[6]);
      return (false);
    }
    if (radius_max_ != std::numeric_limits<double>::max() && model_coefficients[6] > radius_max_)
    {
-     PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Radius is too big: should be smaller than %g, but is %g.\n",
+     PCL_DEBUG ("[pcl::SampleConsensusModelCircle::isModelValid] Radius is too big: should be smaller than %g, but is %g.\n",
                 radius_max_, model_coefficients[6]);
      return (false);
    }*/
@@ -532,6 +498,6 @@
    return (true);
  }
   
- #define PCL_INSTANTIATE_SampleConsensusModelDoubleLine(PointT) template class PCL_EXPORTS pcl::SampleConsensusModelDoubleLine<PointT>;
+ #define PCL_INSTANTIATE_SampleConsensusModelCircle(PointT) template class PCL_EXPORTS pcl::SampleConsensusModelCircle<PointT>;
   
- #endif    // PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_DOUBLE_LINE_H_
+ #endif    // PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_CIRCLE_H_
