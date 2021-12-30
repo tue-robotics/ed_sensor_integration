@@ -14,9 +14,12 @@
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/transforms.h>
 
-#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+//#include <pcl/sample_consensus/ransac.h>
 
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/segmentation/sac_segmentation.h>
 
 #include <pcl/surface/convex_hull.h>
 #include <pcl/surface/concave_hull.h>
@@ -32,9 +35,10 @@
 
 #include <fstream>
 
-#include "ed_sensor_integration/sac_model_rectangle.h"
+//#include "ed_sensor_integration/sac_model_rectangle.h"
 #include "ed_sensor_integration/sac_model_double_line.h"
 #include "ed_sensor_integration/sac_model_circle.h"
+#include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
@@ -51,7 +55,7 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     reg.setTransformationEpsilon (1e-6);
     // Set the maximum distance between two correspondences (src<->tgt) to 10cm
     // Note: adjust this based on the size of your datasets
-    reg.setMaxCorrespondenceDistance (0.1);
+    reg.setMaxCorrespondenceDistance (1);
     // Set the point representation
     // reg.setPointRepresentation (pcl::make_shared<const MyPointRepresentation> (point_representation));
 
@@ -75,7 +79,85 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     final_transform = targetToSource;
  }
 
-void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, float* tableHeight) {
+float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
+	std::vector<int> indices;
+	float threshold = 0.03;
+	
+	std::cout << "starting ransac" << std::endl;
+	// Create SAC model
+	pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>(cloud));
+	std::cout << "created plane object" << std::endl;
+	// Create SAC method
+	pcl::RandomSampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZRGB> (plane, threshold));
+	std::cout << "created ransac object" << std::endl;
+	sac->setMaxIterations(10000);
+	sac->setProbability(0.99);
+	
+	// Fit model
+	sac->computeModel();
+
+	// Get inliers
+	std::vector<int> inliers;
+	sac->getInliers(inliers);
+
+	// Get the model coefficients
+	Eigen::VectorXf coeff;
+	sac->getModelCoefficients (coeff);
+	std::cout << "ransac complete" << std::endl;
+	
+	pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
+	*out = *cloud;
+	//filter out everything below plane
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    condrem.setCondition (range_cond);
+    condrem.setInputCloud (out);
+    condrem.setKeepOrganized(true);
+    
+    condrem.filter (*out);
+    (*out).is_dense = false;
+    pcl::removeNaNFromPointCloud(*out, *out, indices);
+	
+	return(coeff[3]);
+	
+	
+	
+	/*
+	Eigen::Vector3f ax(0, 0, 1);	
+	pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+	// Create the segmentation object
+	pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+	// Optional
+	seg.setOptimizeCoefficients (true);
+	// Mandatory
+	seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
+	seg.setMethodType (pcl::SAC_RANSAC);
+	seg.setDistanceThreshold (0.01);
+	seg.setAxis (ax);
+	seg.setEpsAngle (0);
+
+	seg.setInputCloud (cloud);
+	seg.segment (*inliers, *coefficients);
+
+	if (inliers->indices.size () == 0)
+	{
+		PCL_ERROR ("Could not estimate a planar model for the given dataset.\n");
+		*out = *cloud;
+		return(-1);
+	}
+	// Extract the inliers
+	pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+    extract.setInputCloud (cloud);
+    extract.setIndices (inliers);
+    extract.setNegative (false);
+    extract.filter (*out);
+    
+	float Height = coefficients->values[3]; //final coefficient gives distance to the origin. normal vector is given as (0, 0, 1)
+	return(Height);*/
+}
+
+void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight) {
     std::cout << "starting segmentation" << std::endl;
     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
@@ -84,7 +166,7 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     tree->setInputCloud (cloud);
 
     std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec; //using euclidian cluster extraction
     ec.setClusterTolerance (0.1);
     ec.setMinClusterSize ((*cloud).size()/100);
     ec.setMaxClusterSize ((*cloud).size());
@@ -93,41 +175,46 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     ec.extract (cluster_indices);
 
     std::cout << "obtained cluster indices" <<std::endl;
-
+	
+	//find closest cluster
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
     float mindist = INFINITY;
-    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+	for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != 
+	cluster_indices.end (); ++it) //iterate through all clusters
     {
+		//construct cluster
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
         for (const auto& idx : it->indices)
         cloud_cluster->push_back ((*cloud)[idx]); //*
         cloud_cluster->width = cloud_cluster->size ();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
-        float sumx = 0, sumy = 0, sumz = 0, dist = 0, maxz = -INFINITY;
+        float sumx = 0, sumy = 0, sumz = 0, dist = 0;
         for (uint j=0; j < (*cloud_cluster).width; ++j)
         {
+			//sum up all points
             sumx += (*cloud_cluster)[j].x;
             sumy += (*cloud_cluster)[j].y;
             sumz += (*cloud_cluster)[j].z;
-            if ((*cloud_cluster)[j].z > maxz)
-            {
-                maxz = (*cloud_cluster)[j].z;
-            }
         }
+        //find distance from camera to the middle of the cluster
         dist = pow((sumx/(*cloud_cluster).width-x),2) + pow((sumy/(*cloud_cluster).width-y),2) + pow((sumz/(*cloud_cluster).width-z),2);
         std::cout << "distance is " << sqrt(dist) << std::endl;
-        if (dist < mindist)
+        if (dist < mindist) //check if closest so far
         {
             std::cout << "updating closest cluster" << std::endl;
             mindist = dist;
             cloud_out = cloud_cluster;
-            if (maxz < *tableHeight)
-            {
-                *tableHeight = maxz;
-            }
+            //currentTableHeight = maxz
         }
     }
+	
+	float height = FilterPlane(cloud_out, cloud_out);
+	if (height != -1)
+	{
+		tableHeight.push_back(height);
+	}
+	
     std::cout << "writing closest cluster" << std::endl;
     *cloud = *cloud_out;
 }
@@ -375,7 +462,7 @@ int main(int argc, char **argv) {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr result (new pcl::PointCloud<pcl::PointXYZRGB>), source, target;
     Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
 
-    float tableHeight = INFINITY;//used to keep track of the table height
+    std::vector<float> tableHeight;//used to keep track of the table height
 
     float x, y, z;//used to store camera position
     pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1], &x, &y, &z));
@@ -393,7 +480,7 @@ int main(int argc, char **argv) {
     (*inputs[0]).is_dense = false;
     pcl::removeNaNFromPointCloud(*inputs[0], *inputs[0], indices);
 
-    Segment(inputs[0], x, y, z, &tableHeight);
+    Segment(inputs[0], x, y, z, tableHeight);
 
     *result = *inputs[0];
 
@@ -411,7 +498,7 @@ int main(int argc, char **argv) {
         (*inputs[i]).is_dense = false;
         pcl::removeNaNFromPointCloud(*inputs[i], *inputs[i], indices);
 
-        Segment(inputs[i], x, y, z, &tableHeight);
+        Segment(inputs[i], x, y, z, tableHeight);
 
         // align to previous file
 
@@ -442,7 +529,7 @@ int main(int argc, char **argv) {
     std::cout << "Writing clouds" << std::endl;
     pcl::io::savePCDFileASCII ("combined.pcd", *result);
     pcl::io::savePCDFileASCII ("flat.pcd", flat);
-    std::cout << "The table is " << tableHeight << "m tall" << std::endl;
+    std::cout << "The table is " << std::accumulate(tableHeight.begin(), tableHeight.end(), 0.0) / tableHeight.size() << "m tall" << std::endl;
     
     
 
