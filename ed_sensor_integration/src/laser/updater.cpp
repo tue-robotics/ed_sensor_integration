@@ -280,10 +280,8 @@ LaserUpdater::~LaserUpdater()
 {
 }
 
-void LaserUpdater::configure(ed::InitData& init)
+void LaserUpdater::configure(tue::Configuration& config)
 {
-    tue::Configuration& config = init.config;
-
     config.value("world_association_distance", world_association_distance_);
     config.value("min_segment_size_pixels", min_segment_size_pixels_);
     config.value("segment_depth_threshold", segment_depth_threshold_);

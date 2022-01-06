@@ -61,7 +61,7 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     std::string laser_topic;
     config.value("laser_topic", laser_topic);
-    updater_.configure(init);
+    updater_.configure(config);
 
     if (config.hasError())
         return;

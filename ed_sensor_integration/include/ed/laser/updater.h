@@ -27,7 +27,7 @@ public:
     virtual ~LaserUpdater();
 
     // configure updater
-    void configure(ed::InitData& init);
+    void configure(tue::Configuration& config);
 
     /**
      * @brief update update the worldmodel based on a novel laserscan message.
