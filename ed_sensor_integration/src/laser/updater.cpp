@@ -387,12 +387,11 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
     // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
 
-    std::vector<EntityUpdate> clusters;
+    std::vector<EntityUpdate> clusters(segments.size());
 
-    for(std::vector<ScanSegment>::const_iterator it = segments.cbegin(); it != segments.cend(); ++it)
+    for(int i_seg=0; i_seg < segments.size(); i_seg++)
     {
-        const ScanSegment& segment = *it;
-        clusters.push_back(segmentToConvexHull(segment, sensor_pose, associated_ranges));
+        clusters[i_seg] = segmentToConvexHull(segments[i_seg], sensor_pose, associated_ranges);
     }
 
     // Create selection of world model entities that could associate
