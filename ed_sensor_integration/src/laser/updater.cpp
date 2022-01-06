@@ -299,7 +299,7 @@ void LaserUpdater::configure(tue::Configuration& config)
     //pose_cache.clear();
 }
 
-void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>& sensor_ranges,
+void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sensor_ranges,
                          const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req)
 {
     tue::Timer t_total;
@@ -307,9 +307,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
 
     uint num_beams = sensor_ranges.size();
     // - - - - - - - - - - - - - - - - - -
-    // Update laser model
-
-    std::vector<double> filtered_sensor_ranges(num_beams);
+    // Filter measurment
 
     for(unsigned int i = 1; i < num_beams - 1; ++i)
     {
@@ -317,11 +315,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
         // Get rid of points that are isolated from their neighbours
         if (std::abs(rs - sensor_ranges[i - 1]) > 0.1 && std::abs(rs - sensor_ranges[i + 1]) > 0.1)  // TODO: magic number
         {
-            filtered_sensor_ranges[i] = sensor_ranges[i - 1];
-        }
-        else
-        {
-            filtered_sensor_ranges[i] = sensor_ranges[i];
+            sensor_ranges[i] = sensor_ranges[i - 1];
         }
     }
 
@@ -357,7 +351,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
             if (e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right"))
             {
                 // Try to update the pose
-                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, filtered_sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
+                geo::Pose3D new_pose = fitEntity(*e, sensor_pose, lrf_model_, sensor_ranges, model_ranges, 0, 0.1, 0, 0.1, -1.57, 1.57, 0.1, pose_cache);
                 req.setPose(e->id(), new_pose);
 
                 // Render the door with the updated pose
@@ -373,13 +367,12 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
     // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
 
-    std::vector<double> associated_ranges(num_beams);
-    associate(filtered_sensor_ranges, model_ranges, associated_ranges);
+    associate(sensor_ranges, model_ranges);
 
     // - - - - - - - - - - - - - - - - - -
     // Segment the remaining points into clusters
 
-    std::vector<ScanSegment> segments = segment(associated_ranges);
+    std::vector<ScanSegment> segments = segment(sensor_ranges);
 
     // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
@@ -388,7 +381,7 @@ void LaserUpdater::update(const ed::WorldModel& world, const std::vector<double>
 
     for(int i_seg=0; i_seg < segments.size(); i_seg++)
     {
-        clusters[i_seg] = segmentToConvexHull(segments[i_seg], sensor_pose, associated_ranges);
+        clusters[i_seg] = segmentToConvexHull(segments[i_seg], sensor_pose, sensor_ranges);
     }
 
     // Create selection of world model entities that could associate
@@ -517,17 +510,16 @@ void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMod
     }
 }
 
-void LaserUpdater::associate(const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<double>& filtered_sensor_ranges){
+void LaserUpdater::associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges){
     for(unsigned int i = 0; i < sensor_ranges.size(); ++i)
     {
         double rs = sensor_ranges[i];
         double rm = model_ranges[i];
 
-        filtered_sensor_ranges[i] = rs;
         if (rs <= 0
                 || (rm > 0 && rs > rm)  // If the sensor point is behind the world model, skip it
                 || (std::abs(rm - rs) < world_association_distance_))
-            filtered_sensor_ranges[i] = 0;
+            sensor_ranges[i] = 0;
     }
 }
 

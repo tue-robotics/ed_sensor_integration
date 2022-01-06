@@ -36,7 +36,7 @@ public:
      * @param[in] sensor_pose pose of the sensor at the time of the measurement
      * @param[out] req update request
      */
-    void update(const ed::WorldModel& world, const std::vector<double>& sensor_ranges,
+    void update(const ed::WorldModel& world, std::vector<double>& sensor_ranges,
                 const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req);
 
     /**
@@ -92,12 +92,12 @@ public:
 
 private:
     /**
-     * @brief associate filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
+     * @brief associate: filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
      * @param[in] sensor_ranges distances measured by the lrf
      * @param[in] model_ranges distances as predicted by the worldmodel
-     * @param[out] filtered_sensor_ranges filtered distances. (associated ranges have value 0.0)
+     * @param[out] sensor_ranges filtered distances. (associated ranges have value 0.0)
      */
-    void associate(const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges, std::vector<double>& filtered_sensor_ranges);
+    void associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges);
 
     /** divide the sensor ranges into segments */
     std::vector<ScanSegment> segment(const std::vector<double>& sensor_ranges);

@@ -27,7 +27,7 @@
  * copy a ros laserscan message to a standard vector
  *
  * @param[in] scan laserscan message
- * @param[out] sensor_ranges vector with ranges
+ * @param[out] sensor_ranges vector with distances ranging 0 and up, not containing null.
  */
 void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::vector<double>& sensor_ranges)
 {
