@@ -1,5 +1,5 @@
-#ifndef ED_SENSOR_INTEGRATION_LASER_UPDATER_H_
-#define ED_SENSOR_INTEGRATION_LASER_UPDATER_H_
+#ifndef ED_LASER_LASER_UPDATER_H_
+#define ED_LASER_LASER_UPDATER_H_
 
 #include <ed/laser/entity_update.h>
 
