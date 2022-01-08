@@ -284,14 +284,6 @@ bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  s
     return assoc_matrix.calculateBestAssignment(assig);
 }
 
-LaserUpdater::LaserUpdater()
-{
-}
-
-LaserUpdater::~LaserUpdater()
-{
-}
-
 void LaserUpdater::configure(tue::Configuration& config)
 {
     config.value("world_association_distance", world_association_distance_);

@@ -18,11 +18,6 @@ class LaserUpdater
 {
 
 public:
-
-    LaserUpdater();
-
-    virtual ~LaserUpdater();
-
     /**
      *  @brief Configure updater
      *
