@@ -121,41 +121,12 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         image_buffer_.pop();
 
     }
-    catch(tf::ExtrapolationException& ex)
-    {
-        try
-        {
-            // Now we have to check if the error was an interpolation or extrapolation error (i.e., the image is too old or
-            // to new, respectively). If it is too old, discard it.
-
-            tf::StampedTransform latest_sensor_pose;
-            tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
-            // If image time stamp is older than latest transform, throw it out
-            if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
-            {
-                image_buffer_.pop();
-                ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
-                                << ros::Time(rgbd_image->getTimestamp()) << ": latest tf timestamp = " << std::fixed << latest_sensor_pose.stamp_);
-                ROS_WARN_STREAM("[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
-                                << ros::Time(rgbd_image->getTimestamp()) << ": latest tf timestamp = " << std::fixed << latest_sensor_pose.stamp_);
-            }
-        }
-        catch(tf::TransformException& exc)
-        {
-            ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
-            ROS_WARN("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
-        }
-        // Discard images that have become too old
-        if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
-            image_buffer_.pop();
-        return false;
-    }
     catch(tf::TransformException& ex)
     {
         ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
 
-        // Discard images that have become too old
+        // Discard images that are out of date
         if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
             image_buffer_.pop();
 
