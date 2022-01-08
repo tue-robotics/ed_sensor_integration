@@ -18,12 +18,12 @@
 /**
  * Calculate an error based on the quality of a fit.
  *
- * @param e entity being fitted
- * @param lrf laser range finder
- * @param rel_pose candidate pose of the entity relative to the laser range finder
- * @param sensor_ranges distances measured by the lrf
- * @param model_ranges predicted measurement distances using the model sans e
- * @param[out] num_model_points number of points used for
+ * @param e Entity being fitted
+ * @param lrf Laser Range Finder model
+ * @param rel_pose Candidate pose of the entity relative to the laser range finder
+ * @param sensor_ranges Distances measured by the lrf
+ * @param model_ranges Predicted measurement distances using the model sans e
+ * @param[out] num_model_points Number of points used for
  * @return double error
  */
 double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, const geo::Pose3D& rel_pose,
@@ -47,12 +47,12 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         double ds = sensor_ranges[i];
         double dm = test_model_ranges[i];
 
-        if (ds <= 0) // no sensor data
+        if (ds <= 0) // No sensor data
             continue;
 
         ++num_sensor_points;
 
-        if (dm <= 0) // no raytrace collision in model
+        if (dm <= 0) // No raytrace collision in model
         {
             total_error += 0.1;
             continue;
@@ -72,10 +72,10 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         ++num_model_points;
     }
 
-    return total_error / (num_sensor_points+1); // to be sure to never divide by zero.
+    return total_error / (num_sensor_points+1); // To be sure to never divide by zero.
 }
 
-// retrieve pose from cache, otherwise add pose to cache
+// Retrieve pose from cache, otherwise add pose to cache
 geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>& pose_cache)
 {
     const ed::UUID ID = e.id();
@@ -94,19 +94,19 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
 /**
  * estimate the pose of an entity that best describes the sensor data.
  *
- * @param e entity to be fitted
- * @param sensor_pose pose of the sensor in world coordinates
- * @param lrf model of the laser range finder
- * @param sensor_ranges distances measured by the lrf
- * @param model_ranges predicted measurement distances using the model sans e
- * @param x_window window size to sample candidate poses
- * @param x_step step size to sample candidate poses
- * @param y_window window size to sample candidate poses
- * @param y_step step size to sample candidate poses
- * @param yaw_min, yaw_plus window size to sample candidate poses\
- * @param yaw_step step size to sample candidate poses
- * @param pose_cache cache of entity poses
- * @return estimated pose of the entity
+ * @param e Entity to be fitted
+ * @param sensor_pose Pose of the sensor in world coordinates
+ * @param lrf Model of the laser range finder
+ * @param sensor_ranges Distances measured by the lrf
+ * @param model_ranges Predicted measurement distances using the model sans e
+ * @param x_window Window size to sample candidate poses
+ * @param x_step Step size to sample candidate poses
+ * @param y_window Window size to sample candidate poses
+ * @param y_step Step size to sample candidate poses
+ * @param yaw_min Yaw_plus window size to sample candidate poses\
+ * @param yaw_step Step size to sample candidate poses
+ * @param pose_cache Cache of entity poses
+ * @return Estimated pose of the entity
  */
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                       const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges,
@@ -118,7 +118,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 
     double min_error = 1e6;
     geo::Pose3D best_pose = e.pose();
-
 
     for(double dyaw = yaw_min; dyaw <= yaw_plus; dyaw += yaw_step)
     {
@@ -149,7 +148,7 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 }
 
 
-// check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
+// Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
 bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
@@ -160,7 +159,7 @@ bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinde
     return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
 }
 
-// check if point p is represented in the lrf data. p is expressed relative to the lrf.
+// Check if point p is represented in the lrf data. p is expressed relative to the lrf.
 bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
@@ -175,7 +174,7 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
 std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& clusters, const ed::WorldModel& world){
     float max_dist = 0.3; //TODO magic number
 
-    // find nearby entities to associate the measurements with
+    // Find nearby entities to associate the measurements with
     std::vector<ed::EntityConstPtr> entities;
 
     if (!clusters.empty())
@@ -219,12 +218,12 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
 }
 
 /**
- * @brief associateSegmentsWithEntities
- * @param[in] clusters measured clusters
- * @param[in] entities entities that may be associated with the clusters
- * @param[in] current_time current time to compare against the last measurement of an entity
- * @param[out] assig assignmentmatrix between clusters and entities.
- * @return whether or not the assignment was successful
+ * @brief Associate segments with etities in the world model
+ * @param[in] clusters Measured clusters
+ * @param[in] entities Entities that may be associated with the clusters
+ * @param[in] current_time Current time to compare against the last measurement of an entity
+ * @param[out] assig Assignment matrix between clusters and entities.
+ * @return Whether or not the assignment was successful
  */
 bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment& assig)
 {
@@ -303,9 +302,8 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     t_total.start();
 
     uint num_beams = sensor_ranges.size();
-    // - - - - - - - - - - - - - - - - - -
-    // Filter measurment
 
+    // Filter measurment
     for(unsigned int i = 1; i < num_beams - 1; ++i)
     {
         double rs = sensor_ranges[i];
@@ -316,15 +314,11 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         }
     }
 
-    // - - - - - - - - - - - - - - - - - -
-    // Render world model as if seen by laser
-
+    // Render world model as seen by laser
     std::vector<double> model_ranges(num_beams, 0);
     renderWorld(sensor_pose, world, model_ranges);
 
-    // - - - - - - - - - - - - - - - - - -
     // Fit the doors
-
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
     if (fit_entities_)
@@ -334,7 +328,6 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
             const ed::EntityConstPtr& e = *it;
-            //std::cout << e->type() << std::endl;
 
             if (!e->shape() || !e->has_pose())
                 continue;
@@ -342,7 +335,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
             geo::Pose3D e_pose_SENSOR = sensor_pose_inv * e->pose();
 
             // If not in sensor view, continue
-            if (e_pose_SENSOR.t.length2() > 5.0 * 5.0 || e_pose_SENSOR.t.x < 0)
+            if (e_pose_SENSOR.t.length2() > 5.0 * 5.0 || e_pose_SENSOR.t.x < 0) // TODO magic number: 5.0 = maximum distance from sensor
                 continue;
 
             if (e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right"))
@@ -361,19 +354,13 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         }
     }
 
-    // - - - - - - - - - - - - - - - - - -
     // Try to associate sensor laser points to rendered model points, and filter out the associated ones
-
     associate(sensor_ranges, model_ranges);
 
-    // - - - - - - - - - - - - - - - - - -
     // Segment the remaining points into clusters
-
     std::vector<ScanSegment> segments = segment(sensor_ranges);
 
-    // - - - - - - - - - - - - - - - - - -
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
-
     std::vector<EntityUpdate> clusters(segments.size());
 
     for(int i_seg=0; i_seg < segments.size(); i_seg++)
@@ -392,6 +379,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
 
     //std::vector<int> entities_associated(entities.size(), -1); // used to clear unaccociated entities
 
+    // Fill update request
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
         const EntityUpdate& cluster = clusters[i_cluster];
@@ -418,7 +406,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         else
         {
             // Mark the entity as being associated
-            //entities_associated[i_entity] = i_cluster;
+            //entities_associated[i_entity] = i_cluster; // used to clear unassociated entities
 
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
@@ -558,7 +546,7 @@ std::vector<ScanSegment> LaserUpdater::segment(const std::vector<double>& sensor
 
                 if (current_segment.size() >= min_segment_size_pixels_)
                 {
-                    // calculate bounding box
+                    // Calculate bounding box
                     geo::Vec2 seg_min, seg_max;
                     for(unsigned int k = 0; k < current_segment.size(); ++k)
                     {
