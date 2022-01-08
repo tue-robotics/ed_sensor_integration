@@ -1,25 +1,19 @@
 #ifndef ED_SENSOR_INTEGRATION_LASER_PLUGIN_H_
 #define ED_SENSOR_INTEGRATION_LASER_PLUGIN_H_
 
+#include "ed/laser/updater.h"
+
 #include <ed/plugin.h>
-#include <ed/laser/updater.h>
-
-// ROS
-#include <ros/subscriber.h>
-#include <ros/callback_queue.h>
-
-// TF
-#include <tf/transform_listener.h>
+#include <ed/convex_hull.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
 
-// Messages
-#include <queue>
+#include <ros/subscriber.h>
+#include <ros/callback_queue.h>
+#include <tf/transform_listener.h>
 #include <sensor_msgs/LaserScan.h>
 
-// Properties
-#include "ed/convex_hull.h"
-
+#include <queue>
 #include <map>
 
 class LaserPlugin : public ed::Plugin

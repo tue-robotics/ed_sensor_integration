@@ -1,22 +1,19 @@
-#include <ed/laser/updater.h>
-
-#include <iostream>
-
-#include <geolib/Shape.h>
-
-#include <ed/world_model.h>
-#include <ed/entity.h>
-#include <ed/update_request.h>
-
-#include <opencv2/imgproc/imgproc.hpp>
-
-#include "ed/convex_hull_calc.h"
-
-#include <ed/io/json_writer.h>
+#include "ed/laser/updater.h"
 
 #include "ed_sensor_integration/association_matrix.h"
 
+#include <ed/convex_hull_calc.h>
+#include <ed/entity.h>
+#include <ed/update_request.h>
+#include <ed/io/json_writer.h>
+#include <ed/world_model.h>
+
+#include <geolib/Shape.h>
+
 #include <tue/profiling/timer.h>
+
+#include <iostream>
+#include <opencv2/imgproc/imgproc.hpp>
 
 /**
  * Calculate an error based on the quality of a fit.

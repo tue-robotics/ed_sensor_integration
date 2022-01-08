@@ -1,26 +1,24 @@
 #include "laser_plugin.h"
-#include <ed/laser/entity_update.h>
 
-#include <iostream>
+#include "ed/laser/entity_update.h"
+#include "ed_sensor_integration/association_matrix.h"
 
-#include <ros/node_handle.h>
+#include <ed/convex_hull_calc.h>
+#include <ed/entity.h>
+#include <ed/io/json_writer.h>
+#include <ed/update_request.h>
+#include <ed/world_model.h>
 
 #include <geolib/ros/tf_conversions.h>
 #include <geolib/Shape.h>
 
-#include <ed/world_model.h>
-#include <ed/entity.h>
-#include <ed/update_request.h>
+#include <tue/profiling/timer.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include "ed/convex_hull_calc.h"
+#include <ros/node_handle.h>
 
-#include <ed/io/json_writer.h>
-
-#include "ed_sensor_integration/association_matrix.h"
-
-#include <tue/profiling/timer.h>
+#include <iostream>
 
 
 /**

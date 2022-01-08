@@ -1,16 +1,13 @@
 #ifndef ED_LASER_LASER_UPDATER_H_
 #define ED_LASER_LASER_UPDATER_H_
 
-#include <ed/laser/entity_update.h>
+#include "ed/laser/entity_update.h"
 
-// ed core
-#include <ed/world_model.h>
+#include <ed/convex_hull.h>
 #include <ed/init_data.h>
+#include <ed/world_model.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
-
-// Properties
-#include "ed/convex_hull.h"
 
 #include <map>
 #include <string>

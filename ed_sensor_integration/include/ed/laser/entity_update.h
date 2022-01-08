@@ -1,7 +1,7 @@
 #ifndef ED_LASER_ENTITY_UPDATE_H_
 #define ED_LASER_ENTITY_UPDATE_H_
 
-#include "ed/convex_hull.h"
+#include <ed/convex_hull.h>
 
 /**
  * @brief collection structure for laser entities
