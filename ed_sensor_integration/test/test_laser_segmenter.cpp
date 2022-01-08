@@ -85,14 +85,14 @@ TEST_F(LaserSegmenterTest, testCase)
 {
     ROS_INFO_STREAM("Starting testsuite");
 
-    ed::WorldModel world_model;
     std::string path = ros::package::getPath("ed_sensor_integration");
     path += "/test/test_laser_model.sdf";
+
     ed::UpdateRequest request;
     ed::models::loadModel(ed::models::LoadType::FILE, path, request);
-    world_model.update(request);
 
-    ed::WorldModel empty_world;
+    ed::WorldModel world_model;
+    world_model.update(request);
 
     // create updater
     LaserUpdater updater;
@@ -113,6 +113,8 @@ TEST_F(LaserSegmenterTest, testCase)
 
     ed::UpdateRequest req;
     double timestamp = 0.0;
+
+    ed::WorldModel empty_world;
     updater.update(empty_world, sensor_ranges, test_pose, timestamp, req);
 
     EXPECT_EQ(req.updated_entities.size(), 3) << "3 entities in world, updater found " << i;
