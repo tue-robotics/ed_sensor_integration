@@ -114,7 +114,8 @@ TEST_F(LaserSegmenterTest, testCase)
     ed::UpdateRequest req;
     double timestamp = 0.0;
     updater.update(empty_world, sensor_ranges, test_pose, timestamp, req);
-    ASSERT_TRUE(true);
+
+    EXPECT_EQ(req.updated_entities.size(), 3) << "3 entities in world, updater found " << i;
 }
 
 
