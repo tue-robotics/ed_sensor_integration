@@ -135,9 +135,9 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
             {
                 image_buffer_.pop();
                 ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
-                                << ros::Time(rgbd_image->getTimestamp()));
+                                << ros::Time(rgbd_image->getTimestamp()) << ": latest tf timestamp = " << std::fixed << latest_sensor_pose.stamp_);
                 ROS_WARN_STREAM("[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
-                                << ros::Time(rgbd_image->getTimestamp()));
+                                << ros::Time(rgbd_image->getTimestamp()) << ": latest tf timestamp = " << std::fixed << latest_sensor_pose.stamp_);
             }
 
             return false;
@@ -153,6 +153,9 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
 
             return false;
         }
+        // Discard images that have become too old
+        if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
+            image_buffer_.pop();
     }
     catch(tf::TransformException& ex)
     {
