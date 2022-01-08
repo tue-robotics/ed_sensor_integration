@@ -3,6 +3,9 @@
 
 #include "ed/convex_hull.h"
 
+/**
+ * @brief collection structure for laser entities
+ */
 struct EntityUpdate
 {
     ed::ConvexHull chull;

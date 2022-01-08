@@ -52,6 +52,7 @@ private:
 
     /**
      * @brief update update the worldmodel based on a novel laserscan message.
+     *
      * @param[in] world worldmodel to be updated
      * @param[in] scan laserscan message
      * @param[in] sensor_pose pose of the sensor at the time of the measurement

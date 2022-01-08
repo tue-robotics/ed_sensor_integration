@@ -31,6 +31,7 @@ public:
 
     /**
      * @brief update update the worldmodel based on a novel laserscan message.
+     *
      * @param[in] world worldmodel to be updated
      * @param[in] scan laserscan message
      * @param[in] sensor_pose pose of the sensor at the time of the measurement
@@ -40,7 +41,7 @@ public:
                 const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req);
 
     /**
-     * configure the LRF model based on a laserscan message
+     * @brief configure the LRF model based on a laserscan message
      *
      * @param num_beams number of beams in the lrf model
      * @param angle_min angle corresponding to the first beam in radians
@@ -56,7 +57,7 @@ public:
     }
 
      /**
-     * set the frame of the laser model
+     * @brief set the frame of the laser model
      *
      * @param frame_id laserscan message
      */
@@ -66,7 +67,7 @@ public:
     }
 
     /**
-     * get the number of beams of the model
+     * @brief get the number of beams of the model
      */
     uint getNumBeams()
     {
@@ -75,6 +76,7 @@ public:
 
     /**
      * @brief render the worldmodel as would be seen by the lrf.
+     *
      * @param[in] sensor_pose pose of the lrf to be modeled in the world frame.
      * @param[in] world worldmodel
      * @param[out] model_ranges ranges of distances as would be seen by an lrf
@@ -93,16 +95,21 @@ public:
 private:
     /**
      * @brief associate: filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
+     *
      * @param[in] sensor_ranges distances measured by the lrf
      * @param[in] model_ranges distances as predicted by the worldmodel
      * @param[out] sensor_ranges filtered distances. (associated ranges have value 0.0)
      */
     void associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges);
 
-    /** divide the sensor ranges into segments */
+    /**
+     *  @brief divide the sensor ranges into segments
+     */
     std::vector<ScanSegment> segment(const std::vector<double>& sensor_ranges);
 
-    /** convert a segment of ranges to a convex hull */
+    /**
+     * @brief convert a segment of ranges to a convex hull
+     */
     EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<double>& sensor_ranges);
 
     // PARAMETERS
