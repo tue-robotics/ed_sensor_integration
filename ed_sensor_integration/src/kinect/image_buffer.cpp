@@ -5,6 +5,8 @@
 #include <tf/transform_listener.h>
 #include <geolib/ros/tf_conversions.h>
 
+#define MAX_BUFFER_TIME 1.0
+
 // ----------------------------------------------------------------------------------------------------
 
 ImageBuffer::ImageBuffer() : kinect_client_(nullptr), tf_listener_(nullptr)
@@ -144,6 +146,11 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         {
             ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
             ROS_WARN("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+
+            // Discard images that have become too old
+            if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
+                image_buffer_.pop();
+
             return false;
         }
     }
@@ -151,6 +158,11 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
     {
         ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+
+        // Discard images that have become too old
+        if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
+            image_buffer_.pop();
+
         return false;
     }
 
