@@ -23,7 +23,18 @@ public:
 
     virtual ~LaserUpdater();
 
-    // configure updater
+    /**
+     *  @brief Configure updater
+     *
+     *  @param[in] config Configuration which may contain the following fields:
+     *      world_association_distance
+     *      min_segment_size_pixels
+     *      segment_depth_threshold
+     *      min_cluster_size
+     *      max_cluster_size
+     *      max_gap_size
+     *      fit_entities Whether or not to fit an entity (0 or 1)
+     */
     void configure(tue::Configuration& config);
 
     /**

@@ -16,7 +16,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 /**
- * Calculate an error based on the quality of a fit.
+ * @brief Calculate an error based on the quality of a fit.
  *
  * @param e Entity being fitted
  * @param lrf Laser Range Finder model
@@ -92,7 +92,7 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
 }
 
 /**
- * estimate the pose of an entity that best describes the sensor data.
+ * @brief estimate the pose of an entity that best describes the sensor data.
  *
  * @param e Entity to be fitted
  * @param sensor_pose Pose of the sensor in world coordinates
@@ -147,8 +147,15 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
     return best_pose;
 }
 
-
-// Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
+/**
+ * @brief Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
+ *
+ * @param x_sensor X coordinate of the position of the sensor
+ * @param y_sensor Y coordinate of the position of the sensor
+ * @param lrf Laser Range Finder model
+ * @param sensor_ranges Measured ranges
+ * @return
+ */
 bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
@@ -159,7 +166,14 @@ bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinde
     return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
 }
 
-// Check if point p is represented in the lrf data. p is expressed relative to the lrf.
+/**
+ * @brief Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
+ *
+ * @param p_sensor Position of the sensor
+ * @param lrf Laser Range Finder model
+ * @param sensor_ranges Measured ranges
+ * @return
+ */
 bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
 {
     return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
@@ -167,6 +181,7 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
 
 /**
  * @brief findNearbyEntities create a list of entities that are close to detected clusters
+ *
  * @param clusters detected clusters
  * @param world worldmodel to get the entities from
  * @return entities that are near the clusters.
@@ -219,6 +234,7 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
 
 /**
  * @brief Associate segments with etities in the world model
+ *
  * @param[in] clusters Measured clusters
  * @param[in] entities Entities that may be associated with the clusters
  * @param[in] current_time Current time to compare against the last measurement of an entity
@@ -472,8 +488,6 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
 
     //std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 }
-
-// ----------------------------------------------------------------------------------------------------
 
 void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)
 {
