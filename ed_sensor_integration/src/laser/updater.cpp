@@ -39,7 +39,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
     geo::LaserRangeFinder::RenderResult res(test_model_ranges);
     lrf.render(opt, res);
 
-    int n = 0;
+    uint num_sensor_points = 0;
     num_model_points = 0;
     double total_error = 0;
     for(unsigned int i = 0; i < test_model_ranges.size(); ++i)
@@ -50,7 +50,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         if (ds <= 0) // no sensor data
             continue;
 
-        ++n;
+        ++num_sensor_points;
 
         if (dm <= 0) // no raytrace collision in model
         {
@@ -72,7 +72,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
         ++num_model_points;
     }
 
-    return total_error / (n+1); // to be sure to never divide by zero.
+    return total_error / (num_sensor_points+1); // to be sure to never divide by zero.
 }
 
 // retrieve pose from cache, otherwise add pose to cache
