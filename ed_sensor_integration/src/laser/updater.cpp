@@ -15,6 +15,8 @@
 #include <iostream>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#define MIN_N_POINTS_FITTING 3
+
 /**
  * @brief Calculate an error based on the quality of a fit.
  *
@@ -136,7 +138,7 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
                 int num_model_points;
                 double error = getFittingError(e, lrf, sensor_pose_inv * test_pose, sensor_ranges, model_ranges, num_model_points);
 
-                if (error < min_error && num_model_points >= 3)
+                if (error < min_error && num_model_points >= MIN_N_POINTS_FITTING)
                 {
                     best_pose = test_pose;
                     min_error = error;
@@ -299,8 +301,6 @@ void LaserUpdater::configure(tue::Configuration& config)
 
     if (config.hasError())
         return;
-
-    //pose_cache.clear();
 }
 
 void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sensor_ranges,
@@ -371,7 +371,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     // Convert the segments to convex hulls, and check for collisions with other convex hulls
     std::vector<EntityUpdate> clusters(segments.size());
 
-    for(int i_seg=0; i_seg < segments.size(); i_seg++)
+    for(uint i_seg=0; i_seg < segments.size(); ++i_seg)
     {
         clusters[i_seg] = segmentToConvexHull(segments[i_seg], sensor_pose, sensor_ranges);
     }
