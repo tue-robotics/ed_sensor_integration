@@ -42,6 +42,9 @@
 
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
+	
+	//final_transform = Eigen::Matrix4f::Identity(); return; //activate to bypass alignment
+	
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src (new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -80,6 +83,9 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
  }
 
 float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
+	
+	//*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
+	
 	std::vector<int> indices;
 	float threshold = 0.03;
 	
@@ -107,6 +113,7 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 	
 	pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
     range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
+    //range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, (coeff[3]+0.01))));
 	*out = *cloud;
 	//filter out everything below plane
     pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
@@ -120,44 +127,12 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 	
 	return(coeff[3]);
 	
-	
-	
-	/*
-	Eigen::Vector3f ax(0, 0, 1);	
-	pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-	// Create the segmentation object
-	pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-	// Optional
-	seg.setOptimizeCoefficients (true);
-	// Mandatory
-	seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
-	seg.setMethodType (pcl::SAC_RANSAC);
-	seg.setDistanceThreshold (0.01);
-	seg.setAxis (ax);
-	seg.setEpsAngle (0);
-
-	seg.setInputCloud (cloud);
-	seg.segment (*inliers, *coefficients);
-
-	if (inliers->indices.size () == 0)
-	{
-		PCL_ERROR ("Could not estimate a planar model for the given dataset.\n");
-		*out = *cloud;
-		return(-1);
-	}
-	// Extract the inliers
-	pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-    extract.setInputCloud (cloud);
-    extract.setIndices (inliers);
-    extract.setNegative (false);
-    extract.filter (*out);
-    
-	float Height = coefficients->values[3]; //final coefficient gives distance to the origin. normal vector is given as (0, 0, 1)
-	return(Height);*/
 }
 
 void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight) {
+	
+	//return; //activate completely bypass segmentation and height estimation
+	
     std::cout << "starting segmentation" << std::endl;
     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
@@ -376,14 +351,14 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	Eigen::VectorXf coeff2;
 	sac2->getModelCoefficients (coeff2);
 
-	pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
+	//pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
 	
 	pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
 	line2_inliers->indices = inliers2;
 	extract.setInputCloud (cloud2);
 	extract.setIndices (line2_inliers);
 	extract.filter (*cloud2);
-	pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
+	//pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
 	
 	
 	//repeat above steps for a circle
@@ -407,6 +382,10 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	
 	float min_inliers = 0.0;
 	Eigen::VectorXf output;
+	
+	std::cout << "Parallelogram model, " << static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) << std::endl;
+	std::cout << "Circle model, " << static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) << std::endl;
+	
 	if ((inliers1.size()+inliers2.size() >= inliers3.size()) && (static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) > min_inliers))
 	{
 		float w = coeff1[2];
@@ -483,7 +462,9 @@ int main(int argc, char **argv) {
     Segment(inputs[0], x, y, z, tableHeight);
 
     *result = *inputs[0];
-
+	
+	pcl::io::savePCDFileASCII ("first.pcd", *inputs[0]);
+	
     for (int i = 1; i < argc-1; ++i)
     {
         std::cout << "iteration " << i << std::endl;   
