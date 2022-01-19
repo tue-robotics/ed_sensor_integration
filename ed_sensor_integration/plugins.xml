@@ -1,17 +1,17 @@
 <?xml version="1.0"?>
 <class_libraries>
   <library path="lib/libed_kinect_plugin">
-    <class type="KinectPlugin" base_class_type="ed::Plugin">
+    <class name="ed_sensor_integration/rgbd" type="KinectPlugin" base_class_type="ed::Plugin">
       <description>Plugin to expose ROS interfaces to update and segment entities.</description>
     </class>
   </library>
   <library path="lib/libed_laser_plugin">
-    <class type="LaserPlugin" base_class_type="ed::Plugin">
+    <class name="ed_sensor_integration/laser" type="LaserPlugin" base_class_type="ed::Plugin">
       <description>Plugin that segments entities from laser points that can't be matched with the current WM.</description>
     </class>
   </library>
   <library path="lib/libed_clearer_plugin">
-    <class type="ClearerPlugin" base_class_type="ed::Plugin">
+    <class name="ed_sensor_integration/clearer" type="ClearerPlugin" base_class_type="ed::Plugin">
       <description>Plugin to clear certain entities after not being updated for a while.</description>
     </class>
   </library>
