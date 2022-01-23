@@ -72,10 +72,7 @@ public:
     /**
      * @brief get the number of beams of the model
      */
-    uint getNumBeams()
-    {
-        return lrf_model_.getNumBeams();
-    }
+    unsigned int getNumBeams() { return lrf_model_.getNumBeams(); }
 
     /**
      * @brief render the worldmodel as would be seen by the lrf.
