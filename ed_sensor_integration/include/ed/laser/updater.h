@@ -113,7 +113,7 @@ private:
     geo::LaserRangeFinder lrf_model_;
     std::string lrf_frame_;
 
-    std::map<ed::UUID,geo::Pose3D> pose_cache;
+    std::map<ed::UUID, geo::Pose3D> pose_cache;
 
 };
 
