@@ -212,7 +212,7 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
  * @param[out] assig Assignment matrix between clusters and entities.
  * @return Whether or not the assignment was successful
  */
-bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment& assig)
+bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const std::vector<ed::EntityConstPtr>& entities, double current_time, ed_sensor_integration::Assignment& assig)
 {
     // Create association matrix
     ed_sensor_integration::AssociationMatrix assoc_matrix(clusters.size());
