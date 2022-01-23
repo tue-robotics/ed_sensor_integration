@@ -44,7 +44,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
     uint num_sensor_points = 0;
     num_model_points = 0;
     double total_error = 0;
-    for(unsigned int i = 0; i < test_model_ranges.size(); ++i)
+    for (unsigned int i = 0; i < test_model_ranges.size(); ++i)
     {
         double ds = sensor_ranges[i];
         double dm = test_model_ranges[i];
