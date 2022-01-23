@@ -188,7 +188,8 @@ bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& l
  * @param world worldmodel to get the entities from
  * @return entities that are near the clusters.
  */
-std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& clusters, const ed::WorldModel& world){
+std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& clusters, const ed::WorldModel& world)
+{
     float max_dist = 0.3; //TODO magic number
 
     // Find nearby entities to associate the measurements with
