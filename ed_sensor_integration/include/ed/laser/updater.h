@@ -62,12 +62,9 @@ public:
      /**
      * @brief set the frame of the laser model
      *
-     * @param frame_id laserscan message
+     * @param frame_id frame id of the laser
      */
-    void setLaserFrame(std::string frame_id)
-    {
-        lrf_frame_ = frame_id;
-    }
+    inline void setLaserFrame(std::string frame_id) { lrf_frame_ = frame_id; }
 
     /**
      * @brief get the number of beams of the model
