@@ -36,7 +36,7 @@ void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::v
     {
         double r = scan->ranges[i];
         if (r > scan->range_max)
-            sensor_ranges[i] = r;
+            sensor_ranges[i] = 0;
         else if (r == r && r > scan->range_min)
             sensor_ranges[i] = r;
         else
