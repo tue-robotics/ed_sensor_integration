@@ -482,7 +482,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     //std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
 }
 
-void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)
+void LaserUpdater::renderWorld(const geo::Pose3D& sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)
 {
     geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
