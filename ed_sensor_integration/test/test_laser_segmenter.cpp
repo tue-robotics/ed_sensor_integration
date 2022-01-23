@@ -25,9 +25,6 @@
 const double MAX_POSITION_ERROR = 0.05;
 const double MAX_YAW_ERROR_DEGREES = 5.0;
 
-bool SHOW_DEBUG_IMAGES = false;
-
-
 void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::WorldModel& wm)
 {
     ed::UpdateRequest request;

@@ -238,11 +238,9 @@ bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const  s
 
             float dist_sq = (dx * dx + dy * dy + dz * dz);
 
-            // TODO: better prob calculation
+            // TODO: better prob calculation + magic numbers
             double prob = 1.0 / (1.0 + 100 * dist_sq);
-
             double dt = current_time - e->lastUpdateTimestamp();
-
             double e_max_dist = std::max(0.2, std::min(0.5, dt * 10));
 
             if (dist_sq > e_max_dist * e_max_dist)
@@ -275,9 +273,6 @@ void LaserUpdater::configure(tue::Configuration& config)
 void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sensor_ranges,
                          const geo::Pose3D& sensor_pose, const double timestamp, ed::UpdateRequest& req)
 {
-    tue::Timer t_total;
-    t_total.start();
-
     uint num_beams = sensor_ranges.size();
 
     // Filter measurment
@@ -295,12 +290,10 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     std::vector<double> model_ranges(num_beams, 0);
     renderWorld(sensor_pose, world, model_ranges);
 
-    // Fit the doors
-    geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
-
+    // Fit the doors    
     if (fit_entities_)
     {
-        std::cout << "Fitting!" << std::endl;
+        geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
 
         for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
@@ -419,35 +412,38 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         req.setLastUpdateTimestamp(id, timestamp);
     }
 
-    // - - - - - - - - - - - - - - - - - -
-    // Clear unassociated entities in view
+    /*  Jan2022 this code has not been used for a long time but it does contain
+        an interesting concept: entities that you should see but don't should be removed
+        This code is left here to serve as inspiration should anyone wish to
+        impement this functionality again.
+    */
 
-    //    for(unsigned int i = 0; i < entities_associated.size(); ++i)
-    //    {
-    //        const ed::EntityConstPtr& e = entities[i];
+    /* Clear unassociated entities in view
 
-    //        // If the entity is associated, skip it
-    //        if (entities_associated[i] >= 0)
-    //            continue;
+        for(unsigned int i = 0; i < entities_associated.size(); ++i)
+        {
+            const ed::EntityConstPtr& e = entities[i];
 
-    //        const geo::Pose3D& pose = e->pose();
+            // If the entity is associated, skip it
+            if (entities_associated[i] >= 0)
+                continue;
 
-    //        // Transform to sensor frame
-    //        geo::Vector3 p = sensor_pose.inverse() * pose.t;
+            const geo::Pose3D& pose = e->pose();
 
-    //        if (!pointIsPresent(p, lrf_model_, sensor_ranges))
-    //        {
-    //            double p_exist = e->existenceProbability();
-    //            if (p_exist < 0.3) // TODO: magic number
-    //                req.removeEntity(e->id());
-    //            else
-    //            {
-    //                req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
-    //            }
-    //        }
-    //    }
+            // Transform to sensor frame
+            geo::Vector3 p = sensor_pose.inverse() * pose.t;
 
-    //std::cout << "Total took " << t_total.getElapsedTimeInMilliSec() << " ms." << std::endl;
+            if (!pointIsPresent(p, lrf_model_, sensor_ranges))
+            {
+                double p_exist = e->existenceProbability();
+                if (p_exist < 0.3) // TODO: magic number
+                    req.removeEntity(e->id());
+                else
+                {
+                    req.setExistenceProbability(e->id(), std::max(0.0, p_exist - 0.1));  // TODO: very ugly prob update
+                }
+            }
+        }*/
 }
 
 void LaserUpdater::renderWorld(const geo::Pose3D& sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges)

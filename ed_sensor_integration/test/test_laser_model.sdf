@@ -23,22 +23,16 @@
     <include name="objectA">
       <pose>1.0 0.0 0.0 0 0 0.0</pose>
       <name>objectA</name>
-      <!--<uri>model://table</uri>-->
-      <!--<uri>model://cabinet</uri>-->
       -<uri>model://block</uri>
     </include>
         <include name="objectB">
       <pose>0 1.0 0.0 0 0 0.0</pose>
       <name>objectB</name>
-      <!--<uri>model://table</uri>-->
-      <!--<uri>model://cabinet</uri>-->
       -<uri>model://block</uri>
     </include>
         <include name="objectC">
       <pose>0 -1.0 0.0 0 0 0.0</pose>
       <name>objectC</name>
-      <!--<uri>model://table</uri>-->
-      <!--<uri>model://cabinet</uri>-->
       -<uri>model://block</uri>
     </include>
     <name>testmodel</name>
