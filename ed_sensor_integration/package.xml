@@ -21,4 +21,8 @@
   <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
 
+  <export>
+    <ed plugin="${prefix}/plugins.xml" />
+  </export>
+
 </package>
