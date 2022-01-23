@@ -181,9 +181,9 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
         area_min -= geo::Vec2(max_dist, max_dist);
         area_max += geo::Vec2(max_dist, max_dist);
 
-        for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
+        for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
-            const ed::EntityConstPtr& e = *e_it;
+            const ed::EntityConstPtr& e = *it;
             if (e->shape() || !e->has_pose())
                 continue;
 
