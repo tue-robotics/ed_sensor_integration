@@ -150,38 +150,6 @@ geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const
 }
 
 /**
- * @brief Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
- *
- * @param x_sensor X coordinate of the position of the sensor
- * @param y_sensor Y coordinate of the position of the sensor
- * @param lrf Laser Range Finder model
- * @param sensor_ranges Measured ranges
- * @return
- */
-bool pointIsPresent(double x_sensor, double y_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
-{
-    int i_beam = lrf.getAngleUpperIndex(x_sensor, y_sensor);
-    if (i_beam < 0 || i_beam >= sensor_ranges.size())
-        return true; // or actually, we don't know
-
-    double rs = sensor_ranges[i_beam];
-    return rs == 0 || geo::Vec2(x_sensor, y_sensor).length() > rs - 0.1;
-}
-
-/**
- * @brief Check if point p(x,y) is represented in the lrf data. p is expressed relative to the lrf.
- *
- * @param p_sensor Position of the sensor
- * @param lrf Laser Range Finder model
- * @param sensor_ranges Measured ranges
- * @return
- */
-bool pointIsPresent(const geo::Vector3& p_sensor, const geo::LaserRangeFinder& lrf, const std::vector<double>& sensor_ranges)
-{
-    return pointIsPresent(p_sensor.x, p_sensor.y, lrf, sensor_ranges);
-}
-
-/**
  * @brief findNearbyEntities create a list of entities that are close to detected clusters
  *
  * @param clusters detected clusters
