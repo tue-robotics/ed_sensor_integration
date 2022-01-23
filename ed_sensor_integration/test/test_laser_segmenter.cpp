@@ -76,7 +76,6 @@ protected:
     }
 
     std::map<std::string, const char*> original_env_values_;
-
 };
 
 
