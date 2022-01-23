@@ -79,7 +79,6 @@ protected:
 };
 
 
-
 TEST_F(LaserSegmenterTest, testCase)
 {
     ROS_INFO_STREAM("Starting testsuite");
