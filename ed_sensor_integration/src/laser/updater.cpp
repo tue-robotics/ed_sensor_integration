@@ -503,7 +503,7 @@ void LaserUpdater::renderWorld(const geo::Pose3D sensor_pose, const ed::WorldMod
 }
 
 void LaserUpdater::associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges){
-    for(unsigned int i = 0; i < sensor_ranges.size(); ++i)
+    for (unsigned int i = 0; i < sensor_ranges.size(); ++i)
     {
         double rs = sensor_ranges[i];
         double rm = model_ranges[i];
