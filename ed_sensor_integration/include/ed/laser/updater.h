@@ -81,7 +81,7 @@ public:
      * @param[in] world worldmodel
      * @param[out] model_ranges ranges of distances as would be seen by an lrf
      */
-    void renderWorld(const geo::Pose3D sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges);
+    void renderWorld(const geo::Pose3D& sensor_pose, const ed::WorldModel& world, std::vector<double>& model_ranges);
 
     // parameters
     int min_segment_size_pixels_; // in nr of laser points
