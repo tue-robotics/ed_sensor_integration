@@ -112,7 +112,7 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>
  */
 geo::Pose3D fitEntity(const ed::Entity& e, const geo::Pose3D& sensor_pose, const geo::LaserRangeFinder& lrf,
                       const std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges,
-                      double x_window, double x_step, double y_window, double y_step, double yaw_min, double yaw_plus, double yaw_step, std::map<ed::UUID,geo::Pose3D>& pose_cache)
+                      double x_window, double x_step, double y_window, double y_step, double yaw_min, double yaw_plus, double yaw_step, std::map<ed::UUID, geo::Pose3D>& pose_cache)
 {
     const geo::Pose3D& old_pose = getPoseFromCache(e, pose_cache);
 
