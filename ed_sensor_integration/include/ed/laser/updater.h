@@ -107,7 +107,7 @@ private:
     /**
      * @brief convert a segment of ranges to a convex hull
      */
-    EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D sensor_pose, const std::vector<double>& sensor_ranges);
+    EntityUpdate segmentToConvexHull(const ScanSegment& segment, const geo::Pose3D& sensor_pose, const std::vector<double>& sensor_ranges);
 
     // PARAMETERS
     geo::LaserRangeFinder lrf_model_;
