@@ -78,7 +78,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
 }
 
 // Retrieve pose from cache, otherwise add pose to cache
-geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID,geo::Pose3D>& pose_cache)
+geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID, geo::Pose3D>& pose_cache)
 {
     const ed::UUID ID = e.id();
     geo::Pose3D old_pose = e.pose();
