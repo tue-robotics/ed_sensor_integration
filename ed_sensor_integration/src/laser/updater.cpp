@@ -347,8 +347,6 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         return;
     }
 
-    //std::vector<int> entities_associated(entities.size(), -1); // used to clear unaccociated entities
-
     // Fill update request
     for (unsigned int i_cluster = 0; i_cluster < clusters.size(); ++i_cluster)
     {
@@ -375,9 +373,6 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         }
         else
         {
-            // Mark the entity as being associated
-            //entities_associated[i_entity] = i_cluster; // used to clear unassociated entities
-
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
 
@@ -416,6 +411,8 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         an interesting concept: entities that you should see but don't should be removed
         This code is left here to serve as inspiration should anyone wish to
         impement this functionality again.
+        Note that some supporting functionality has been removed. Including filling entities_associated
+        and the PointisPresent method
     */
 
     /* Clear unassociated entities in view
