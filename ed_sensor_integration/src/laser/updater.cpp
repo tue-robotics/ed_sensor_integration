@@ -264,9 +264,8 @@ void LaserUpdater::configure(tue::Configuration& config)
     config.value("max_cluster_size", max_cluster_size_);
     config.value("max_gap_size", max_gap_size_);
 
-    int i_fit_entities = 0;
-    config.value("fit_entities", i_fit_entities, tue::config::OPTIONAL);
-    fit_entities_ = (i_fit_entities != 0);
+    fit_entities_ = false;
+    config.value("fit_entities", fit_entities_, tue::config::OPTIONAL);
 
     if (config.hasError())
         return;
