@@ -10,6 +10,8 @@
 
 #include <geolib/Shape.h>
 
+#include <ros/console.h>
+
 #include <tue/profiling/timer.h>
 
 #include <iostream>
@@ -343,7 +345,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     ed_sensor_integration::Assignment assig;
     if (!associateSegmentsWithEntities(clusters, entities, timestamp, assig))
     {
-        std::cout << "WARNING: Association failed!" << std::endl;
+        ROS_WARN("Association failed!");
         return;
     }
 

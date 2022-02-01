@@ -16,6 +16,7 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <ros/console.h>
 #include <ros/node_handle.h>
 
 #include <iostream>
@@ -157,7 +158,7 @@ void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserSc
 
 void LaserPlugin::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-    //std::cout << "Received message @ timestamp " << ros::Time::now() << std::endl;
+    ROS_DEBUG_STREAM("Received message @ timestamp " << ros::Time::now());
 
     scan_buffer_.push(msg);
 }
