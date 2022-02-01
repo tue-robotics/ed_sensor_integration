@@ -107,7 +107,7 @@ geo::Pose3D getPoseFromCache(const ed::Entity& e, std::map<ed::UUID, geo::Pose3D
  * @param x_step Step size to sample candidate poses
  * @param y_window Window size to sample candidate poses
  * @param y_step Step size to sample candidate poses
- * @param yaw_min Yaw_plus window size to sample candidate poses\
+ * @param yaw_min,Yaw_plus window size to sample candidate poses
  * @param yaw_step Step size to sample candidate poses
  * @param pose_cache Cache of entity poses
  * @return Estimated pose of the entity

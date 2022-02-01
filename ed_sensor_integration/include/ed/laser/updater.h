@@ -36,8 +36,9 @@ public:
      * @brief update update the worldmodel based on a novel laserscan message.
      *
      * @param[in] world worldmodel to be updated
-     * @param[in] scan laserscan message
-     * @param[in] sensor_pose pose of the sensor at the time of the measurement
+     * @param[in] sensor_ranges distances measured by the lrf
+     * @param[in] sensor_pose pose of the lrf sensor at the time of the measurement
+     * @param[in] timestamp timestamp of the lrf measurment
      * @param[out] req update request
      */
     void update(const ed::WorldModel& world, std::vector<double>& sensor_ranges,
@@ -94,8 +95,7 @@ private:
      * @brief associate: filter sensor information and remove ranges that can be associated with the worldmodel. Leaving only novel data.
      *
      * @param[in] sensor_ranges distances measured by the lrf
-     * @param[in] model_ranges distances as predicted by the worldmodel
-     * @param[out] model_ranges filtered distances. (associated ranges have value 0.0)
+     * @param[in,out] model_ranges distances as predicted by the worldmodel. Will be filtered. (associated ranges have value 0.0)
      */
     void associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges);
 
