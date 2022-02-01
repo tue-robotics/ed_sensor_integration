@@ -217,7 +217,7 @@ public:
         snapshots.push_back(Snapshot());
         Snapshot& snapshot = snapshots.back();
 
-        std::cout << "loading " << filename << std::endl;
+        std::cout << "Loading " << filename << std::endl;
         if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
         {
             std::cerr << "Could not read " << filename << std::endl;
