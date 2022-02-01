@@ -50,10 +50,10 @@ void drawLine(const cv::Mat& canvas, geo::Vec2 point1, geo::Vec2 point2, geo::Tr
     geo::Vec2 rel_point2 = pose * point2;
 
     // position to pixels
-    int x_p1 = origin_x + (int)(rel_point1.x * resolution);
-    int y_p1 = origin_y - (int)(rel_point1.y * resolution);
-    int x_p2 = origin_x + (int)(rel_point2.x * resolution);
-    int y_p2 = origin_y - (int)(rel_point2.y * resolution);
+    int x_p1 = origin_x + floor(rel_point1.x * resolution);
+    int y_p1 = origin_y - floor(rel_point1.y * resolution);
+    int x_p2 = origin_x + floor(rel_point2.x * resolution);
+    int y_p2 = origin_y - floor(rel_point2.y * resolution);
 
     if (x_p1 < 0 || x_p2 < 0|| x_p1 >= canvas.cols || x_p2 >= canvas.cols)
     {
@@ -95,8 +95,8 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
 
     // paint entity center
 
-    int x_p_ent = origin_x + (int)(pose.t.x * resolution);
-    int y_p_ent = origin_y - (int)(pose.t.y * resolution);
+    int x_p_ent = origin_x + floor(pose.t.x * resolution);
+    int y_p_ent = origin_y - floor(pose.t.y * resolution);
 
     cv::Point Entity_center(x_p_ent, y_p_ent);
     cv::circle(canvas, Entity_center, 3, colour, cv::FILLED);
@@ -153,8 +153,8 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
         float y_m = fitterdata.sensor_ranges[i];
 
         // postion to pixels
-        int x_p = sensor_x + (int)(x_m * canvas_resolution);
-        int y_p = sensor_y - (int)(y_m * canvas_resolution);
+        int x_p = sensor_x + floor(x_m * canvas_resolution);
+        int y_p = sensor_y - floor(y_m * canvas_resolution);
 
         if (x_p < 0 || x_p >= canvas_width)
             continue;

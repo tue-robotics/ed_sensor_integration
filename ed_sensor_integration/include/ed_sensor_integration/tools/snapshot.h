@@ -200,10 +200,7 @@ public:
         if (!file_found)
             return false;
 
-        if (!loadSnapshot(filename))
-            return false;
-
-        return true;
+        return loadSnapshot(filename);
     }
 
     /**

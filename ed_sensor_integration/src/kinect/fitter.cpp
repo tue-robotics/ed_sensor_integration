@@ -468,9 +468,8 @@ void Fitter::checkExpectedBeamThroughEntity(const std::vector<double>& model_ran
 void Fitter::configureBeamModel(const image_geometry::PinholeCameraModel& cammodel)
 {
     unsigned int nr_beams = std::min(200, cammodel.fullResolution().width); // don't use more data points than the resolution of your camera
-    double fx = cammodel.fx();
-    double fx_resize = fx * nr_beams / cammodel.fullResolution().width; // Reducing nr of data points will require a different focal length
-    double w = 2 * nr_beams / fx_resize; // reverse calculation of the width of the beam model.
+    double fx = cammodel.fx() * nr_beams / cammodel.fullResolution().width; // Reducing nr of data points will require a different focal length
+    double w = 2 * nr_beams / fx; // reverse calculation of the width of the beam model.
     beam_model_.initialize(w, nr_beams);
     nr_data_points_ = nr_beams;
     configured_ = true;
