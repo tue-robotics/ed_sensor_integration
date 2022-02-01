@@ -105,26 +105,6 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
     if (rgbd_image)
         image_buffer_.push(rgbd_image);
 
-    // Get latest sensor pose
-    try
-    {
-        tf::StampedTransform latest_sensor_pose;
-        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
-    }
-    catch(tf::TransformException& ex)
-    {
-        ROS_ERROR("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
-        // prevent the buffer from overflowing
-        while(!image_buffer_.empty()) // loop to find the most recent match
-        {
-            rgbd_image = image_buffer_.front();
-            // Discard images that are out of date
-            if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
-                image_buffer_.pop();
-        }
-        return false;
-    }
-
     bool found = false;
     tf::StampedTransform t_sensor_pose;
 
