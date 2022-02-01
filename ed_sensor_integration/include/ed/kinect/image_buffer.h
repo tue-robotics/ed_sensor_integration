@@ -37,14 +37,14 @@ public:
     void initialize(const std::string& topic);
 
     /**
-     * @brief nextImage, Polls to see if there is a new image with transform. If not, returns false.
+     * @brief nextImage, Returns the most recent combination of image and transform, provided it is different from the previous time the function was called.
      *
      * Will remove the found image from the buffer.
      *
      * @param[in] root_frame, name of the tf frame with respect to which the sensor pose should be expressed
      * @param[out] image, rgbd image to write the next image to. Iff a next image is found
      * @param[out] sensor_pose, will be filled with the sensor pose corresponding to the next image. Iff a next image is found
-     * @return whether or not the next image is available
+     * @return whether or not a novel image is available
      */
     bool nextImage(const std::string& root_frame, rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose);
 

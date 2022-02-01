@@ -105,40 +105,60 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
     if (rgbd_image)
         image_buffer_.push(rgbd_image);
 
-    if (image_buffer_.empty())
-        return false;
-
-    rgbd_image = image_buffer_.front();
-
-    // - - - - - - - - - - - - - - - - - -
-    // Determine absolute kinect pose based on TF
-
+    // Get latest sensor pose
     try
     {
-        tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
-        geo::convert(t_sensor_pose, sensor_pose);
-        image_buffer_.pop();
-
+        tf::StampedTransform latest_sensor_pose;
+        tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
     }
     catch(tf::TransformException& ex)
     {
-        ROS_ERROR_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
-        ROS_WARN("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+        ROS_ERROR("[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+        // prevent the buffer from overflowing
+        while(!image_buffer_.empty()) // loop to find the most recent match
+        {
+            rgbd_image = image_buffer_.front();
+            // Discard images that are out of date
+            if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
+                image_buffer_.pop();
+        }
+        return false;
+    }
+
+    bool found = false;
+    tf::StampedTransform t_sensor_pose;
+
+    while(!image_buffer_.empty()) // loop to find the most recent match
+    {
+        rgbd_image = image_buffer_.front();
 
         // Discard images that are out of date
         if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
             image_buffer_.pop();
 
-        return false;
+        // Determine absolute kinect pose based on TF
+        try
+        {
+            tf::StampedTransform t_sensor_pose;
+            tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+        }
+        catch(tf::TransformException& ex)
+        {
+            break;
+        }
+        // successfully found transform
+        image_buffer_.pop();
+        found = true;
+        image = rgbd_image;
     }
 
-    // Convert from ROS coordinate frame to geolib coordinate frame
-    sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
-
-    image = rgbd_image;
-
-    return true;
+    if (found){
+        geo::convert(t_sensor_pose, sensor_pose);
+        // Convert from ROS coordinate frame to geolib coordinate frame
+        sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+        image = rgbd_image;
+    }
+    return found;
 }
 
 // ----------------------------------------------------------------------------------------------------
