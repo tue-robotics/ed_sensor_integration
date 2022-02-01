@@ -103,12 +103,21 @@ class Fitter
 public:
 
     /**
+     * @brief Fitter default constructor, must be configured later.
+     */
+    Fitter();
+
+    /**
      * @brief Fitter constructor
      * @param nr_data_points nr_data_points for the beam model
      * @param fx focal length for the beam model
      */
-    Fitter();
     Fitter(unsigned int nr_data_points, float fx);
+
+    /**
+     * @brief Fitter constructor
+     * @param cammodel Cameramodel used to configure the fitter
+     */
     Fitter(const image_geometry::PinholeCameraModel& cammodel) { configureBeamModel(cammodel); }
 
     ~Fitter();
