@@ -156,9 +156,7 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
         int x_p = sensor_x + floor(x_m * canvas_resolution);
         int y_p = sensor_y - floor(y_m * canvas_resolution);
 
-        if (x_p < 0 || x_p >= canvas_width)
-            continue;
-        if (y_p < 0 || y_p >= canvas_height)
+        if (x_p < 0 || x_p >= canvas_width || y_p < 0 || y_p >= canvas_height)
             continue;
         if (fitterdata.sensor_ranges[i] == 0) // filter out sensor_ranges equal to zero
             continue;
