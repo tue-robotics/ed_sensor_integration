@@ -11,9 +11,9 @@
 
 
 // visualization parameters
-int canvas_width = 800; //pixels
+int canvas_width = 800; // pixels
 int canvas_height = 600; // pixels
-float canvas_resolution = 100; //pixels per meter
+float canvas_resolution = 100; // pixels per meter
 
 int sensor_x = canvas_width/2;
 int sensor_y = canvas_height * 8/10;
