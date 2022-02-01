@@ -109,7 +109,7 @@ public:
 
     /**
      * @brief Fitter constructor
-     * @param nr_data_points nr_data_points for the beam model
+     * @param nr_data_points Number of data points for the beam model
      * @param fx focal length for the beam model
      */
     Fitter(unsigned int nr_data_points, float fx);
