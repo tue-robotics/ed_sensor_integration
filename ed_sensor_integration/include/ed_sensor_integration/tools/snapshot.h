@@ -154,7 +154,7 @@ public:
     }
 
     inline Snapshot& current() { return snapshots[i_current]; }
-    inline Snapshot& getSnapshot(uint i) { return snapshots[i]; }
+    inline Snapshot& getSnapshot(unsigned int i) { return snapshots[i]; }
 
     void previous()
     {
