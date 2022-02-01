@@ -220,7 +220,7 @@ public:
         std::cout << "Loading " << filename << std::endl;
         if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose))
         {
-            std::cerr << "Could not read " << filename << std::endl;
+            std::cerr << "Could not read: " << filename << std::endl;
             snapshots.pop_back();
             return false;
         }
