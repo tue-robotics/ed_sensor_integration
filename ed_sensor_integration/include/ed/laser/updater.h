@@ -95,7 +95,7 @@ private:
      *
      * @param[in] sensor_ranges distances measured by the lrf
      * @param[in] model_ranges distances as predicted by the worldmodel
-     * @param[out] sensor_ranges filtered distances. (associated ranges have value 0.0)
+     * @param[out] model_ranges filtered distances. (associated ranges have value 0.0)
      */
     void associate(std::vector<double>& sensor_ranges, const std::vector<double>& model_ranges);
 
