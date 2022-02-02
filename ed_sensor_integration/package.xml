@@ -23,6 +23,7 @@
 
   <export>
     <ed plugin="${prefix}/plugins.xml" />
+    <rosdoc config="rosdoc.yaml" />
   </export>
 
 </package>
