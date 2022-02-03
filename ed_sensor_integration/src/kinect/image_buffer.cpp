@@ -119,13 +119,13 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         // Determine absolute kinect pose based on TF
         try
         {
-            tf::StampedTransform t_sensor_pose;
             tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
         }
         catch(tf::TransformException& ex)
         {
             break;
         }
+
         // successfully found transform
         image_buffer_.pop();
         found = true;
