@@ -108,20 +108,21 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
     bool found = false;
     tf::StampedTransform t_sensor_pose;
 
-    while(!image_buffer_.empty()) // loop to find the most recent match
-    {
+    while (!image_buffer_.empty()) { // loop to find the most recent match
         rgbd_image = image_buffer_.front();
 
         // Discard images that are out of date
-        if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME))
+        if (ros::Time::now() - ros::Time(rgbd_image->getTimestamp()) > ros::Duration(MAX_BUFFER_TIME)) {
             image_buffer_.pop();
+            continue;
+        }
 
         // Determine absolute kinect pose based on TF
         try
         {
             tf_listener_->lookupTransform(root_frame, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
         }
-        catch(tf::TransformException& ex)
+        catch (tf::TransformException& ex)
         {
             break;
         }
@@ -132,7 +133,7 @@ bool ImageBuffer::nextImage(const std::string& root_frame, rgbd::ImageConstPtr& 
         image = rgbd_image;
     }
 
-    if (found){
+    if (found) {
         geo::convert(t_sensor_pose, sensor_pose);
         // Convert from ROS coordinate frame to geolib coordinate frame
         sensor_pose.R = sensor_pose.R * geo::Matrix3(1, 0, 0, 0, -1, 0, 0, 0, -1);
