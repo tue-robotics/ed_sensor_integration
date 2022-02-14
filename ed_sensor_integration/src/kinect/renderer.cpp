@@ -17,29 +17,28 @@ class SampleRenderResult : public geo::RenderResult
 
 public:
 
-    SampleRenderResult(cv::Mat& z_buffer_, std::vector<unsigned int>& pixels_)
-        : geo::RenderResult(z_buffer_.cols, z_buffer_.rows), z_buffer(z_buffer_), num_pixels(0), pixels(pixels_)
+    SampleRenderResult(cv::Mat& z_buffer, std::vector<unsigned int>& pixels)
+        : geo::RenderResult(z_buffer.cols, z_buffer.rows), z_buffer_(z_buffer), pixels_(pixels)
     {
     }
 
     void renderPixel(int x, int y, float depth, int i_triangle)
     {
-        float old_depth = z_buffer.at<float>(y, x);
+        float old_depth = z_buffer_.at<float>(y, x);
         if (old_depth == 0)
         {
-            z_buffer.at<float>(y, x) = depth;
-            pixels[num_pixels] = y * z_buffer.cols + x;
-            ++num_pixels;
+            z_buffer_.at<float>(y, x) = depth;
+            pixels_.push_back(y * z_buffer_.cols + x);
         }
         else if (depth < old_depth)
         {
-            z_buffer.at<float>(y, x) = depth;
+            z_buffer_.at<float>(y, x) = depth;
         }
     }
 
-    cv::Mat& z_buffer;
-    unsigned int num_pixels;
-    std::vector<unsigned int>& pixels;
+protected:
+    cv::Mat& z_buffer_; // Depth image
+    std::vector<unsigned int>& pixels_; // Maps index of occupied pixels to actual pixel position
 
 };
 
@@ -57,7 +56,8 @@ void fitZRP(const geo::Shape& shape, const geo::Pose3D& shape_pose, const rgbd::
     unsigned int width = view.getWidth();
     unsigned int height = view.getHeight();
 
-    std::vector<unsigned int> pixels(width * height);
+    std::vector<unsigned int> pixels;
+    pixels.reserve(width * height);
 
     // Create a resized version of the sensor depth image
     cv::Mat sensor_depth_img(height, width, CV_32FC1, 0.0);
@@ -94,9 +94,9 @@ void fitZRP(const geo::Shape& shape, const geo::Pose3D& shape_pose, const rgbd::
 
                 int n = 0;
                 double total_error = 0;
-                for(unsigned int i = 0; i < res.num_pixels; ++i)
+                for(std::vector<unsigned int>::const_iterator it = pixels.cbegin(); it != pixels.cend(); ++it)
                 {
-                    unsigned int p_idx = res.pixels[i];
+                    unsigned int p_idx = *it;
 
                     float ds = sensor_depth_img.at<float>(p_idx);
 
