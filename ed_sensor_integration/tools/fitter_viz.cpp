@@ -100,7 +100,6 @@ void drawShape2D(const cv::Mat& canvas, const Shape2D& shape, geo::Transform2 po
 
     cv::Point Entity_center(x_p_ent, y_p_ent);
     cv::circle(canvas, Entity_center, 3, colour, cv::FILLED);
-
 }
 
 /**
