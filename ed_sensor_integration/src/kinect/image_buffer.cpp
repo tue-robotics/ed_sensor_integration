@@ -15,10 +15,6 @@ ImageBuffer::ImageBuffer() : kinect_client_(nullptr), tf_listener_(nullptr)
 
 ImageBuffer::~ImageBuffer()
 {
-    if (kinect_client_)
-        delete kinect_client_;
-    if (tf_listener_)
-        delete tf_listener_;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -26,12 +22,12 @@ ImageBuffer::~ImageBuffer()
 void ImageBuffer::initialize(const std::string& topic)
 {
     if (!kinect_client_)
-        kinect_client_ = new rgbd::Client;
+        kinect_client_ = std::make_unique<rgbd::Client>();
 
     kinect_client_->initialize(topic);
 
     if (!tf_listener_)
-        tf_listener_ = new tf::TransformListener;
+        tf_listener_ = std::make_unique<tf::TransformListener>();
 }
 
 // ----------------------------------------------------------------------------------------------------

@@ -1,10 +1,12 @@
 #ifndef ED_SENSOR_INTEGRATION_IMAGE_BUFFER_H_
 #define ED_SENSOR_INTEGRATION_IMAGE_BUFFER_H_
 
-#include <queue>
 #include <ros/callback_queue.h>
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
+
+#include <memory>
+#include <queue>
 
 namespace rgbd
 {
@@ -37,9 +39,9 @@ private:
 
     std::string topic_;
 
-    rgbd::Client* kinect_client_;
+    std::unique_ptr<rgbd::Client> kinect_client_;
 
-    tf::TransformListener* tf_listener_;
+    std::unique_ptr<tf::TransformListener> tf_listener_;
 
     std::queue<rgbd::ImageConstPtr> image_buffer_;
 
