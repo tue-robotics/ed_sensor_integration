@@ -28,6 +28,7 @@ void ImageBuffer::initialize(const std::string& topic, const std::string& root_f
 
     if (!kinect_client_)
         kinect_client_ = std::make_unique<rgbd::Client>();
+
     kinect_client_->initialize(topic);
 
     if (!tf_listener_)
@@ -41,7 +42,10 @@ void ImageBuffer::initialize(const std::string& topic, const std::string& root_f
 bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose, double timeout_sec)
 {
     if (!kinect_client_)
+    {
+        ROS_ERROR("[IMAGE_BUFFER] No RGBD client");
         return false;
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Wait until we get a new image
@@ -97,7 +101,10 @@ bool ImageBuffer::nextImage(rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose
 {
     std::lock_guard<std::mutex> lg(recent_image_mutex_);
     if(!recent_image_.first)
+    {
+        ROS_DEBUG("[IMAGE_BUFFER] No new image");
         return false;
+    }
 
     image = recent_image_.first;
     sensor_pose = recent_image_.second;
@@ -112,14 +119,20 @@ bool ImageBuffer::nextImage(rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose
 bool ImageBuffer::getMostRecentImageTF()
 {
     if (!kinect_client_)
+    {
+        ROS_ERROR("[IMAGE_BUFFER] No RGBD client");
         return false;
+    }
 
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and place in image buffer
 
     rgbd::ImageConstPtr rgbd_image = kinect_client_->nextImage();
     if (!rgbd_image)
+    {
+        ROS_DEBUG("[IMAGE_BUFFER] No new image from the RGBD client");
         return false;
+    }
 
     geo::Pose3D sensor_pose;
 
