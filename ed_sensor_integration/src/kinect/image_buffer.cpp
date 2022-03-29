@@ -158,9 +158,20 @@ bool ImageBuffer::getMostRecentImageTF()
                                 << ros::Time(rgbd_image->getTimestamp()));
                 ROS_WARN_STREAM("[IMAGE_BUFFER] Image too old to look-up tf: image timestamp = " << std::fixed
                                 << ros::Time(rgbd_image->getTimestamp()));
+                return false;
             }
-
-            return false;
+            else
+            {
+                if(!tf_listener_->waitForTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(0.5)))
+                {
+                    ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "[IMAGE_BUFFER] Image too new to look-up tf: image timestamp: " << ros::Time(rgbd_image->getTimestamp()) << ", what: " << ex.what());
+                    ROS_WARN_STREAM("[IMAGE_BUFFER] Image too new to look-up tf: image timestamp: " << ros::Time(rgbd_image->getTimestamp()) << ", what: " << ex.what());
+                    return false;
+                }
+                tf::StampedTransform t_sensor_pose;
+                tf_listener_->lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
+                geo::convert(t_sensor_pose, sensor_pose);
+            }
         }
         catch(tf::TransformException& exc)
         {
