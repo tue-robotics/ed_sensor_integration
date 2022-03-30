@@ -5,9 +5,9 @@
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
 
+#include <forward_list>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <thread>
 
 namespace rgbd
@@ -69,17 +69,29 @@ private:
 
     std::unique_ptr<tf::TransformListener> tf_listener_;
 
-    std::queue<rgbd::ImageConstPtr> image_buffer_;
+    /**
+     * @brief Newer images should be pushed on the front. This will result in the front being the most recent and the back being the oldest
+     */
+    std::forward_list<rgbd::ImageConstPtr> image_buffer_;
 
     ros::CallbackQueue cb_queue_;
 
     std::pair<rgbd::ImageConstPtr, geo::Pose3D> recent_image_;
-    std::mutex recent_image_mutex_;
+    std::mutex recent_image_mutex_; // For protecting ImageBuffer::recent_image_
     std::unique_ptr<std::thread> worker_thread_ptr_;
-    bool shutdown_;
+    bool shutdown_; // Trigger to kill the worker thread
 
+    /**
+     * @brief Iterates over the buffer and tries to get TF for the most recent image. Deletes image and all older images when succesful
+     * or when image is too old from the buffer
+     * @return Indicates whether the most recent image has been updated
+     */
     bool getMostRecentImageTF();
 
+    /**
+     * @brief Calls ImageBuffer::getMostRecentImageTF on the specified frequency
+     * @param frequency Frequency for checking new images.
+     */
     void workerThreadFunc(const float frequency=20);
 
 };
