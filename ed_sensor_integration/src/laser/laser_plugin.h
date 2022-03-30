@@ -10,11 +10,13 @@
 
 #include <ros/subscriber.h>
 #include <ros/callback_queue.h>
-#include <tf/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <sensor_msgs/LaserScan.h>
 
 #include <queue>
 #include <map>
+#include <memory>
 
 class LaserPlugin : public ed::Plugin
 {
@@ -38,14 +40,15 @@ private:
 
     std::queue<sensor_msgs::LaserScan::ConstPtr> scan_buffer_;
 
-    tf::TransformListener* tf_listener_;
+    tf2_ros::Buffer tf_buffer_;
+    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 
     LaserUpdater updater_;
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
 
     /**
-     * @brief update update the worldmodel based on a novel laserscan message.
+     * @brief Update the worldmodel based on a novel laserscan message.
      *
      * @param[in] world worldmodel to be updated
      * @param[in] scan laserscan message

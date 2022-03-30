@@ -9,13 +9,15 @@
 #include <ed/update_request.h>
 #include <ed/world_model.h>
 
-#include <geolib/ros/tf_conversions.h>
+#include <geolib/ros/msg_conversions.h>
 #include <geolib/Shape.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <ros/console.h>
 #include <ros/node_handle.h>
+
+#include "tf2/transform_datatypes.h"
 
 #include <iostream>
 
@@ -43,13 +45,12 @@ void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::v
     }
 }
 
-LaserPlugin::LaserPlugin() : tf_listener_(0)
+LaserPlugin::LaserPlugin() : tf_buffer_(), tf_listener_(nullptr)
 {
 }
 
 LaserPlugin::~LaserPlugin()
 {
-    delete tf_listener_;
 }
 
 void LaserPlugin::initialize(ed::InitData& init)
@@ -69,7 +70,8 @@ void LaserPlugin::initialize(ed::InitData& init)
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
 
-    tf_listener_ = new tf::TransformListener;
+    if (tf_listener_)
+        tf_listener_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_);
 
     //pose_cache.clear();
 }
@@ -87,14 +89,14 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 
         try
         {
-            tf::StampedTransform t_sensor_pose;
-            tf_listener_->lookupTransform("map", scan->header.frame_id, scan->header.stamp, t_sensor_pose);
+            geometry_msgs::TransformStamped gm_sensor_pose;
+            gm_sensor_pose = tf_buffer_.lookupTransform("map", scan->header.frame_id, scan->header.stamp);
             scan_buffer_.pop();
             geo::Pose3D sensor_pose;
-            geo::convert(t_sensor_pose, sensor_pose);
+            geo::convert(gm_sensor_pose.transform, sensor_pose);
             update(world, scan, sensor_pose, req);
         }
-        catch(tf::ExtrapolationException& ex)
+        catch(tf2::ExtrapolationException& ex)
         {
             ROS_WARN_STREAM_DELAYED_THROTTLE(60, "ED Laserplugin: " << ex.what());
             ROS_DEBUG_STREAM("ED Laserplugin: " << ex.what());
@@ -102,10 +104,10 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
             {
                 // Now we have to check if the error was an interpolation or extrapolation error
                 // (i.e., the scan is too old or too new, respectively)
-                tf::StampedTransform latest_transform;
-                tf_listener_->lookupTransform("map", scan->header.frame_id, ros::Time(0), latest_transform);
+                geometry_msgs::TransformStamped latest_transform;
+                latest_transform = tf_buffer_.lookupTransform("map", scan->header.frame_id, ros::Time(0));
 
-                if (scan_buffer_.front()->header.stamp > latest_transform.stamp_)
+                if (scan_buffer_.front()->header.stamp > latest_transform.header.stamp)
                 {
                     // Scan is too new
                     break;
@@ -116,12 +118,12 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                     scan_buffer_.pop();
                 }
             }
-            catch(tf::TransformException& exc)
+            catch(tf2::TransformException& exc)
             {
                 scan_buffer_.pop();
             }
         }
-        catch(tf::TransformException& exc)
+        catch(tf2::TransformException& exc)
         {
             ROS_ERROR_STREAM_DELAYED_THROTTLE(10, "ED Laserplugin: " << exc.what());
             scan_buffer_.pop();

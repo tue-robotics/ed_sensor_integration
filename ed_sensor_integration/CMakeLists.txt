@@ -6,6 +6,8 @@ find_package(catkin REQUIRED COMPONENTS
   ed_sensor_integration_msgs
   geolib2
   sensor_msgs
+  tf2
+  tf2_ros
   tue_config
   tue_filesystem
   visualization_msgs
