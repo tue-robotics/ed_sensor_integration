@@ -43,7 +43,7 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
 {
     if (!kinect_client_)
     {
-        ROS_ERROR("[IMAGE_BUFFER] No RGBD client");
+        ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] No RGBD client");
         return false;
     }
 
@@ -51,26 +51,28 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
     // Wait until we get a new image
 
     ros::Time t_start = ros::Time::now();
+    ros::Time t_end = t_start + ros::Duration(timeout_sec);
 
     rgbd::ImageConstPtr rgbd_image;
-    while(ros::ok())
+    do
     {
-        if (ros::Time::now() - t_start > ros::Duration(timeout_sec))
-            return false;
-
         rgbd_image = kinect_client_->nextImage();
 
         if (rgbd_image)
             break;
+        else if (ros::Time::now() > t_end)
+            return false;
         else
             ros::Duration(0.1).sleep();
     }
+    while(ros::ok()); // Give it minimal one go
+
 
     // - - - - - - - - - - - - - - - - - -
     // Wait until we have a tf
-
-    if (!tf_listener_->waitForTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), ros::Duration(timeout_sec)))
-        return false;
+    if (!tf_listener_->canTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()))) // Get the TF when it is available now
+        if (!tf_listener_->waitForTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_end - ros::Time::now()))
+            return false;
 
     // - - - - - - - - - - - - - - - - - -
     // Calculate tf
@@ -83,7 +85,7 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
     }
     catch(tf::TransformException& ex)
     {
-        ROS_ERROR("[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
+        ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         return false;
     }
 
