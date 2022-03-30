@@ -7,7 +7,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-ImageBuffer::ImageBuffer() : kinect_client_(nullptr), tf_listener_(nullptr), shutdown_(false)
+ImageBuffer::ImageBuffer() : rgbd_client_(nullptr), tf_listener_(nullptr), shutdown_(false)
 {
 }
 
@@ -26,10 +26,10 @@ void ImageBuffer::initialize(const std::string& topic, const std::string& root_f
 {
     root_frame_ = root_frame;
 
-    if (!kinect_client_)
-        kinect_client_ = std::make_unique<rgbd::Client>();
+    if (!rgbd_client_)
+        rgbd_client_ = std::make_unique<rgbd::Client>();
 
-    kinect_client_->initialize(topic);
+    rgbd_client_->initialize(topic);
 
     if (!tf_listener_)
         tf_listener_ = std::make_unique<tf::TransformListener>();
@@ -41,7 +41,7 @@ void ImageBuffer::initialize(const std::string& topic, const std::string& root_f
 
 bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose, double timeout_sec)
 {
-    if (!kinect_client_)
+    if (!rgbd_client_)
     {
         ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] No RGBD client");
         return false;
@@ -56,7 +56,7 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
     rgbd::ImageConstPtr rgbd_image;
     do
     {
-        rgbd_image = kinect_client_->nextImage();
+        rgbd_image = rgbd_client_->nextImage();
 
         if (rgbd_image)
             break;
@@ -120,7 +120,7 @@ bool ImageBuffer::nextImage(rgbd::ImageConstPtr& image, geo::Pose3D& sensor_pose
 
 bool ImageBuffer::getMostRecentImageTF()
 {
-    if (!kinect_client_)
+    if (!rgbd_client_)
     {
         ROS_ERROR("[IMAGE_BUFFER] No RGBD client");
         return false;
@@ -130,7 +130,7 @@ bool ImageBuffer::getMostRecentImageTF()
     // Fetch kinect image and place in image buffer
 
     {
-        rgbd::ImageConstPtr new_image = kinect_client_->nextImage();
+        rgbd::ImageConstPtr new_image = rgbd_client_->nextImage();
         if (new_image)
         {
             image_buffer_.push_front(new_image);

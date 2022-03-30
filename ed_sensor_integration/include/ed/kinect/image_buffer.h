@@ -64,7 +64,7 @@ private:
 
     std::string root_frame_;
 
-    std::unique_ptr<rgbd::Client> kinect_client_;
+    std::unique_ptr<rgbd::Client> rgbd_client_;
 
     std::unique_ptr<tf::TransformListener> tf_listener_;
 
