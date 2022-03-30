@@ -12,8 +12,6 @@
 #include <geolib/ros/tf_conversions.h>
 #include <geolib/Shape.h>
 
-#include <tue/profiling/timer.h>
-
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <ros/console.h>
@@ -134,9 +132,6 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
 void LaserPlugin::update(const ed::WorldModel& world, const sensor_msgs::LaserScan::ConstPtr& scan,
                          const geo::Pose3D& sensor_pose, ed::UpdateRequest& req)
 {
-    tue::Timer t_total;
-    t_total.start();
-
     // - - - - - - - - - - - - - - - - - -
     // Update laser model
 
