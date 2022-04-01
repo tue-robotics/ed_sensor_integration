@@ -285,7 +285,8 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     double error_threshold = ERROR_THRESHOLD;
     if (current_optimum->getError() > error_threshold)
     {
-        throw FitterError("Error of best fit exceeds threshold");
+        std::string errormsg = "Error of best fit [" + std::to_string(current_optimum->getError()) + "]exceeds threshold [" + std::to_string(error_threshold) +"]";
+        throw FitterError(errormsg);
     }
 
     // Correct for shape transformation
