@@ -25,6 +25,8 @@
 // Communication
 #include <ed_sensor_integration_msgs/ImageBinary.h>
 
+#include <sstream>
+
 
 const double ERROR_THRESHOLD = 1e5;
 
@@ -285,8 +287,9 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     double error_threshold = ERROR_THRESHOLD;
     if (current_optimum->getError() > error_threshold)
     {
-        std::string errormsg = "Error of best fit [" + std::to_string(current_optimum->getError()) + "]exceeds threshold [" + std::to_string(error_threshold) +"]";
-        throw FitterError(errormsg);
+        std::ostringstream errormsg;
+        errormsg << "Error of best fit [" << current_optimum->getError() << "] exceeds threshold [" << error_threshold << "]";
+        throw FitterError(errormsg.str());
     }
 
     // Correct for shape transformation
