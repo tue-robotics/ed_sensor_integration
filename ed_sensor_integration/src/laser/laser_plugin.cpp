@@ -70,7 +70,7 @@ void LaserPlugin::initialize(ed::InitData& init)
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
 
-    if (tf_listener_)
+    if (!tf_listener_)
         tf_listener_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_);
 
     //pose_cache.clear();
