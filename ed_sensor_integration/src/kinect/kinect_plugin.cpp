@@ -49,7 +49,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     if (config.value("topic", topic))
     {
         ROS_INFO_STREAM("[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'.");
-        image_buffer_.initialize(topic);
+        image_buffer_.initialize(topic, "map");
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -102,7 +102,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration_msgs::GetImage::Request& re
     rgbd::ImageConstPtr image;
     geo::Pose3D sensor_pose;
 
-    if (!image_buffer_.waitForRecentImage("map", image, sensor_pose, 2.0))
+    if (!image_buffer_.waitForRecentImage(image, sensor_pose, 2.0))
     {
         res.error_msg = "Could not get image";
         return true;
@@ -155,7 +155,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, e
     rgbd::ImageConstPtr image;
     geo::Pose3D sensor_pose;
 
-    if (!image_buffer_.waitForRecentImage("map", image, sensor_pose, 2.0))
+    if (!image_buffer_.waitForRecentImage(image, sensor_pose, 2.0))
     {
         res.error_msg = "Could not get image";
         return true;
