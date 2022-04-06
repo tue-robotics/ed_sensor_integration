@@ -9,6 +9,7 @@
 #include <geolib/datatypes.h>
 
 #include <rgbd/types.h>
+#include <image_geometry/pinhole_camera_model.h>
 
 #include "beam_model.h"
 
@@ -67,6 +68,7 @@ struct EntityRepresentation2D
 struct FitterData
 {
     std::vector<double> sensor_ranges;
+    float fx;
     geo::Pose3D sensor_pose;
     geo::Pose3D sensor_pose_xya;
     geo::Pose3D sensor_pose_zrp;
@@ -93,7 +95,7 @@ struct EstimationInputData
 // ----------------------------------------------------------------------------------------------------
 
 /**
- * @brief The Fitter class contains the algorithm to do the 2D fit
+ * @brief The Fitter class contains the algorithm to do the 2D fit of an entity.
  */
 class Fitter
 {
@@ -101,19 +103,33 @@ class Fitter
 public:
 
     /**
-     * @brief Fitter constructor
-     * @param nr_data_points nr_data_points for the beam model
+     * @brief Fitter default constructor, must be configured later.
      */
-    Fitter(uint nr_data_points = 200);  // TODO: remove hard-coded values
+    Fitter();
+
+    /**
+     * @brief Fitter constructor
+     * @param nr_data_points Number of data points for the beam model
+     * @param fx focal length for the beam model
+     */
+    Fitter(unsigned int nr_data_points, float fx);
+
+    /**
+     * @brief Fitter constructor
+     * @param cammodel Cameramodel used to configure the fitter
+     */
+    Fitter(const image_geometry::PinholeCameraModel& cammodel) { configureBeamModel(cammodel); }
 
     ~Fitter();
+
+    inline bool isConfigured() { return configured_; };
 
     /**
      * @brief processSensorData pre-processes sensor data, i.e., performs a downprojection of the input
      * depth image based on the provided sensor pose and stores the result in the FitterData struct
-     * @param image input (depth) image
-     * @param sensor_pose pose of the sensor in the world while taking the image
-     * @param data processed data is stored here
+     * @param[in] image input (depth) image
+     * @param[in] sensor_pose pose of the sensor in the world while taking the image
+     * @param[out] data processed data is stored here
      */
     void processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const;
 
@@ -147,6 +163,12 @@ public:
      * @return 2D entity representation
      */
     EntityRepresentation2D GetOrCreateEntity2D(const ed::EntityConstPtr& e) const;
+
+    /**
+     * @brief configure the beam model (nr of data points and focal length) according to the camera you are using.
+     * @param cammodel camera model
+     */
+    void configureBeamModel(const image_geometry::PinholeCameraModel& cammodel);
 
 private:
 
@@ -239,6 +261,7 @@ private:
     ed::models::ModelLoader model_loader_;
 
     uint nr_data_points_;
+    bool configured_ = false;
 
 };
 

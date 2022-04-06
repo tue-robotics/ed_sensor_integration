@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
   geolib2
+  image_geometry
   sensor_msgs
   tue_config
   tue_filesystem
@@ -109,6 +110,9 @@ add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
+
+add_executable(ed_fitter tools/fitter_viz.cpp)
+target_link_libraries(ed_fitter ed_kinect)
 
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
