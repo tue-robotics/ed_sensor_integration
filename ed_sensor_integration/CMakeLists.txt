@@ -7,6 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   geolib2
   image_geometry
   sensor_msgs
+  tf2
+  tf2_ros
   tue_config
   tue_filesystem
   visualization_msgs
