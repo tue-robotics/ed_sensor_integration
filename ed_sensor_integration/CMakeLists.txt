@@ -8,7 +8,6 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   image_geometry
   sensor_msgs
-  tf2
   tf2_ros
   tue_config
   tue_filesystem
