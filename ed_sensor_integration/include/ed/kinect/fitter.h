@@ -233,11 +233,11 @@ private:
 
     /**
      * @brief checkExpectedBeamThroughEntity checks if the expected center beam passes through the entity. If
-     * not: something went wrong
+     * not: throw a fitter error
      * @param model_ranges
      * @param entity
      * @param sensor_pose_xya
-     * @param expected_center_beam
+     * @param expected_center_beam expected index of the beam through the center of the object. range: any int. indices outside bounds will also throw an error.
      */
     void checkExpectedBeamThroughEntity(const std::vector<double> &model_ranges, ed::EntityConstPtr entity,
                                         const geo::Pose3D &sensor_pose_xya, const int expected_center_beam) const;
