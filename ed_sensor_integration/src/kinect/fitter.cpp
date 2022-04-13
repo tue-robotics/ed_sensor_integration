@@ -377,6 +377,8 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
     }
     if (valid_optimum)
         return current_optimum;
+
+    ROS_ERROR_NAMED("fitter", "optimum is invalid");
     std::unique_ptr<OptimalFit> invalid_optimum(new OptimalFit);
     return invalid_optimum;
 }
