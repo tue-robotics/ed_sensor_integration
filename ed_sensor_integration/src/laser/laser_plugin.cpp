@@ -12,12 +12,14 @@
 #include <geolib/ros/msg_conversions.h>
 #include <geolib/Shape.h>
 
+#include <geometry_msgs/TransformStamped.h>
+
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <ros/console.h>
 #include <ros/node_handle.h>
 
-#include "tf2/transform_datatypes.h"
+#include <tf2_ros/transform_listener.h>
 
 #include <iostream>
 

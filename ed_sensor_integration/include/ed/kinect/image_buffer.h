@@ -2,8 +2,12 @@
 #define ED_SENSOR_INTEGRATION_IMAGE_BUFFER_H_
 
 #include <ros/callback_queue.h>
-#include <rgbd/types.h>
+
 #include <geolib/datatypes.h>
+
+#include <rgbd/types.h>
+
+#include <tf2_ros/buffer.h>
 
 #include <forward_list>
 #include <memory>
@@ -15,7 +19,7 @@ namespace rgbd
 class Client;
 }
 
-namespace tf
+namespace tf2_ros
 {
 class TransformListener;
 }
@@ -66,7 +70,8 @@ private:
 
     std::unique_ptr<rgbd::Client> rgbd_client_;
 
-    std::unique_ptr<tf::TransformListener> tf_listener_;
+    tf2_ros::Buffer tf_buffer_;
+    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 
     /**
      * @brief Newer images should be pushed on the front. This will result in the front being the most recent and the back being the oldest

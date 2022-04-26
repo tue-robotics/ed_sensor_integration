@@ -1,13 +1,17 @@
 #include "ed/kinect/image_buffer.h"
 
+#include <geolib/ros/msg_conversions.h>
+
+#include <geometry_msgs/TransformStamped.h>
+
 #include <rgbd/client.h>
 #include <rgbd/image.h>
-#include <tf/transform_listener.h>
-#include <geolib/ros/tf_conversions.h>
+
+#include <tf2_ros/transform_listener.h>
 
 // ----------------------------------------------------------------------------------------------------
 
-ImageBuffer::ImageBuffer() : rgbd_client_(nullptr), tf_listener_(nullptr), shutdown_(false)
+ImageBuffer::ImageBuffer() : rgbd_client_(nullptr), tf_buffer_(), tf_listener_(nullptr), shutdown_(false)
 {
 }
 
@@ -32,7 +36,7 @@ void ImageBuffer::initialize(const std::string& topic, const std::string& root_f
     rgbd_client_->initialize(topic);
 
     if (!tf_listener_)
-        tf_listener_ = std::make_unique<tf::TransformListener>();
+        tf_listener_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_);
 
     worker_thread_ptr_ = std::make_unique<std::thread>(&ImageBuffer::workerThreadFunc, this, worker_thread_frequency);
 }
@@ -70,8 +74,8 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
 
     // - - - - - - - - - - - - - - - - - -
     // Wait until we have a tf
-    if (!tf_listener_->canTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()))) // Get the TF when it is available now
-        if (!tf_listener_->waitForTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_end - ros::Time::now()))
+    if (!tf_buffer_.canTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()))) // Get the TF when it is available now
+        if (!tf_buffer_.canTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_end - ros::Time::now()))
             return false;
 
     // - - - - - - - - - - - - - - - - - -
@@ -79,11 +83,10 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
 
     try
     {
-        tf::StampedTransform t_sensor_pose;
-        tf_listener_->lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
-        geo::convert(t_sensor_pose, sensor_pose);
+        geometry_msgs::TransformStamped t_sensor_pose = tf_buffer_.lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()));
+        geo::convert(t_sensor_pose.transform, sensor_pose);
     }
-    catch(tf::TransformException& ex)
+    catch(tf2::TransformException& ex)
     {
         ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
         return false;
@@ -149,20 +152,18 @@ bool ImageBuffer::getMostRecentImageTF()
         rgbd::ImageConstPtr& rgbd_image = *it;
         try
         {
-            tf::StampedTransform t_sensor_pose;
-            tf_listener_->lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_sensor_pose);
-            geo::convert(t_sensor_pose, sensor_pose);
+            geometry_msgs::TransformStamped t_sensor_pose = tf_buffer_.lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()));
+            geo::convert(t_sensor_pose.transform, sensor_pose);
         }
-        catch (tf::ExtrapolationException& ex)
+        catch (tf2::ExtrapolationException& ex)
         {
             try
             {
                 // Now we have to check if the error was an interpolation or extrapolation error (i.e., the image is too old or
                 // to new, respectively). If it is too old, discard it.
-                tf::StampedTransform latest_sensor_pose;
-                tf_listener_->lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(0), latest_sensor_pose);
+                geometry_msgs::TransformStamped latest_sensor_pose = tf_buffer_.lookupTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(0));
                 // If image time stamp is older than latest transform, the image is too old and the tf data is not available anymore
-                if ( latest_sensor_pose.stamp_ > ros::Time(rgbd_image->getTimestamp()) )
+                if ( latest_sensor_pose.header.stamp > ros::Time(rgbd_image->getTimestamp()) )
                 {
 
                     ROS_DEBUG_STREAM_NAMED("image_buffer", "[IMAGE_BUFFER] Image too old to look-up tf. Deleting all images older than timestamp: " << std::fixed
@@ -178,14 +179,14 @@ bool ImageBuffer::getMostRecentImageTF()
                     continue;
                 }
             }
-            catch (tf::TransformException& ex)
+            catch (tf2::TransformException& ex)
             {
                 ROS_ERROR_DELAYED_THROTTLE_NAMED(10, "image_buffer", "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
                 ROS_WARN_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
                 continue;
             }
         }
-        catch (tf::TransformException& ex)
+        catch (tf2::TransformException& ex)
         {
             ROS_ERROR_DELAYED_THROTTLE_NAMED(10, "image_buffer", "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
             ROS_WARN_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get sensor pose: %s", ex.what());
