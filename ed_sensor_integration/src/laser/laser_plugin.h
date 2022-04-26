@@ -11,12 +11,16 @@
 #include <ros/subscriber.h>
 #include <ros/callback_queue.h>
 #include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 #include <sensor_msgs/LaserScan.h>
 
 #include <queue>
 #include <map>
 #include <memory>
+
+namespace tf2_ros
+{
+class TransformListener;
+}
 
 class LaserPlugin : public ed::Plugin
 {
