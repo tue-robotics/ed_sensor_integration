@@ -61,7 +61,10 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
         if (rgbd_image)
             break;
         else if (ros::Time::now() > t_end)
+        {
+            ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] timeout waiting for image");
             return false;
+        }
         else
             ros::Duration(0.1).sleep();
     }
@@ -72,7 +75,10 @@ bool ImageBuffer::waitForRecentImage(rgbd::ImageConstPtr& image, geo::Pose3D& se
     // Wait until we have a tf
     if (!tf_listener_->canTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()))) // Get the TF when it is available now
         if (!tf_listener_->waitForTransform(root_frame_, rgbd_image->getFrameId(), ros::Time(rgbd_image->getTimestamp()), t_end - ros::Time::now()))
+        {
+            ROS_ERROR_NAMED("image_buffer", "[IMAGE_BUFFER] timeout waiting for tf");
             return false;
+        }
 
     // - - - - - - - - - - - - - - - - - -
     // Calculate tf
