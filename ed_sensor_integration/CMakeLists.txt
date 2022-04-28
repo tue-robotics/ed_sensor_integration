@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   ed_sensor_integration_msgs
   geolib2
   image_geometry
+  pcl_ros
   sensor_msgs
   tf2
   tf2_ros
@@ -115,6 +116,9 @@ target_link_libraries(ed_segmenter ed_kinect)
 
 add_executable(ed_fitter tools/fitter_viz.cpp)
 target_link_libraries(ed_fitter ed_kinect)
+
+add_executable(ed_table_modeler src/kinect/code_v1.cpp)
+target_link_libraries(ed_table_modeler ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS

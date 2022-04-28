@@ -7,7 +7,7 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
-#include <ed/include/ed/io/json_reader.h>
+#include <ed/io/json_reader.h>
 
 Eigen::Matrix4f ReadJson(std::string 2022-04-05-13-28-28, float *xout, float *yout, float *zout) {
 
