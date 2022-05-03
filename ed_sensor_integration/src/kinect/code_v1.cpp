@@ -1,17 +1,25 @@
 #include <iostream>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
+
 #include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_representation.h>
+
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
+#include <pcl/sample_consensus/sac_model_parallel_plane.h>
+
 #include <pcl/segmentation/sac_segmentation.h>
+
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
+
 #include <ed/io/json_reader.h>
 
-Eigen::Matrix4f ReadJson(std::string 2022-04-05-13-28-28, float *xout, float *yout, float *zout) {
+Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, float *zout) {
 
-    std::string json_filename = boost::filesystem::change_extension(2022-04-05-13-28-28, ".json").string();
+    std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
     // read json metadata
     tue::config::DataPointer meta_data;
 
@@ -62,24 +70,22 @@ Eigen::Matrix4f ReadJson(std::string 2022-04-05-13-28-28, float *xout, float *yo
         {n*qx*qz - n*qy*qw, n*qy*qz + n*qx*qw, 1.0f - n*qx*qx - n*qy*qy, z},
         {0.0f, 0.0f, 0.0f, 1.0f}}; */
 
-    Transform(0,0) = xx; //1.0f - n*qy*qy - n*qz*qz;
-    Transform(0,1) = xy; //n*qx*qy - n*qz*qw;
-    Transform(0,2) = xz; //n*qx*qz + n*qy*qw;
+    Transform(0,0) = xx;//1.0f - n*qy*qy - n*qz*qz;
+    Transform(0,1) = xy;//n*qx*qy - n*qz*qw;
+    Transform(0,2) = xz;//n*qx*qz + n*qy*qw;
     Transform(0,3) = x;
-    Transform(1,0) = yx; //n*qx*qy + n*qz*qw;
-    Transform(1,1) = yy; //1.0f - n*qx*qx - n*qz*qz;
-    Transform(1,2) = yz; //n*qy*qz - n*qx*qw;
+    Transform(1,0) = yx;//n*qx*qy + n*qz*qw;
+    Transform(1,1) = yy;//1.0f - n*qx*qx - n*qz*qz;
+    Transform(1,2) = yz;//n*qy*qz - n*qx*qw;
     Transform(1,3) = y;
-    Transform(2,0) = zx; //n*qx*qz - n*qy*qw;
-    Transform(2,1) = zy; //n*qy*qz + n*qx*qw;
-    Transform(2,2) = zz; //1.0f - n*qx*qx - n*qy*qy;
+    Transform(2,0) = zx;//n*qx*qz - n*qy*qw;
+    Transform(2,1) = zy;//n*qy*qz + n*qx*qw;
+    Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
     Transform(2,3) = z;
 
     std::cout << Transform << std::endl;
     return Transform;
 }
-}
-
 
 int
 main ()
@@ -112,13 +118,16 @@ main ()
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
   // Create the segmentation object
   pcl::SACSegmentation<pcl::PointXYZ> seg;
+  pcl::SampleConsensusModelParallelPlane<pcl::PointXYZ> model (cloud_filtered);
   // Optional
   seg.setOptimizeCoefficients (true);
   // Mandatory
-  seg.setModelType (pcl::SACMODEL_PLANE);
+  seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setMaxIterations (1000);
   seg.setDistanceThreshold (0.01);
+  model.setAxis(Eigen::Vector3f(1,0,0));
+  model.setEpsAngle(30*0.0174532925); //*0.0174532925 to radians
 
   // Create the filtering object
   pcl::ExtractIndices<pcl::PointXYZ> extract;
@@ -130,6 +139,7 @@ main ()
     // Segment the largest planar component from the remaining cloud
     seg.setInputCloud (cloud_filtered);
     seg.segment (*inliers, *coefficients);
+
     if (inliers->indices.size () == 0)
     {
       std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
@@ -155,5 +165,4 @@ main ()
   }
 
   return (0);
-  
-  
+}

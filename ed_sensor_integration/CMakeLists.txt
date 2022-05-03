@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.0.2)
 project(ed_sensor_integration)
 
 find_package(catkin REQUIRED COMPONENTS
+ # cv_bridge
+ # dynamic_reconfigure
+ # geometry_msgs
+ # actionlib_msgs
+ # image_transport
+
+ # rospy
+ # roscpp
+ # std_msgs
   ed
   ed_sensor_integration_msgs
   geolib2
