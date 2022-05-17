@@ -14,8 +14,20 @@
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/filter.h>
+
+#include <pcl/features/normal_3d.h>
 
 #include <ed/io/json_reader.h>
+#include <ed/serialization/serialization.h>
+
+#include <tue/config/read.h>
+#include <tue/config/reader.h>
+#include <tue/config/data_pointer.h>
+
+#include <fstream>
+#include <boost/filesystem/convenience.hpp>
 
 Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, float *zout) {
 
@@ -87,6 +99,56 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     return Transform;
 }
 
+float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
+
+    //*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
+
+    std::vector<int> indices;
+    float threshold = 0.03;
+
+    std::cout << "starting ransac" << std::endl;
+    // Create SAC model
+    pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB>(cloud));
+    plane->setAxis (Eigen::Vector3f(1,0,0));
+    plane->setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
+    std::cout << "created plane object" << std::endl;
+    // Create SAC method
+    pcl::SACSegmentation<pcl::PointXYZ> segplane;
+    //pcl::SampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::SampleConsensus<pcl::PointXYZRGB> (plane, threshold));
+    std::cout << "created ransac object" << std::endl;
+    segplane.setMaxIterations(10000);
+    segplane.setProbability(0.99);
+
+    // Fit model
+    //segplane.computeModel();
+
+    // Get inliers
+    std::vector<int> inliers;
+    //segplane.getInliers(inliers);
+
+    // Get the model coefficients
+    Eigen::VectorXf coeff;
+    //segplane.getModelCoefficients (coeff);
+    std::cout << "ransac complete" << std::endl;
+
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
+    //range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, (coeff[3]+0.01))));
+    *out = *cloud;
+    //filter out everything below plane
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    condrem.setCondition (range_cond);
+    condrem.setInputCloud (out);
+    condrem.setKeepOrganized(true);
+
+    condrem.filter (*out);
+    (*out).is_dense = false;
+    pcl::removeNaNFromPointCloud(*out, *out, indices);
+
+    return(coeff[3]);
+
+}
+
 int
 main ()
 {
@@ -126,8 +188,8 @@ main ()
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setMaxIterations (1000);
   seg.setDistanceThreshold (0.01);
-  model.setAxis(Eigen::Vector3f(1,0,0));
-  model.setEpsAngle(30*0.0174532925); //*0.0174532925 to radians
+  model.setAxis (Eigen::Vector3f(1,0,0));
+  model.setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
 
   // Create the filtering object
   pcl::ExtractIndices<pcl::PointXYZ> extract;
@@ -165,4 +227,6 @@ main ()
   }
 
   return (0);
+
+
 }
