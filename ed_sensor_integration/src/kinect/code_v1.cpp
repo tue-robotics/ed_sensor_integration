@@ -9,18 +9,24 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/sample_consensus/sac_model_parallel_plane.h>
+#include <pcl/sample_consensus/ransac.h>
 
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+
+#include <pcl/registration/transforms.h>
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/conditional_removal.h>
 #include <pcl/filters/filter.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 #include <pcl/features/normal_3d.h>
 
 #include <ed/io/json_reader.h>
 #include <ed/serialization/serialization.h>
+//#include "ed_sensor_integration/sac_model_circle.h"
 
 #include <tue/config/read.h>
 #include <tue/config/reader.h>
@@ -31,7 +37,8 @@
 
 Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, float *zout) {
 
-    std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
+    std::string json_filename = "2022-04-22-12-04-46.json";
+    //std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
     // read json metadata
     tue::config::DataPointer meta_data;
 
@@ -99,7 +106,7 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     return Transform;
 }
 
-float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
+float FilterPlane (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, pcl::PointCloud<pcl::PointXYZ>::Ptr out) {
 
     //*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
 
@@ -108,35 +115,35 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 
     std::cout << "starting ransac" << std::endl;
     // Create SAC model
-    pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB>(cloud));
+    pcl::SampleConsensusModelParallelPlane<pcl::PointXYZ>::Ptr plane (new pcl::SampleConsensusModelParallelPlane<pcl::PointXYZ>(cloud));
     plane->setAxis (Eigen::Vector3f(1,0,0));
     plane->setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
     std::cout << "created plane object" << std::endl;
     // Create SAC method
-    pcl::SACSegmentation<pcl::PointXYZ> segplane;
-    //pcl::SampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::SampleConsensus<pcl::PointXYZRGB> (plane, threshold));
+    //pcl::SACSegmentation<pcl::PointXYZ> segplane;
+    pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr segplane (new pcl::RandomSampleConsensus<pcl::PointXYZ> (plane, threshold));
     std::cout << "created ransac object" << std::endl;
-    segplane.setMaxIterations(10000);
-    segplane.setProbability(0.99);
+    segplane->setMaxIterations(10000);
+    segplane->setProbability(0.99);
 
     // Fit model
-    //segplane.computeModel();
+    segplane->computeModel();
 
     // Get inliers
     std::vector<int> inliers;
-    //segplane.getInliers(inliers);
+    segplane->getInliers(inliers);
 
     // Get the model coefficients
     Eigen::VectorXf coeff;
-    //segplane.getModelCoefficients (coeff);
+    segplane->getModelCoefficients (coeff);
     std::cout << "ransac complete" << std::endl;
 
-    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
+    pcl::ConditionAnd<pcl::PointXYZ>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZ> ());
+    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZ>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZ> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
     //range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, (coeff[3]+0.01))));
     *out = *cloud;
     //filter out everything below plane
-    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    pcl::ConditionalRemoval<pcl::PointXYZ> condrem;
     condrem.setCondition (range_cond);
     condrem.setInputCloud (out);
     condrem.setKeepOrganized(true);
@@ -150,18 +157,22 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 }
 
 int
-main ()
+main (int argc, char **argv)
 {
+  std::vector <pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator <pcl::PointCloud <pcl::PointXYZ>::Ptr > > inputs;
+//  float x, y, z;//used to store camera position
+//      pcl::transformPointCloud (*inputs[0], *inputs[0], ReadJson(argv[1], &x, &y, &z));
+
   pcl::PCLPointCloud2::Ptr cloud_blob (new pcl::PCLPointCloud2), cloud_filtered_blob (new pcl::PCLPointCloud2);
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>), cloud_p (new pcl::PointCloud<pcl::PointXYZ>), cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
 
   // Fill in the cloud data
   pcl::PCDReader reader;
-  reader.read ("2022-04-05-13-28-28.pcd", *cloud_blob);
+  reader.read ("2022-04-22-12-04-46.pcd", *cloud_blob); //
 
   std::cerr << "PointCloud before filtering: " << cloud_blob->width * cloud_blob->height << " data points." << std::endl;
 
-  // Create the filtering object: downsample the dataset using a leaf size of 1cm
+  // Create the filtering object: downsample the dataset using a leaf size of 0.25cm
   pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
   sor.setInputCloud (cloud_blob);
   sor.setLeafSize (0.0025f, 0.0025f, 0.0025f);
@@ -188,8 +199,8 @@ main ()
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setMaxIterations (1000);
   seg.setDistanceThreshold (0.01);
-  model.setAxis (Eigen::Vector3f(1,0,0));
-  model.setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
+  seg.setAxis (Eigen::Vector3f(1,0,0));
+  seg.setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
 
   // Create the filtering object
   pcl::ExtractIndices<pcl::PointXYZ> extract;
@@ -226,7 +237,90 @@ main ()
     i++;
   }
 
-  return (0);
+  // Creating the KdTree object for the search method of the extraction
+  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+  tree->setInputCloud (cloud_p);
 
+  std::vector<pcl::PointIndices> cluster_indices;
+  pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+  ec.setClusterTolerance (0.02); // 2cm
+  ec.setMinClusterSize (100);
+  ec.setMaxClusterSize (100000);
+  ec.setSearchMethod (tree);
+  ec.setInputCloud (cloud_p);
+  ec.extract (cluster_indices);
+
+  int j = 0;
+  for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+  {
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+      for (const auto& idx : it->indices)
+      cloud_cluster->push_back ((*cloud_filtered)[idx]); //*
+      cloud_cluster->width = cloud_cluster->size ();
+      cloud_cluster->height = 1;
+      cloud_cluster->is_dense = true;
+
+      std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size () << " data points." << std::endl;
+      std::stringstream ss;
+      ss << "cloud_cluster_" << j << ".pcd";
+      writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
+      j++;
+  }
+
+  //Removing outliers using a StatisticalOutlierRemoval filter
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered2 (new pcl::PointCloud<pcl::PointXYZ>);
+
+  // Fill in the cloud data
+  pcl::PCDReader reader2;
+  // Replace the path below with the path where you saved your file
+  reader.read<pcl::PointXYZ> ("table_scene_lms400_plane_1.pcd", *cloud2);
+
+  std::cerr << "Cloud before filtering: " << std::endl;
+  std::cerr << *cloud2 << std::endl;
+
+  // Create the filtering object
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor2;
+  sor2.setInputCloud (cloud2);
+  sor2.setMeanK (50);
+  sor2.setStddevMulThresh (1.0);
+  sor2.filter (*cloud_filtered2);
+
+  std::cerr << "Cloud after filtering: " << std::endl;
+  std::cerr << *cloud_filtered2 << std::endl;
+
+  pcl::PCDWriter writer2;
+  writer2.write<pcl::PointXYZ> ("table_scene_lms400_inliers.pcd", *cloud_filtered2, false);
+
+  sor2.setNegative (true);
+  sor2.filter (*cloud_filtered2);
+  writer2.write<pcl::PointXYZ> ("table_scene_lms400_outliers.pcd", *cloud_filtered2, false);
+
+  FilterPlane;
+
+//  pcl::SampleConsensusModelCircle<pcl::PointXYZ>::Ptr circle (new pcl::SampleConsensusModelCircle<pcl::PointXYZ>(cloud_ptr));
+
+//  // Create SAC method
+//  pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr saccirc (new pcl::RandomSampleConsensus<pcl::PointXYZ> (circle, threshold));
+//  saccirc->setMaxIterations(10000);
+//  saccirc->setProbability(1);
+
+//  // Fit model
+//  saccirc->computeModel();
+
+//  // Get inliers
+//  std::vector<int> inliers3;
+//  saccirc->getInliers(inliers3);
+
+//  // Get the model coefficients
+//  Eigen::VectorXf coeff3;
+//  saccirc->getModelCoefficients (coeff3);
+
+//  float min_inliers = 0.0;
+//  Eigen::VectorXf output;
+
+//  std::cout << "Circle model, " << static_cast<float>(inliers3.size())/static_cast<float>(cloud_p.size()) << std::endl;
+
+  return (0);
 
 }
