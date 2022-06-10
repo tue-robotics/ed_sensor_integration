@@ -39,6 +39,13 @@ void createCostmap(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, cv::Mat& canvas, c
     }
 }
 
+void dilateCostmap(cv::Mat& canvas)
+{
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_RECT,
+                                             cv::Size( 11, 11),
+                                             cv::Point(5, 5) );
+    cv::dilate(canvas, canvas, element );
+}
 
 void usage()
 {
@@ -74,8 +81,10 @@ int main (int argc, char **argv)
     cv::Scalar table_color(0, 255, 0);
     cv::Scalar occupied_color(0, 0, 255);
 
-    createCostmap(occupied_cloud, canvas, occupied_color);
-    //createCostmap(cloud, canvas, table_color);
+    //createCostmap(occupied_cloud, canvas, occupied_color);
+    createCostmap(cloud, canvas, table_color);
+
+    dilateCostmap(canvas);
 
     std::cout << "showing costmap" << std::endl;
     cv::imshow("Laser Vizualization", canvas);
