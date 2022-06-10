@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
  # rospy
  # roscpp
  # std_msgs
+  costmap_2d
   ed
   ed_sensor_integration_msgs
   geolib2
