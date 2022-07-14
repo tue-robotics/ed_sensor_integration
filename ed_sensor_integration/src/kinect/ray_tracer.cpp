@@ -80,14 +80,9 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             }
         }
 
-        // Do not raytrace the floor
-        if (id.size() < 5 || id.substr(id.size() - 5) != "floor")
-        {
-            ROS_DEBUG_STREAM("Raytracing to " << id << " mesh");
-            geo::LaserRangeFinder::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
-            lrf.render(opt, res);
-        }
+        geo::LaserRangeFinder::RenderOptions opt;
+        opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        lrf.render(opt, res);
     }
 
     geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
