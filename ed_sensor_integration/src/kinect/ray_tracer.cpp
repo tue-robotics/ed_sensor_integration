@@ -71,8 +71,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             const geo::ShapeConstPtr& shape = volume.second;
             if (name == "on_top_of")
             {
-                ROS_WARN("Raytrace on_top_of array of %s included", e->id().c_str());
-                ROS_WARN_STREAM("Pose of volume in ray frame: " << raytrace_pose.inverse() * e->pose());
+                ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());
                 geo::LaserRangeFinder::RenderOptions opt;
                 opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
 
@@ -80,8 +79,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             }
         }
 
-        ROS_WARN_STREAM("Raytracing to " << e->id() << " mesh");
-        ROS_WARN_STREAM("Pose of entity in ray frame: " << raytrace_pose.inverse() * e->pose());
+        ROS_DEBUG_STREAM("Raytracing to " << e->id() << " mesh");
         geo::LaserRangeFinder::RenderOptions opt;
         opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
