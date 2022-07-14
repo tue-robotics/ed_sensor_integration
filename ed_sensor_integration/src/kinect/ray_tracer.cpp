@@ -61,17 +61,18 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (!e->shape() || !e->has_pose())
+        if (!e->shape() || !e->has_pose() || e->hasFlag("self"))
             continue;
 
-        res.active_entity_ = e->id().str();
+        const std::string& id = e->id().str();
+        res.active_entity_ = id;
         for (const auto& volume : e->volumes())
         {
             const std::string& name = volume.first;
             const geo::ShapeConstPtr& shape = volume.second;
             if (name == "on_top_of")
             {
-                ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());
+                ROS_DEBUG("Raytrace on_top_of array of %s included", id.c_str());
                 geo::LaserRangeFinder::RenderOptions opt;
                 opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
 
@@ -79,11 +80,14 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             }
         }
 
-        ROS_DEBUG_STREAM("Raytracing to " << e->id() << " mesh");
-        geo::LaserRangeFinder::RenderOptions opt;
-        opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
-
-        lrf.render(opt, res);
+        // Do not raytrace the floor
+        if (id.size() < 5 || id.substr(id.size() - 5) != "floor")
+        {
+            ROS_DEBUG_STREAM("Raytracing to " << id << " mesh");
+            geo::LaserRangeFinder::RenderOptions opt;
+            opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+            lrf.render(opt, res);
+        }
     }
 
     geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
