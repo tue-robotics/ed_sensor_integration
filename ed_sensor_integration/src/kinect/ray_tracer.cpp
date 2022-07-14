@@ -83,13 +83,16 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
 
         geo::LaserRangeFinder::RenderOptions opt;
         if (e->id() == "walls")
+        {
           opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+          lrf.render(opt, res);
+        }
         else
         {
           auto bbx = e->shape()->getBoundingBox();
           opt.setMesh(bbx.getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+          lrf.render(opt, res);
         }
-        lrf.render(opt, res);
     }
 
     geo::Vec3d point_sensor_frame(res.depth_, 0, 0);
