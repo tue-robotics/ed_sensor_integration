@@ -3,6 +3,7 @@
 #include <ed/world_model.h>
 #include <ed/entity.h>
 
+#include <geolib/Box.h>
 #include <geolib/Shape.h>
 
 #include <geolib/sensors/LaserRangeFinder.h>
@@ -61,7 +62,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (!e->shape() || !e->has_pose() || e->hasFlag("self"))
+        if (!e->shape() || !e->has_pose() || e->hasFlag("self") || e->id() == "floor")
             continue;
 
         const std::string& id = e->id().str();
@@ -81,7 +82,10 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         }
 
         geo::LaserRangeFinder::RenderOptions opt;
-        opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        if (e->id() == "walls")
+          opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        else
+          opt.setMesh(e->shape()->getBoundingBox().getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
         lrf.render(opt, res);
     }
 
