@@ -85,7 +85,10 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         if (e->id() == "walls")
           opt.setMesh(e->shape()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
         else
-          opt.setMesh(e->shape()->getBoundingBox().getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        {
+          auto bbx = e->shape()->getBoundingBox();
+          opt.setMesh(bbx.getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        }
         lrf.render(opt, res);
     }
 
