@@ -62,7 +62,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (!e->shape() || !e->has_pose() || e->hasFlag("self") || e->id() == "floor")
+        if (!e->shape() || !e->has_pose() || e->hasFlag("self") || e->id() == "floor"  || e->id() == "walls")
             continue;
 
         const std::string& id = e->id().str();
