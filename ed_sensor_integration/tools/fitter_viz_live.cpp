@@ -17,7 +17,7 @@
  */
 void usage()
 {
-    std::cout << "Usage: ed_fitter WORLDMODEL_NAME  ENTITY_ID" << std::endl;
+    std::cout << "Usage: ed_fitter_live WORLDMODEL_NAME  ENTITY_ID [RGBD_TOPIC]" << std::endl;
 }
 
 /**
@@ -27,7 +27,7 @@ void usage()
  */
 int main(int argc, char **argv)
 {
-    if (argc != 3)
+    if (argc < 3 || argc > 5)
     {
         usage();
         return 1;
@@ -55,10 +55,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    std::string topic;
+    if (argc > 3)
+    {
+        topic = argv[3];
+        std::cout << "using topic: " << topic << std::endl;
+    }
+    else
+    {
+        topic = "head_rgbd_sensor/rgbd";
+        std::cout << "no topic provided, assuming default: " << topic << std::endl;
+    }
+
+    // input processed. starting implementation
     ros::init(argc, argv, "fitting_visualizer");
 
     ImageBuffer image_buffer;
-    image_buffer.initialize("/hero/head_rgbd_sensor/rgbd", "map");
+    image_buffer.initialize(topic, "map");
 
     Fitter fitter;
 
