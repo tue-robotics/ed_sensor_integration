@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 
     Fitter fitter;
 
-    while(true)
+    while(ros::ok())
     {
         rgbd::ImageConstPtr image;
         geo::Pose3D sensor_pose;
