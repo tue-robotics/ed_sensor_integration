@@ -107,7 +107,7 @@ int main(int argc, char **argv)
         cv::Mat canvas = visualizeFitting(entity_2d, sensor_pose2d, entity_pose2d, fitted_pose2d, fitterdata, estimateEntityPose);
         cv::imshow("Fitting", canvas);
 
-        cv::waitKey(100);
+        cv::waitKey(30);
     }
 
     return 0;
