@@ -93,6 +93,8 @@ int main(int argc, char **argv)
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
         cv::Mat canvas = visualizeFitting(entity_2d, sensor_pose2d, entity_pose2d, fitted_pose2d, fitterdata, estimateEntityPose);
         cv::imshow("Fitting", canvas);
+
+        cv::waitKey(100);
     }
 
     return 0;
