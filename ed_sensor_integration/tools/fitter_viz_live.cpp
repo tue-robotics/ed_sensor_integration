@@ -100,7 +100,7 @@ int main(int argc, char **argv)
         geo::Transform2 fitted_pose2d = fitted_pose.projectTo2d();
 
         // show snapshot
-        cv::Mat rgbcanvas = image->getRGBImage().clone();
+        cv::Mat rgbcanvas = image->getRGBImage();
         cv::imshow("RGB", rgbcanvas);
 
         EntityRepresentation2D entity_2d = fitter.GetOrCreateEntity2D(e);
