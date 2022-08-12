@@ -27,7 +27,7 @@ void usage()
  */
 int main(int argc, char **argv)
 {
-    if (argc < 3 || argc > 5)
+    if (argc != 4)
     {
         usage();
         return 1;
@@ -55,17 +55,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    std::string topic;
-    if (argc > 3)
-    {
-        topic = argv[3];
-        std::cout << "using topic: " << topic << std::endl;
-    }
-    else
-    {
-        topic = "head_rgbd_sensor/rgbd";
-        std::cout << "no topic provided, assuming default: " << topic << std::endl;
-    }
+    std::string topic = argv[3];
+    std::cout << "using topic: " << topic << std::endl;
 
     // input processed. starting implementation
     ros::init(argc, argv, "fitting_visualizer");
