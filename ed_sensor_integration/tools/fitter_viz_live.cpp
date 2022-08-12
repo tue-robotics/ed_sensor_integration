@@ -109,6 +109,6 @@ int main(int argc, char **argv)
 
         cv::waitKey(30);
     }
-
+    cv::destroyAllWindows();
     return 0;
 }
