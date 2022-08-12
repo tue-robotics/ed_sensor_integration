@@ -17,10 +17,10 @@
  */
 void usage()
 {
-    std::cout << "Usage: ed_fitter_live WORLDMODEL_NAME  ENTITY_ID RGBD_TOPIC" << std::endl;
-    std::cout << "WORLDMODEL_NAME name of the worldmodel to load, example: impuls" << std::endl;
-    std::cout << "ENTITY_ID entity to fit, example dinner_table" << std::endl;
-    std::cout << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl;
+    std::cout << "Usage: ed_fitter_live WORLDMODEL_NAME  ENTITY_ID RGBD_TOPIC" << std::endl
+                  << "WORLDMODEL_NAME name of the worldmodel to load, example: impuls" << std::endl
+                  << "ENTITY_ID entity to fit, example dinner_table" << std::endl
+                  << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl;
 }
 
 /**
