@@ -227,11 +227,6 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
     res.intersection_point.header.stamp = ros::Time::now();
     res.intersection_point.header.frame_id = "map";
 
-    if (res.entity_id != "cupboard")
-    {
-      return true;
-    }
-
     visualization_msgs::Marker marker_msg;
     marker_msg.header.frame_id = "map";
     marker_msg.header.stamp = ros::Time::now();
