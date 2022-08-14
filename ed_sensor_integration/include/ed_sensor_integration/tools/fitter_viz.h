@@ -160,4 +160,5 @@ cv::Mat visualizeFitting(EntityRepresentation2D entity, geo::Transform2 sensor_p
 
     return canvas;
 }
+
 #endif // ED_SENSOR_INTEGRATION_TOOLS_FITTER_VIZ_H_
