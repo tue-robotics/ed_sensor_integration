@@ -101,7 +101,20 @@ int main(int argc, char **argv)
         cv::Mat canvas = visualizeFitting(entity_2d, sensor_pose2d, entity_pose2d, fitted_pose2d, fitterdata, estimateEntityPose);
         cv::imshow("Fitting", canvas);
 
-        cv::waitKey(30);
+        char key = cv::waitKey(30);
+
+        if (key == 82) // Up arrow
+        {
+            canvas_resolution = canvas_resolution + 10;
+        }
+        else if (key == 84) // Down arrow
+        {
+            canvas_resolution = std::max(canvas_resolution - 10.0, 10.0);
+        }
+        else if (key == 'q')
+        {
+            break;
+        }
     }
     cv::destroyAllWindows();
     return 0;
