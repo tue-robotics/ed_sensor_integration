@@ -30,6 +30,9 @@ void usage()
  */
 int main(int argc, char **argv)
 {
+    // input processed. starting implementation
+    ros::init(argc, argv, "fitting_visualizer");
+
     if (argc != 4)
     {
         usage();
@@ -60,9 +63,6 @@ int main(int argc, char **argv)
 
     std::string topic = argv[3];
     std::cout << "Using topic: " << topic << std::endl;
-
-    // input processed. starting implementation
-    ros::init(argc, argv, "fitting_visualizer");
 
     ImageBuffer image_buffer;
     image_buffer.initialize(topic, "map");
