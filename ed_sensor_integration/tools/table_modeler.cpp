@@ -48,9 +48,9 @@
  */
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
-	
-	//final_transform = Eigen::Matrix4f::Identity(); return; //activate to bypass alignment
-	
+
+    //final_transform = Eigen::Matrix4f::Identity(); return; //activate to bypass alignment
+
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src (new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -81,12 +81,12 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     reg.align (*src);
 
 
-        //
+    //
     // Get the transformation from target to source
     targetToSource = reg.getFinalTransformation();//.inverse();
 
     final_transform = targetToSource;
- }
+}
 
 /**
  * @brief FilterPlane fit a plane through a pointcloud, filter the points which lie in this plane and return the height of the plane #TODO separation of concerns.
@@ -95,39 +95,39 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
  * @return height (z coordinate) of the fitted plane.
  */
 float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
-	
-	//*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
-	
-	std::vector<int> indices;
-	float threshold = 0.03;
-	
-	std::cout << "starting ransac" << std::endl;
-	// Create SAC model
-	pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>(cloud));
-	std::cout << "created plane object" << std::endl;
-	// Create SAC method
-	pcl::RandomSampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZRGB> (plane, threshold));
-	std::cout << "created ransac object" << std::endl;
-	sac->setMaxIterations(10000);
-	sac->setProbability(0.99);
-	
-	// Fit model
-	sac->computeModel();
 
-	// Get inliers
-	std::vector<int> inliers;
-	sac->getInliers(inliers);
+    //*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
 
-	// Get the model coefficients
-	Eigen::VectorXf coeff;
-	sac->getModelCoefficients (coeff);
-	std::cout << "ransac complete" << std::endl;
-	
-	pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+    std::vector<int> indices;
+    float threshold = 0.03;
+
+    std::cout << "starting ransac" << std::endl;
+    // Create SAC model
+    pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>(cloud));
+    std::cout << "created plane object" << std::endl;
+    // Create SAC method
+    pcl::RandomSampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZRGB> (plane, threshold));
+    std::cout << "created ransac object" << std::endl;
+    sac->setMaxIterations(10000);
+    sac->setProbability(0.99);
+
+    // Fit model
+    sac->computeModel();
+
+    // Get inliers
+    std::vector<int> inliers;
+    sac->getInliers(inliers);
+
+    // Get the model coefficients
+    Eigen::VectorXf coeff;
+    sac->getModelCoefficients (coeff);
+    std::cout << "ransac complete" << std::endl;
+
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
     range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
     //range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, (coeff[3]+0.01))));
-	*out = *cloud;
-	//filter out everything below plane
+    *out = *cloud;
+    //filter out everything below plane
     pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
     condrem.setCondition (range_cond);
     condrem.setInputCloud (out);
@@ -136,9 +136,9 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
     condrem.filter (*out);
     (*out).is_dense = false;
     pcl::removeNaNFromPointCloud(*out, *out, indices);
-	
-	return(coeff[3]);
-	
+
+    return(coeff[3]);
+
 }
 
 /**
@@ -150,9 +150,9 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
  * @param [out] tableHeight[m]: estimated height of the table based on the cluster.
  */
 void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight) {
-	
-	//return; //activate completely bypass segmentation and height estimation
-	
+
+    //return; //activate completely bypass segmentation and height estimation
+
     std::cout << "starting segmentation" << std::endl;
     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
@@ -170,24 +170,24 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     ec.extract (cluster_indices);
 
     std::cout << "obtained cluster indices" <<std::endl;
-	
-	//find closest cluster
+
+    //find closest cluster
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
     float mindist = INFINITY;
-	for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != 
-	cluster_indices.end (); ++it) //iterate through all clusters
+    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it !=
+         cluster_indices.end (); ++it) //iterate through all clusters
     {
-		//construct cluster
+        //construct cluster
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
         for (const auto& idx : it->indices)
-        cloud_cluster->push_back ((*cloud)[idx]); //*
+            cloud_cluster->push_back ((*cloud)[idx]); //*
         cloud_cluster->width = cloud_cluster->size ();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
         float sumx = 0, sumy = 0, sumz = 0, dist = 0;
         for (uint j=0; j < (*cloud_cluster).width; ++j)
         {
-			//sum up all points
+            //sum up all points
             sumx += (*cloud_cluster)[j].x;
             sumy += (*cloud_cluster)[j].y;
             sumz += (*cloud_cluster)[j].z;
@@ -203,13 +203,13 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
             //currentTableHeight = maxz
         }
     }
-	
-	float height = FilterPlane(cloud_out, cloud_out);
-	if (height != -1)
-	{
-		tableHeight.push_back(height);
-	}
-	
+
+    float height = FilterPlane(cloud_out, cloud_out);
+    if (height != -1)
+    {
+        tableHeight.push_back(height);
+    }
+
     std::cout << "writing closest cluster" << std::endl;
     *cloud = *cloud_out;
 }
@@ -347,105 +347,105 @@ pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) 
  * @return Coefficients of the best model.
  */
 Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
-	*cloud_ptr = cloud;
-	float threshold = 0.03;
-	// Create SAC model
-	pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line1 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud_ptr));
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+    *cloud_ptr = cloud;
+    float threshold = 0.03;
+    // Create SAC model
+    pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line1 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud_ptr));
 
-	// Create SAC method
-	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac1 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line1, threshold));
-	sac1->setMaxIterations(10000);
-	sac1->setProbability(1);
+    // Create SAC method
+    pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac1 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line1, threshold));
+    sac1->setMaxIterations(10000);
+    sac1->setProbability(1);
 
-	// Fit model
-	sac1->computeModel();
+    // Fit model
+    sac1->computeModel();
 
-	// Get inliers
-	std::vector<int> inliers1;
-	sac1->getInliers(inliers1);
+    // Get inliers
+    std::vector<int> inliers1;
+    sac1->getInliers(inliers1);
 
-	// Get the model coefficients
-	Eigen::VectorXf coeff1;
-	sac1->getModelCoefficients (coeff1);
-	
-	
-	//extract the inliers and fit second set of lines perpendicular
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::PointIndices::Ptr line1_inliers (new pcl::PointIndices);
-	line1_inliers->indices = inliers1;
-	pcl::ExtractIndices<pcl::PointXYZ> extract;
-	extract.setInputCloud (cloud_ptr);
-	extract.setIndices (line1_inliers);
-	extract.setNegative (true);
-	extract.filter (*cloud2);
-	// Create second SAC model
-	pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line2 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud2));
-	// Create SAC method
-	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac2 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line2, threshold));
-	sac2->setMaxIterations(10000);
-	sac2->setProbability(1);
-	// Fit model
-	sac2->computeModel();
-	// Get inliers
-	std::vector<int> inliers2;
-	sac2->getInliers(inliers2);
-	// Get the model coefficients
-	Eigen::VectorXf coeff2;
-	sac2->getModelCoefficients (coeff2);
+    // Get the model coefficients
+    Eigen::VectorXf coeff1;
+    sac1->getModelCoefficients (coeff1);
 
-	//pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
-	
-	pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
-	line2_inliers->indices = inliers2;
-	extract.setInputCloud (cloud2);
-	extract.setIndices (line2_inliers);
-	extract.filter (*cloud2);
-	//pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
-	
-	
-	//repeat above steps for a circle
-	pcl::SampleConsensusModelCircle<pcl::PointXYZ>::Ptr circle (new pcl::SampleConsensusModelCircle<pcl::PointXYZ>(cloud_ptr));
 
-	// Create SAC method
-	pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr saccirc (new pcl::RandomSampleConsensus<pcl::PointXYZ> (circle, threshold));
-	saccirc->setMaxIterations(10000);
-	saccirc->setProbability(1);
+    //extract the inliers and fit second set of lines perpendicular
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointIndices::Ptr line1_inliers (new pcl::PointIndices);
+    line1_inliers->indices = inliers1;
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud (cloud_ptr);
+    extract.setIndices (line1_inliers);
+    extract.setNegative (true);
+    extract.filter (*cloud2);
+    // Create second SAC model
+    pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>::Ptr line2 (new pcl::SampleConsensusModelDoubleLine<pcl::PointXYZ>(cloud2));
+    // Create SAC method
+    pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr sac2 (new pcl::RandomSampleConsensus<pcl::PointXYZ> (line2, threshold));
+    sac2->setMaxIterations(10000);
+    sac2->setProbability(1);
+    // Fit model
+    sac2->computeModel();
+    // Get inliers
+    std::vector<int> inliers2;
+    sac2->getInliers(inliers2);
+    // Get the model coefficients
+    Eigen::VectorXf coeff2;
+    sac2->getModelCoefficients (coeff2);
 
-	// Fit model
-	saccirc->computeModel();
+    //pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
 
-	// Get inliers
-	std::vector<int> inliers3;
-	saccirc->getInliers(inliers3);
+    pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
+    line2_inliers->indices = inliers2;
+    extract.setInputCloud (cloud2);
+    extract.setIndices (line2_inliers);
+    extract.filter (*cloud2);
+    //pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
 
-	// Get the model coefficients
-	Eigen::VectorXf coeff3;
-	saccirc->getModelCoefficients (coeff3);
-	
-	float min_inliers = 0.0;
-	Eigen::VectorXf output;
-	
-	std::cout << "Parallelogram model, " << static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) << std::endl;
-	std::cout << "Circle model, " << static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) << std::endl;
-	
-	if ((inliers1.size()+inliers2.size() >= inliers3.size()) && (static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) > min_inliers))
-	{
-		float w = coeff1[2];
-		float l = coeff2[2];
-		float r = coeff1[3] - coeff2[3];//difference in angle: if not 90 degrees, model is a parallellogram	
-		
-		output.resize(3);
-		output[0] = l;
-		output[1] = w;
-		output[2] = r;
-	}
-	else if ((inliers1.size()+inliers2.size() < inliers3.size()) && (static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) > min_inliers))
-	{
-		output.resize(1);
-		output[0] = coeff3[2];
-	}
-	return (output);
+
+    //repeat above steps for a circle
+    pcl::SampleConsensusModelCircle<pcl::PointXYZ>::Ptr circle (new pcl::SampleConsensusModelCircle<pcl::PointXYZ>(cloud_ptr));
+
+    // Create SAC method
+    pcl::RandomSampleConsensus<pcl::PointXYZ>::Ptr saccirc (new pcl::RandomSampleConsensus<pcl::PointXYZ> (circle, threshold));
+    saccirc->setMaxIterations(10000);
+    saccirc->setProbability(1);
+
+    // Fit model
+    saccirc->computeModel();
+
+    // Get inliers
+    std::vector<int> inliers3;
+    saccirc->getInliers(inliers3);
+
+    // Get the model coefficients
+    Eigen::VectorXf coeff3;
+    saccirc->getModelCoefficients (coeff3);
+
+    float min_inliers = 0.0;
+    Eigen::VectorXf output;
+
+    std::cout << "Parallelogram model, " << static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) << std::endl;
+    std::cout << "Circle model, " << static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) << std::endl;
+
+    if ((inliers1.size()+inliers2.size() >= inliers3.size()) && (static_cast<float>(inliers1.size()+inliers2.size())/static_cast<float>(cloud.size()) > min_inliers))
+    {
+        float w = coeff1[2];
+        float l = coeff2[2];
+        float r = coeff1[3] - coeff2[3];//difference in angle: if not 90 degrees, model is a parallellogram
+
+        output.resize(3);
+        output[0] = l;
+        output[1] = w;
+        output[2] = r;
+    }
+    else if ((inliers1.size()+inliers2.size() < inliers3.size()) && (static_cast<float>(inliers3.size())/static_cast<float>(cloud.size()) > min_inliers))
+    {
+        output.resize(1);
+        output[0] = coeff3[2];
+    }
+    return (output);
 }
 
 int main(int argc, char **argv) {
@@ -505,12 +505,12 @@ int main(int argc, char **argv) {
     Segment(inputs[0], x, y, z, tableHeight);
 
     *result = *inputs[0];
-	
-	pcl::io::savePCDFileASCII ("first.pcd", *inputs[0]);
-	
+
+    pcl::io::savePCDFileASCII ("first.pcd", *inputs[0]);
+
     for (int i = 1; i < argc-1; ++i)
     {
-        std::cout << "iteration " << i << std::endl;   
+        std::cout << "iteration " << i << std::endl;
 
         // align to world model coordinates
         pcl::transformPointCloud (*inputs[i], *inputs[i], ReadJson(argv[i+1], &x, &y, &z));
