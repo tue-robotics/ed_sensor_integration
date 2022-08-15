@@ -32,6 +32,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    tue::filesystem::Path path = argv[1];
+    if (!path.exists())
+    {
+        std::cerr << "Path '" << path << "' does not exist." << std::endl;
+        return 1;
+    }
+    ed::SnapshotCrawler crawler(path);
+
     std::string model_name = argv[2];
 
     ed::WorldModelPtr world_model;
@@ -53,15 +61,6 @@ int main(int argc, char **argv)
         std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
         return 1;
     }
-
-    tue::filesystem::Path path = argv[1];
-    if (!path.exists())
-    {
-        std::cerr << "Path '" << path << "' does not exist." << std::endl;
-        return 1;
-    }
-
-    ed::SnapshotCrawler crawler(path);
 
     Fitter fitter;
 
