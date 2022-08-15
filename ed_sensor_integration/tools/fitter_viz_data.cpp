@@ -41,7 +41,6 @@ int main(int argc, char **argv)
     ed::SnapshotCrawler crawler(path);
 
     std::string model_name = argv[2];
-
     ed::WorldModelPtr world_model;
     try
     {
