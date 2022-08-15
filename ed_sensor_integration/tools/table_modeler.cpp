@@ -40,6 +40,12 @@
 #include "ed_sensor_integration/sac_model_circle.h"
 #include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
+/**
+ * @brief pairAlign use iterative closest point to align two pointclouds with one another
+ * @param cloud_src: source cloud, will be transformed to be expressed in the same frame as the target cloud.
+ * @param cloud_tgt: target cloud to match to.
+ * @param final_transform: transform from target to source
+ */
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
 	
@@ -296,6 +302,13 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     return Transform;
 }
 
+/**
+ * @brief Flatten: Remove z dimension from pointcloud.
+ * Also centers the pointcloud around x,y = (0,0)
+ * Also creates the convex hull of the flattened pointcloud. #TODO separation of concerns
+ * @param cloud: Input cloud
+ * @return Flattened point cloud.
+ */
 pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) {
     float totx = 0, toty = 0, avgx, avgy;
 
@@ -327,6 +340,12 @@ pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) 
     return *flat;
 }
 
+/**
+ * @brief Fit: Estimate a geometric representation of the shape underlying the data in the pointcloud
+ * Will attempt a parallelogram model and a cirle model. #TODO add support for concave hull model.
+ * @param cloud: Point cloud specifiying a concave hull in 2D.
+ * @return Coefficients of the best model.
+ */
 Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>);
 	*cloud_ptr = cloud;
