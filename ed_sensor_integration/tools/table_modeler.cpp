@@ -57,31 +57,23 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     *src = *cloud_src;
     *tgt = *cloud_tgt;
 
-
-    //
-    // Align
     pcl::IterativeClosestPointNonLinear<pcl::PointXYZRGB, pcl::PointXYZRGB> reg;
     reg.setTransformationEpsilon (1e-6);
     // Set the maximum distance between two correspondences (src<->tgt) to 10cm
     // Note: adjust this based on the size of your datasets
-    reg.setMaxCorrespondenceDistance (1);
+    reg.setMaxCorrespondenceDistance (1); // TODO Magic number
     // Set the point representation
     // reg.setPointRepresentation (pcl::make_shared<const MyPointRepresentation> (point_representation));
 
     reg.setInputSource (src);
     reg.setInputTarget (tgt);
 
-
-
-    //
     // Run the optimization
     Eigen::Matrix4f targetToSource;
     reg.setMaximumIterations (60);
 
     reg.align (*src);
 
-
-    //
     // Get the transformation from target to source
     targetToSource = reg.getFinalTransformation();//.inverse();
 
@@ -125,7 +117,6 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 
     pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
     range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
-    //range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, (coeff[3]+0.01))));
     *out = *cloud;
     //filter out everything below plane
     pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
@@ -138,7 +129,6 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
     pcl::removeNaNFromPointCloud(*out, *out, indices);
 
     return(coeff[3]);
-
 }
 
 /**
@@ -319,7 +309,6 @@ pcl::PointCloud<pcl::PointXYZ> Flatten(pcl::PointCloud<pcl::PointXYZRGB> cloud) 
     (*flat).resize((*flat).width);
     for (uint i=0; i < (cloud).width; ++i)
     {
-        //std::cout << "Writing point " << i << std::endl;
         (*flat)[i].x = cloud[i].x;
         (*flat)[i].y = cloud[i].y;
         (*flat)[i].z = 0;
@@ -369,7 +358,6 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
     Eigen::VectorXf coeff1;
     sac1->getModelCoefficients (coeff1);
 
-
     //extract the inliers and fit second set of lines perpendicular
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointIndices::Ptr line1_inliers (new pcl::PointIndices);
@@ -394,15 +382,11 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
     Eigen::VectorXf coeff2;
     sac2->getModelCoefficients (coeff2);
 
-    //pcl::io::savePCDFileASCII ("lines.pcd", *cloud2);
-
     pcl::PointIndices::Ptr line2_inliers (new pcl::PointIndices);
     line2_inliers->indices = inliers2;
     extract.setInputCloud (cloud2);
     extract.setIndices (line2_inliers);
     extract.filter (*cloud2);
-    //pcl::io::savePCDFileASCII ("outliers.pcd", *cloud2);
-
 
     //repeat above steps for a circle
     pcl::SampleConsensusModelCircle<pcl::PointXYZ>::Ptr circle (new pcl::SampleConsensusModelCircle<pcl::PointXYZ>(cloud_ptr));
@@ -458,7 +442,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    //pcl::PointCloud<pcl::PointXYZRGB>::Ptr inputs[argc-1]; //(new pcl::PointCloud<pcl::PointXYZRGB>);
     std::vector <pcl::PointCloud<pcl::PointXYZRGB>::Ptr, Eigen::aligned_allocator <pcl::PointCloud <pcl::PointXYZRGB>::Ptr > > inputs;
 
     std::vector<int> indices;
@@ -527,8 +510,6 @@ int main(int argc, char **argv) {
         // align to previous file
 
         source = inputs[i];
-        //target = inputs[i];
-
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp (new pcl::PointCloud<pcl::PointXYZRGB>);
 
         std::cout << "aligning cloud " << i << " to cloud " << i - 1 << std::endl;
@@ -555,7 +536,5 @@ int main(int argc, char **argv) {
     pcl::io::savePCDFileASCII ("flat.pcd", flat);
     std::cout << "The table is " << std::accumulate(tableHeight.begin(), tableHeight.end(), 0.0) / tableHeight.size() << "m tall" << std::endl;
     
-    
-
     return 0;
 }
