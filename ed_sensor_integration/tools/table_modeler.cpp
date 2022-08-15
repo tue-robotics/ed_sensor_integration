@@ -82,6 +82,12 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     final_transform = targetToSource;
  }
 
+/**
+ * @brief FilterPlane fit a plane through a pointcloud, filter the points which lie in this plane and return the height of the plane #TODO separation of concerns.
+ * @param cloud: pointcloud to be filtered.
+ * @param out: pointcloud with all points that lie within the plane
+ * @return height (z coordinate) of the fitted plane.
+ */
 float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
 	
 	//*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
@@ -129,6 +135,14 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
 	
 }
 
+/**
+ * @brief Segment segment the pointcloud and return the cluster closest to the camera
+ * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
+ * @param x: coordinate of the camera
+ * @param y: coordinate of the camera
+ * @param z: coordinate of the camera
+ * @param [out] tableHeight[m]: estimated height of the table based on the cluster.
+ */
 void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight) {
 	
 	//return; //activate completely bypass segmentation and height estimation
@@ -194,6 +208,16 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     *cloud = *cloud_out;
 }
 
+/**
+ * @brief ReadJson: Extract the pose of the camera corresponding to a pcd file.
+ *  Pose is expressed in map frame. (json filename is assumed to be the same as
+ *  the pcd file with a different extension.) #TODO strange interface
+ * @param pcd_filename: Filename of the pcd file
+ * @param xout: X Coordinate of the pose of the camera
+ * @param yout: Y Coordinate of the pose of the camera
+ * @param zout: Z Coordinate of the pose of the camera
+ * @return Eigen rotationmatrix
+ */
 Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, float *zout) {
 
     std::string json_filename = boost::filesystem::change_extension(pcd_filename, ".json").string();
