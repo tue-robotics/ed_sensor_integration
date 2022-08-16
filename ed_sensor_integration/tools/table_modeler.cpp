@@ -16,7 +16,6 @@
 
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
-//#include <pcl/sample_consensus/ransac.h>
 
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -47,9 +46,6 @@
  */
 void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_tgt, Eigen::Matrix4f &final_transform)
 {
-
-    //final_transform = Eigen::Matrix4f::Identity(); return; //activate to bypass alignment
-
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr src (new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -61,8 +57,6 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
     // Set the maximum distance between two correspondences (src<->tgt) to 10cm
     // Note: adjust this based on the size of your datasets
     reg.setMaxCorrespondenceDistance (1); // TODO Magic number
-    // Set the point representation
-    // reg.setPointRepresentation (pcl::make_shared<const MyPointRepresentation> (point_representation));
 
     reg.setInputSource (src);
     reg.setInputTarget (tgt);
@@ -85,10 +79,8 @@ void pairAlign (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_src, const pc
  * @param out: pointcloud with all points that lie within the plane
  * @return height (z coordinate) of the fitted plane.
  */
-float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out) {
-
-    //*out = *cloud; return(-1); //activate to bypass plane fitting and height estimation
-
+float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out)
+{
     std::vector<int> indices;
     float threshold = 0.03;
 
@@ -138,10 +130,8 @@ float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud
  * @param z: coordinate of the camera
  * @param [out] tableHeight[m]: estimated height of the table based on the cluster.
  */
-void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight) {
-
-    //return; //activate completely bypass segmentation and height estimation
-
+void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z, std::vector<float> &tableHeight)
+{
     std::cout << "starting segmentation" << std::endl;
     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
 
@@ -189,7 +179,6 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
             std::cout << "updating closest cluster" << std::endl;
             mindist = dist;
             cloud_out = cloud_cluster;
-            //currentTableHeight = maxz
         }
     }
 
@@ -226,7 +215,7 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     catch (tue::config::ParseException& e)
     {
         std::cerr << "Could not open '" << json_filename << "'.\n\n" << e.what() << std::endl;
-        //return 0;
+        //return 0; #TODO proper behaviour for not finding files.
     }
 
     tue::config::Reader r(meta_data);
@@ -235,7 +224,7 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     if (!ed::deserialize(r, "sensor_pose", sensor_pose))
     {
         std::cerr << "No field 'sensor_pose' specified." << std::endl;
-        //return 0;
+        //return 0; #TODO proper behaviour for not finding data.
     }
     // convert from geolib coordinates to ros coordinates #TODO remove geolib coordinates for camera pose
     sensor_pose.R = sensor_pose.R * geo::Mat3(1, 0, 0, 0, -1, 0, 0, 0, -1);
@@ -257,35 +246,20 @@ Eigen::Matrix4f ReadJson(std::string pcd_filename, float *xout, float *yout, flo
     *yout = y;
     *zout = z;
 
-    //float qx, qy, qz, qw;
+    Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();
 
-    //const float n = 2.0f/(qx*qx+qy*qy+qz*qz+qw*qw);
-    Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();/* {
-        {1.0f - n*qy*qy - n*qz*qz, n*qx*qy - n*qz*qw, n*qx*qz + n*qy*qw, x},
-        {n*qx*qy + n*qz*qw, 1.0f - n*qx*qx - n*qz*qz, n*qy*qz - n*qx*qw, y},
-        {n*qx*qz - n*qy*qw, n*qy*qz + n*qx*qw, 1.0f - n*qx*qx - n*qy*qy, z},
-        {0.0f, 0.0f, 0.0f, 1.0f}}; */
-
-    Transform(0,0) = xx;//1.0f - n*qy*qy - n*qz*qz;
-    Transform(0,1) = xy;//n*qx*qy - n*qz*qw;
-    Transform(0,2) = xz;//n*qx*qz + n*qy*qw;
+    Transform(0,0) = xx;
+    Transform(0,1) = xy;
+    Transform(0,2) = xz;
     Transform(0,3) = x;
-    Transform(1,0) = yx;//n*qx*qy + n*qz*qw;
-    Transform(1,1) = yy;//1.0f - n*qx*qx - n*qz*qz;
-    Transform(1,2) = yz;//n*qy*qz - n*qx*qw;
+    Transform(1,0) = yx;
+    Transform(1,1) = yy;
+    Transform(1,2) = yz;
     Transform(1,3) = y;
-    Transform(2,0) = zx;//n*qx*qz - n*qy*qw;
-    Transform(2,1) = zy;//n*qy*qz + n*qx*qw;
-    Transform(2,2) = zz;//1.0f - n*qx*qx - n*qy*qy;
+    Transform(2,0) = zx;
+    Transform(2,1) = zy;
+    Transform(2,2) = zz;
     Transform(2,3) = z;
-
-    /*
-    //Temporary fix for wrong rotational matrix
-    Eigen::Matrix4f Correction = Eigen::Matrix4f::Identity();
-    Correction(1,1) = -1;
-    Correction(2,2) = -1;
-    Transform = Transform * Correction.inverse();
-    */
 
     std::cout << Transform << std::endl;
     return Transform;
@@ -431,10 +405,8 @@ Eigen::VectorXf Fit(pcl::PointCloud<pcl::PointXYZ> cloud) {
     return (output);
 }
 
-int main(int argc, char **argv) {
-
-    // open pcd files
-
+int main(int argc, char **argv)
+{
     if (argc < 2)
     {
         std::cout << "Usage:\n\n   table_modeler FILENAME1 FILENAME2 ...\n\n";
@@ -454,7 +426,7 @@ int main(int argc, char **argv) {
         std::cout << "attempting to open " << name << std::endl;
         if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (name, *m) == -1) //* load the file
         {
-            //PCL_ERROR ("Couldn't read file" + name + "\n");
+            std::cout << "Couldn't read file" << name << std::endl;
             return -1;
         }
         std::cout << "opened " << name << std::endl;
