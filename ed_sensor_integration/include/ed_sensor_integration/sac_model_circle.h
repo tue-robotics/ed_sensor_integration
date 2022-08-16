@@ -46,17 +46,13 @@
 
 namespace pcl
 {
-/** \brief @b SampleConsensusModelCylinder defines a model for 3D cylinder segmentation.
+/** \brief @b SampleConsensusModelCircle defines a model for 2D circle from 3D samples (ignoring the third dimension).
  * The model coefficients are defined as:
- *   - \b point_on_axis.x  : the X coordinate of a point located on the cylinder axis
- *   - \b point_on_axis.y  : the Y coordinate of a point located on the cylinder axis
- *   - \b point_on_axis.z  : the Z coordinate of a point located on the cylinder axis
- *   - \b axis_direction.x : the X coordinate of the cylinder's axis direction
- *   - \b axis_direction.y : the Y coordinate of the cylinder's axis direction
- *   - \b axis_direction.z : the Z coordinate of the cylinder's axis direction
- *   - \b radius           : the cylinder's radius
+ *   - \b point_on_axis.x  : the X coordinate of the circle's center point
+ *   - \b point_on_axis.y  : the Y coordinate of the circle's center point
+ *   - \b radius           : the circle's radius
  *
- * \author Radu Bogdan Rusu
+ * \author Thijs Beurskens
  * \ingroup sample_consensus
  */
 template <typename PointT>

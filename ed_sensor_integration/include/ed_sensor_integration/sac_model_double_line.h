@@ -46,17 +46,14 @@
 
 namespace pcl
 {
-/** \brief @b SampleConsensusModelCylinder defines a model for 3D cylinder segmentation.
+/** \brief @b SampleConsensusModelDoubleLine defines a model for two parallel lines segmentation.
  * The model coefficients are defined as:
- *   - \b point_on_axis.x  : the X coordinate of a point located on the cylinder axis
- *   - \b point_on_axis.y  : the Y coordinate of a point located on the cylinder axis
- *   - \b point_on_axis.z  : the Z coordinate of a point located on the cylinder axis
- *   - \b axis_direction.x : the X coordinate of the cylinder's axis direction
- *   - \b axis_direction.y : the Y coordinate of the cylinder's axis direction
- *   - \b axis_direction.z : the Z coordinate of the cylinder's axis direction
- *   - \b radius           : the cylinder's radius
+ *   - \b point_on_axis.x  : the X coordinate of a point located on one of the lines
+ *   - \b point_on_axis.y  : the Y coordinate of a point located on one of the lines
+ *   - \b distance         : distance between the two lines, signed
+ *   - \b axis_direction.r : the angle between the lines and the x axis
  *
- * \author Radu Bogdan Rusu
+ * \author Thijs Beurskens
  * \ingroup sample_consensus
  */
 template <typename PointT>
