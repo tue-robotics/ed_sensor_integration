@@ -35,7 +35,6 @@
 
 #include <fstream>
 
-//#include "ed_sensor_integration/sac_model_rectangle.h"
 #include "ed_sensor_integration/sac_model_double_line.h"
 #include "ed_sensor_integration/sac_model_circle.h"
 #include "ed_sensor_integration/sac_model_horizontal_plane.h"
