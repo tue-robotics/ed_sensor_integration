@@ -152,7 +152,7 @@ void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCa
 void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose, const ed::WorldModel& wm, cv::Mat& depth_image)
 {
     cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
-    bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose, depth_image, image);
+    bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose.inverse(), depth_image, image);
     ROS_DEBUG_STREAM("\nRender result: " << result << "\n");
 
     if (SHOW_DEBUG_IMAGES)
@@ -266,6 +266,7 @@ public:
         createWorldModel();
         setupRasterizer();
         setupCamPose();
+        fitter_ = Fitter(200, 100);
     }
 
     ~TestSetup(){}
@@ -372,7 +373,7 @@ private:
     void renderImage(const ed::WorldModel& wm, cv::Mat& depth_image) const
     {
         cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
-        bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer_, cam_pose_, depth_image, image);
+        bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer_, cam_pose_.inverse(), depth_image, image);
         ROS_DEBUG_STREAM("\nRender result: " << result << "\n");
 
         if (SHOW_DEBUG_IMAGES)

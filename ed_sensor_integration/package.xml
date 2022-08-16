@@ -16,10 +16,18 @@
   <depend>ed</depend>
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
+  <depend>geometry_msgs</depend>
+  <depend>image_geometry</depend>
   <depend>pcl_ros</depend>
   <depend>sensor_msgs</depend>
+  <depend>tf2_ros</depend>
   <depend>tue_config</depend>
   <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
+
+  <export>
+    <ed plugin="${prefix}/plugins.xml" />
+    <rosdoc config="rosdoc.yaml" />
+  </export>
 
 </package>

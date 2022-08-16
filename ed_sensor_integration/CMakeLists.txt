@@ -5,8 +5,11 @@ find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
   geolib2
+  geometry_msgs
+  image_geometry
   pcl_ros
   sensor_msgs
+  tf2_ros
   tue_config
   tue_filesystem
   visualization_msgs
@@ -63,6 +66,14 @@ add_library(ed_kinect
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
 add_dependencies(ed_kinect ${catkin_EXPORTED_TARGETS})
 
+add_library(ed_laser
+  src/laser/updater.cpp
+  include/ed/laser/updater.h
+  include/ed/laser/entity_update.h
+)
+target_link_libraries(ed_laser ed_association ${catkin_LIBRARIES})
+add_dependencies(ed_laser ${catkin_EXPORTED_TARGETS})
+
 # ------------------------------------------------------------------------------------------------
 #                                          PLUGINS
 # ------------------------------------------------------------------------------------------------
@@ -82,7 +93,7 @@ add_library(ed_laser_plugin
     src/laser/laser_plugin.cpp
     src/laser/laser_plugin.h
 )
-target_link_libraries(ed_laser_plugin ed_association ${catkin_LIBRARIES})
+target_link_libraries(ed_laser_plugin ed_laser ed_association ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
@@ -103,6 +114,12 @@ add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 add_executable(ed_segmenter tools/segmenter.cpp)
 target_link_libraries(ed_segmenter ed_kinect)
 
+add_executable(ed_fitter_data tools/fitter_viz_data.cpp)
+target_link_libraries(ed_fitter_data ed_kinect)
+
+add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
+target_link_libraries(ed_fitter_live ed_kinect)
+
 add_executable(ed_table_modeler tools/table_modeler.cpp)
 target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
@@ -111,6 +128,9 @@ target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
 if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
   target_link_libraries(test_furniture_fitting ed_kinect ${catkin_LIBRARIES})
+
+  catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
+  target_link_libraries(test_laser_fitting ed_laser ${catkin_LIBRARIES})
 endif ()
 
 

@@ -1,6 +1,3 @@
-#include <ros/init.h>
-#include <ros/node_handle.h>
-
 #include <ed/models/model_loader.h>
 #include <ed/world_model.h>
 #include <ed/update_request.h>
@@ -25,174 +22,78 @@
 #include <fstream>
 #include <vector>
 
-// ----------------------------------------------------------------------------------------------------
+#include "ed_sensor_integration/tools/snapshot.h"
 
-struct Snapshot
+/**
+ * @brief visualizeSegmentation paint segmentation result over an image
+ * @param[in] snapshot snapshot containing the image that was segmented
+ * @param[in] res segmentation result on the image
+ * @param[out] canvas canvas to paint to.
+ */
+void visualizeSegmentation(const ed::Snapshot& snapshot, const UpdateResult& res, cv::Mat canvas)
 {
-    rgbd::ImagePtr image;
-    geo::Pose3D sensor_pose;
-    std::string area_description;
-    ed::WorldModel world_model;
-};
+    cv::Vec3b fill_colour(0, 0, 255); // red
+    cv::Scalar outline_colour_1(255, 255, 255); // white
+    cv::Scalar outline_colour_2(0, 0, 0); // black
 
-// ----------------------------------------------------------------------------------------------------
+    int depth_width = snapshot.image->getDepthImage().cols;
+    double f = (double)canvas.cols / depth_width;
 
-bool readImage(const std::string& filename, rgbd::ImagePtr& image, geo::Pose3D& sensor_pose,
-               ed::WorldModel& world_model, std::string& area_description)
-{
-    tue::config::DataPointer meta_data;
-
-    try
+    for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
     {
-        meta_data = tue::config::fromFile(filename);
-    }
-    catch (tue::config::ParseException& e)
-    {
-        std::cerr << "Could not open '" << filename << "'.\n\n" << e.what() << std::endl;
-        return false;
-    }
+        const EntityUpdate& e_update = res.entity_updates[i];
+        if (e_update.pixel_indices.empty())
+            continue;
 
-    tue::config::Reader r(meta_data);
+        unsigned i_pxl = e_update.pixel_indices[0];
+        cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
+        cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
 
-    // Read image
-    std::string rgbd_filename;
-    if (r.value("rgbd_filename", rgbd_filename))
-    {
-        tue::filesystem::Path abs_rgbd_filename = tue::filesystem::Path(filename).parentPath().join(rgbd_filename);
-
-        std::ifstream f_rgbd;
-        f_rgbd.open(abs_rgbd_filename.string().c_str(), std::ifstream::binary);
-
-        if (!f_rgbd.is_open())
+        for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
         {
-            std::cerr << "Could not open '" << filename << "'." << std::endl;
-            return false;
+            int x = *it % depth_width;
+            int y = *it / depth_width;
+
+            bb_min.x = std::min(bb_min.x, x);
+            bb_min.y = std::min(bb_min.y, y);
+            bb_max.x = std::max(bb_max.x, x);
+            bb_max.y = std::max(bb_max.y, y);
+
+            for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
+                for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
+                    canvas.at<cv::Vec3b>(y2, x2) = fill_colour;
         }
 
-        image.reset(new rgbd::Image);
-
-        tue::serialization::InputArchive a_in(f_rgbd);
-        rgbd::deserialize(a_in, *image);
+        cv::Point d(2, 2);
+        cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
+        cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
+        cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
     }
-
-    // Read sensor pose
-    if (!ed::deserialize(r, "sensor_pose", sensor_pose))
-    {
-        std::cerr << "No field 'sensor_pose' specified." << std::endl;
-        return false;
-    }
-
-    // Reset world
-    world_model = ed::WorldModel();
-
-    // Read annotations
-    if (r.readArray("annotations"))
-    {
-        while(r.nextArrayItem())
-        {
-            std::string type;
-            double px, py;
-
-            if (!r.value("label", type) || !r.value("px", px) || !r.value("py", py))
-                continue;
-
-            // - - - - - - -
-
-            ed::UpdateRequest req;
-            ed::models::ModelLoader model_loader;
-
-            std::stringstream error;
-            ed::UUID id = "support";
-            if (model_loader.create(id, type, req, error, true))
-            {
-                // Check if this model has an 'on_top_of' volume defined
-                std::map<ed::UUID, std::map<std::string, geo::ShapeConstPtr> >::const_iterator it = req.volumes_added.find(id);
-                if (it == req.volumes_added.end())
-                    continue;
-                if (it->second.find("on_top_of") == it->second.end())
-                    continue;
-
-                int x = px * image->getDepthImage().cols;
-                int y = py * image->getDepthImage().rows;
-                rgbd::View view(*image, image->getDepthImage().cols);
-
-                geo::Vec3 pos = sensor_pose * (view.getRasterizer().project2Dto3D(x, y) * 3);
-                pos.z = 0;
-
-                req.setPose(id, geo::Pose3D(geo::Mat3::identity(), pos));
-
-                // Update world
-                world_model.update(req);
-
-                area_description = "on_top_of " + id.str();
-            }
-
-            // - - - - - - -
-
-        }
-
-        r.endArray();
-    }
-
-//    if (r.hasError())
-//    {
-//        std::cout << "Error while reading file '" << filename << "':\n\n" << r.error() << std::endl;
-//        return false;
-//    }
-
-    return true;
 }
 
-// ----------------------------------------------------------------------------------------------------
-
-bool loadWorldModel(const std::string& model_name, ed::WorldModel& world_model)
-{
-    ed::UpdateRequest req;
-
-    ed::models::ModelLoader model_loader;
-
-    std::stringstream error;
-    if (!model_loader.create("_root", model_name, req, error))
-    {
-        std::cerr << "Model '" << model_name << "' could not be loaded:" << std::endl << std::endl;
-        std::cerr << error.str() << std::endl;
-        return false;
-    }
-
-    // Reset world
-    world_model = ed::WorldModel();
-
-    // Update world
-    world_model.update(req);
-
-    return true;
-}
-
-// ----------------------------------------------------------------------------------------------------
-
+/**
+ * @brief usage: instruct user how to use the executable
+ */
 void usage()
 {
-    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY" << std::endl;
+    std::cout << "Usage: ed_segmenter IMAGE-FILE-OR-DIRECTORY [WORLDMODEL-NAME] [ENTITY-ID]" << std::endl;
 }
 
-// ----------------------------------------------------------------------------------------------------
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ed_segmenter");
-    ros::NodeHandle nh;
-
-    if (argc != 2)
+    if (argc != 4)
     {
-        usage();
-        return 1;
+        if (argc == 2)
+        {
+            std::cout << "No worldmodel provided! Using empty worldmodel and no segmentation area" << std::endl;
+        }
+        else
+        {
+            usage();
+            return 1;
+        }
     }
-
-//    std::string model_name = argv[2];
-
-//    ed::WorldModel world_model;
-//    if (!loadWorldModel(model_name, world_model))
-//        return 1;
 
     tue::filesystem::Path path = argv[1];
     if (!path.exists())
@@ -201,75 +102,54 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    tue::filesystem::Crawler crawler;
+    std::string model_name;
+    ed::WorldModelPtr world_model;
+    std::string entity_id;
+    ed::EntityConstPtr e;
+    std::string area_description;
 
-    if (path.isDirectory())
-        crawler.setRootPath(path);
-    else
-        crawler.setRootPath(path.parentPath());
+    if (argc == 4)
+    {
+        model_name = argv[2];
+
+        try
+        {
+            world_model = ed::loadWorldModel(model_name);
+        }
+        catch (ed::ModelNotFoundException e)
+        {
+            std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
+            std::cerr << e.what() << std::endl;
+            return 1;
+        }
+
+        entity_id = argv[3];
+        area_description = "on_top_of " + entity_id;
+        e = world_model->getEntity(entity_id);
+        if (!e)
+        {
+            std::cerr << "Entity '" << entity_id << "' could not be found in world model '" << model_name << "'." << std::endl;
+            return 1;
+        }
+    }
+
+    ed::SnapshotCrawler crawler(path);
 
     Updater updater;
 
-    std::vector<Snapshot> snapshots;
+    std::vector<ed::Snapshot> snapshots;
     unsigned int i_snapshot = 0;
 
-    while(ros::ok())
+    while(true)
     {
-        if (i_snapshot >= snapshots.size())
-        {
-            bool file_found = true;
-            tue::filesystem::Path filename;
-
-            if (path.isRegularFile() && snapshots.empty())
-                filename = path;
-            else
-            {
-                file_found = false;
-                while (crawler.nextPath(filename))
-                {
-                    if (filename.extension() == ".json")
-                    {
-                        file_found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (file_found)
-            {
-                i_snapshot = snapshots.size();
-                snapshots.push_back(Snapshot());
-                Snapshot& snapshot = snapshots.back();
-
-                if (!readImage(filename.string(), snapshot.image, snapshot.sensor_pose,
-                               snapshot.world_model, snapshot.area_description))
-                {
-                    std::cerr << "Could not read " << filename << std::endl;
-                    snapshots.pop_back();
-                    continue;
-                }
-                else
-                {
-//                    std::cout << "Successfully loaded " << filename << std::endl;
-                }
-            }
-            else
-            {
-                if (snapshots.empty())
-                    break;
-
-                i_snapshot = snapshots.size() - 1;
-            }
-        }
-
-        Snapshot& snapshot = snapshots[i_snapshot];
+        ed::Snapshot& snapshot = crawler.current();
 
         ed::UpdateRequest update_req;
         UpdateResult res(update_req);
 
         UpdateRequest kinect_update_request;
-        kinect_update_request.area_description = snapshot.area_description;
-        updater.update(snapshot.world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+        kinect_update_request.area_description = area_description;
+        updater.update(*world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
 
@@ -278,40 +158,7 @@ int main(int argc, char **argv)
         std::string error_msg = res.error.str();
         if (error_msg.empty())
         {
-            int depth_width = snapshot.image->getDepthImage().cols;
-            double f = (double)canvas.cols / depth_width;
-
-            for(unsigned int i = 0; i < res.entity_updates.size(); ++i)
-            {
-                const EntityUpdate& e_update = res.entity_updates[i];
-                if (e_update.pixel_indices.empty())
-                    continue;
-
-                unsigned i_pxl = e_update.pixel_indices[0];
-                cv::Point bb_min(i_pxl % depth_width, i_pxl / depth_width);
-                cv::Point bb_max(i_pxl % depth_width, i_pxl / depth_width);
-
-                for(std::vector<unsigned int>::const_iterator it = e_update.pixel_indices.begin(); it != e_update.pixel_indices.end(); ++it)
-                {
-                    int x = *it % depth_width;
-                    int y = *it / depth_width;
-
-                    bb_min.x = std::min(bb_min.x, x);
-                    bb_min.y = std::min(bb_min.y, y);
-                    bb_max.x = std::max(bb_max.x, x);
-                    bb_max.y = std::max(bb_max.y, y);
-
-                    for(double x2 = f * x; x2 < (f * (x + 1)); ++x2)
-                        for(double y2 = f * y; y2 < (f * (y + 1)); ++y2)
-                            canvas.at<cv::Vec3b>(y2, x2) = cv::Vec3b(0, 0, 255);
-                }
-
-                cv::Point d(2, 2);
-                cv::rectangle(canvas, f * bb_min, f * bb_max, cv::Scalar(255, 255, 255), 2);
-                cv::rectangle(canvas, f * bb_min - d, f * bb_max + d, cv::Scalar(0, 0, 0), 2);
-                cv::rectangle(canvas, f * bb_min + d, f * bb_max - d, cv::Scalar(0, 0, 0), 2);
-            }
-
+            visualizeSegmentation(snapshot, res, canvas);
         }
         else
         {
@@ -324,19 +171,16 @@ int main(int argc, char **argv)
 
         if (key == 81)  // Left arrow
         {
-            if (i_snapshot > 0)
-                --i_snapshot;
+            crawler.previous();
         }
         else if (key == 83) // Right arrow
         {
-            ++i_snapshot;
+            crawler.next();
         }
         else if (key == 'q')
         {
             break;
         }
-
-//        std::cout << (int)key << std::endl;
     }
 
     return 0;

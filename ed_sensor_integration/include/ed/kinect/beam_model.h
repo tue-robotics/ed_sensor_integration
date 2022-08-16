@@ -43,6 +43,7 @@ public:
                      std::vector<double>& ranges, std::vector<int>& identifiers) const;
 
     inline unsigned int num_beams() const { return rays_.size(); }
+    inline float fx() const {return fx_;}
 
     inline const std::vector<geo::Vec2>& rays() const { return rays_; }
 

@@ -25,6 +25,8 @@
 // Communication
 #include <ed_sensor_integration_msgs/ImageBinary.h>
 
+#include <sstream>
+
 
 const double ERROR_THRESHOLD = 1e5;
 
@@ -215,20 +217,6 @@ double computeFittingError(const std::vector<double>& test_ranges, const std::ve
 
 // ----------------------------------------------------------------------------------------------------
 
-void updateOptimum(const std::vector<double>& sensor_ranges,
-                   const Candidate& candidate, OptimalFit& current_optimum)
-{
-    // Calculate error
-    double error = computeFittingError(candidate.test_ranges, sensor_ranges);
-
-    if (error < current_optimum.getError())
-    {
-        current_optimum.update(candidate.pose, error);
-    }
-}
-
-// ----------------------------------------------------------------------------------------------------
-
 geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityConstPtr entity, const geo::Pose3D& sensor_pose_xya)
 {
     geo::Pose3D pose_3d;
@@ -244,10 +232,19 @@ geo::Pose3D computeFittedPose(const geo::Transform2& pose_sensor, ed::EntityCons
 
 // ----------------------------------------------------------------------------------------------------
 
-Fitter::Fitter(uint nr_data_points) :
+Fitter::Fitter()
+{
+    configured_ = false;
+}
+
+// ----------------------------------------------------------------------------------------------------
+
+Fitter::Fitter(uint nr_data_points, float fx) :
     nr_data_points_(nr_data_points)
 {
-    beam_model_.initialize(4, nr_data_points);
+    double w = 2 * nr_data_points / fx;
+    beam_model_.initialize(w, nr_data_points);
+    configured_ = true;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -290,7 +287,9 @@ bool Fitter::estimateEntityPoseImp(const FitterData& data, const ed::WorldModel&
     double error_threshold = ERROR_THRESHOLD;
     if (current_optimum->getError() > error_threshold)
     {
-        throw FitterError("Error of best fit exceeds threshold");
+        std::ostringstream errormsg;
+        errormsg << "Error of best fit [" << current_optimum->getError() << "] exceeds threshold [" << error_threshold << "]";
+        throw FitterError(errormsg.str());
     }
 
     // Correct for shape transformation
@@ -347,9 +346,10 @@ EstimationInputData Fitter::preProcessInputData(const ed::WorldModel& world, con
 
 std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input_data, const YawRange& yaw_range) const
 {
-    std::unique_ptr<OptimalFit> result(new OptimalFit);
+    std::unique_ptr<OptimalFit> current_optimum(new OptimalFit);
     std::shared_ptr<BeamModel> beam_model_ptr = std::make_shared<BeamModel>(beam_model_);
     Candidate candidate(beam_model_ptr);
+    bool valid_optimum = false;
 
     for(uint i_beam = 0; i_beam < nr_data_points_; ++i_beam)
     {
@@ -363,11 +363,24 @@ std::unique_ptr<OptimalFit> Fitter::findOptimum(const EstimationInputData& input
             if (!evaluateCandidate(input_data, candidate))
                 continue;
 
+            // Calculate error
+            double error = computeFittingError(candidate.test_ranges, input_data.sensor_ranges);
+
             // Update optimum
-            updateOptimum(input_data.sensor_ranges, candidate, *result);
+            if (error < current_optimum->getError())
+            {
+                current_optimum->update(candidate.pose, error);
+                // reject an optimum value found at the boundary of the search space as it is not a global maximum.
+                valid_optimum = !(i_beam==0 || i_beam==nr_data_points_-1);
+            }
         }
     }
-    return result;
+    if (valid_optimum)
+        return current_optimum;
+
+    ROS_ERROR_NAMED("fitter", "optimum is invalid");
+    std::unique_ptr<OptimalFit> invalid_optimum(new OptimalFit);
+    return invalid_optimum;
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -451,13 +464,25 @@ void Fitter::checkExpectedBeamThroughEntity(const std::vector<double>& model_ran
     expected_ranges = model_ranges;
     std::vector<int> expected_identifiers(nr_data_points_, 0);
     renderEntity(entity, sensor_pose_xya, 1, expected_ranges, expected_identifiers);
-
+    if (expected_center_beam < 0 || expected_center_beam >= nr_data_points_)
+        throw FitterError("Expected beam outside of measurement range(" + std::to_string(nr_data_points_) + "), index: " + std::to_string(expected_center_beam));
     if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         throw FitterError("Expected beam does not go through entity");
 }
 
 // ----------------------------------------------------------------------------------------------------
 
+void Fitter::configureBeamModel(const image_geometry::PinholeCameraModel& cammodel)
+{
+    unsigned int nr_beams = std::min(200, cammodel.fullResolution().width); // don't use more data points than the resolution of your camera
+    double fx = cammodel.fx() * nr_beams / cammodel.fullResolution().width; // Reducing nr of data points will require a different focal length
+    double w = 2 * nr_beams / fx; // reverse calculation of the width of the beam model.
+    beam_model_.initialize(w, nr_beams);
+    nr_data_points_ = nr_beams;
+    configured_ = true;
+}
+
+// ----------------------------------------------------------------------------------------------------
 void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sensor_pose, FitterData& data) const
 {
     data.sensor_pose = sensor_pose;
@@ -470,6 +495,8 @@ void Fitter::processSensorData(const rgbd::Image& image, const geo::Pose3D& sens
 
     if (ranges.size() != beam_model_.num_beams())
         ranges.resize(beam_model_.num_beams(), 0);
+
+    data.fx = beam_model_.fx();
 
     for(int x = 0; x < depth.cols; ++x)
     {

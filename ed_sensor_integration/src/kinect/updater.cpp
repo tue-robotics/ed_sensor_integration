@@ -277,6 +277,10 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         if (fit_supporting_entity)
         {
+            if (!fitter_.isConfigured())
+            {
+                fitter_.configureBeamModel(image->getCameraModel());
+            }
             FitterData fitter_data;
             fitter_.processSensorData(*image, sensor_pose, fitter_data);
 
