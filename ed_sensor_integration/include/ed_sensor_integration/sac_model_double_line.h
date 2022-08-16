@@ -80,8 +80,6 @@ public:
      */
     SampleConsensusModelDoubleLine (const PointCloudConstPtr &cloud, bool random = false)
         : SampleConsensusModel<PointT> (cloud, random)
-        , axis_ (Eigen::Vector3f::Zero ())
-        , eps_angle_ (INFINITY)
     {
         model_name_ = "SampleConsensusModelDoubleLine";
         sample_size_ = 3;
@@ -97,8 +95,6 @@ public:
                                     const Indices &indices,
                                     bool random = false)
         : SampleConsensusModel<PointT> (cloud, indices, random)
-        , axis_ (Eigen::Vector3f::Zero ())
-        , eps_angle_ (0)
     {
         model_name_ = "SampleConsensusModelDoubleLine";
         sample_size_ = 3;
@@ -109,9 +105,7 @@ public:
      * \param[in] source the model to copy into this
      */
     SampleConsensusModelDoubleLine (const SampleConsensusModelDoubleLine &source) :
-        SampleConsensusModel<PointT> (),
-        axis_ (Eigen::Vector3f::Zero ()),
-        eps_angle_ (0)
+        SampleConsensusModel<PointT> ()
     {
         *this = source;
         model_name_ = "SampleConsensusModelDoubleLine";
@@ -127,30 +121,8 @@ public:
     operator = (const SampleConsensusModelDoubleLine &source)
     {
         SampleConsensusModel<PointT>::operator=(source);
-        axis_ = source.axis_;
-        eps_angle_ = source.eps_angle_;
         return (*this);
     }
-
-    /** \brief Set the angle epsilon (delta) threshold.
-     * \param[in] ea the maximum allowed difference between the cylinder axis and the given axis.
-     */
-    inline void
-    setEpsAngle (const double ea) { eps_angle_ = ea; }
-
-    /** \brief Get the angle epsilon (delta) threshold. */
-    inline double
-    getEpsAngle () const { return (eps_angle_); }
-
-    /** \brief Set the axis along which we need to search for a cylinder direction.
-     * \param[in] ax the axis along which we need to search for a cylinder direction
-     */
-    inline void
-    setAxis (const Eigen::Vector3f &ax) { axis_ = ax; }
-
-    /** \brief Get the axis along which we need to search for a cylinder direction. */
-    inline Eigen::Vector3f
-    getAxis () const { return (axis_); }
 
     /** \brief Check whether the given index samples can form a valid cylinder model, compute the model coefficients
      * from these samples and store them in model_coefficients. The cylinder coefficients are: point_on_axis,
@@ -226,7 +198,7 @@ public:
 
     /** \brief Return a unique id for this model (SACMODEL_CYLINDER). */
     inline pcl::SacModel
-    getModelType () const override { return (SACMODEL_CYLINDER); } //cannot add a unique identifier for double line
+    getModelType () const override { return (SACMODEL_CYLINDER); } // #TODO cannot add a unique identifier for double line
 
 protected:
     using SampleConsensusModel<PointT>::sample_size_;
@@ -281,12 +253,6 @@ protected:
     isSampleGood (const Indices &samples) const override;
 
 private:
-    /** \brief The axis along which we need to search for a cylinder direction. */
-    Eigen::Vector3f axis_;
-
-    /** \brief The maximum allowed difference between the cylinder direction and the given axis. */
-    double eps_angle_;
-
     /** \brief Functor for the optimization function */
     struct OptimizationFunctor : pcl::Functor<float>
     {

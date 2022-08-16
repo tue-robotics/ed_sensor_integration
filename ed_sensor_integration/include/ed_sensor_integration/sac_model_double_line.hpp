@@ -175,54 +175,6 @@ pcl::SampleConsensusModelDoubleLine<PointT>::selectWithinDistance (
     {
         if (distances[i] < threshold) {inliers.push_back ((*indices_)[i]);}
     }
-
-    //std::cout << model_coefficients[2] << std::endl;
-    /*
-   // Check if the model is valid given the user constraints
-   if (!isModelValid (model_coefficients))
-   {
-     inliers.clear ();
-     return;
-   }
-
-   inliers.clear ();
-   error_sqr_dists_.clear ();
-   inliers.reserve (indices_->size ());
-   error_sqr_dists_.reserve (indices_->size ());
-
-   Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0.0f);
-   Eigen::Vector4f line_dir (model_coefficients[3], model_coefficients[4], model_coefficients[5], 0.0f);
-   float ptdotdir = line_pt.dot (line_dir);
-   float dirdotdir = 1.0f / line_dir.dot (line_dir);
-   // Iterate through the 3d points and calculate the distances from them to the sphere
-   for (std::size_t i = 0; i < indices_->size (); ++i)
-   {
-     // Approximate the distance from the point to the cylinder as the difference between
-     // dist(point,cylinder_axis) and cylinder radius
-     Eigen::Vector4f pt ((*input_)[(*indices_)[i]].x, (*input_)[(*indices_)[i]].y, (*input_)[(*indices_)[i]].z, 0.0f);
-     const double weighted_euclid_dist = (1.0 - normal_distance_weight_) * std::abs (pointToLineDistance (pt, model_coefficients) - model_coefficients[6]);
-     if (weighted_euclid_dist > threshold) // Early termination: cannot be an inlier
-       continue;
-
-     // Calculate the point's projection on the cylinder axis
-     float k = (pt.dot (line_dir) - ptdotdir) * dirdotdir;
-     Eigen::Vector4f pt_proj = line_pt + k * line_dir;
-     Eigen::Vector4f dir = pt - pt_proj;
-     dir.normalize ();
-
-     // Calculate the angular distance between the point normal and the (dir=pt_proj->pt) vector
-     Eigen::Vector4f n  ((*normals_)[(*indices_)[i]].normal[0], (*normals_)[(*indices_)[i]].normal[1], (*normals_)[(*indices_)[i]].normal[2], 0.0f);
-     double d_normal = std::abs (getAngle3D (n, dir));
-     d_normal = (std::min) (d_normal, M_PI - d_normal);
-
-     double distance = std::abs (normal_distance_weight_ * d_normal + weighted_euclid_dist);
-     if (distance < threshold)
-     {
-       // Returns the indices of the points whose distances are smaller than the threshold
-       inliers.push_back ((*indices_)[i]);
-       error_sqr_dists_.push_back (distance);
-     }
-   }*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,44 +189,7 @@ pcl::SampleConsensusModelDoubleLine<PointT>::countWithinDistance (
     {
         if (distances[i] <= threshold) {count++;}
     }
-    //std::cout << count << std::endl;
     return (count);
-    /*// Check if the model is valid given the user constraints
-   if (!isModelValid (model_coefficients))
-     return (0);
-
-   std::size_t nr_p = 0;
-
-   Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0);
-   Eigen::Vector4f line_dir (model_coefficients[3], model_coefficients[4], model_coefficients[5], 0);
-   float ptdotdir = line_pt.dot (line_dir);
-   float dirdotdir = 1.0f / line_dir.dot (line_dir);
-   // Iterate through the 3d points and calculate the distances from them to the sphere
-   for (std::size_t i = 0; i < indices_->size (); ++i)
-   {
-     // Approximate the distance from the point to the cylinder as the difference between
-     // dist(point,cylinder_axis) and cylinder radius
-     Eigen::Vector4f pt ((*input_)[(*indices_)[i]].x, (*input_)[(*indices_)[i]].y, (*input_)[(*indices_)[i]].z, 0.0f);
-     const double weighted_euclid_dist = (1.0 - normal_distance_weight_) * std::abs (pointToLineDistance (pt, model_coefficients) - model_coefficients[6]);
-     if (weighted_euclid_dist > threshold) // Early termination: cannot be an inlier
-       continue;
-
-     // Calculate the point's projection on the cylinder axis
-     float k = (pt.dot (line_dir) - ptdotdir) * dirdotdir;
-     Eigen::Vector4f pt_proj = line_pt + k * line_dir;
-     Eigen::Vector4f dir = pt - pt_proj;
-     dir.normalize ();
-
-     // Calculate the angular distance between the point normal and the (dir=pt_proj->pt) vector
-     Eigen::Vector4f n  ((*normals_)[(*indices_)[i]].normal[0], (*normals_)[(*indices_)[i]].normal[1], (*normals_)[(*indices_)[i]].normal[2], 0.0f);
-     double d_normal = std::abs (getAngle3D (n, dir));
-     d_normal = (std::min) (d_normal, M_PI - d_normal);
-
-     if (std::abs (normal_distance_weight_ * d_normal + weighted_euclid_dist) < threshold)
-       nr_p++;
-   }
-   return (nr_p);*/
-    return (0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -462,36 +377,6 @@ pcl::SampleConsensusModelDoubleLine<PointT>::isModelValid (const Eigen::VectorXf
 {
     if (!SampleConsensusModel<PointT>::isModelValid (model_coefficients))
         return (false);
-    /*
-   // Check against template, if given
-   if (eps_angle_ > 0.0)
-   {
-     // Obtain the cylinder direction
-     const Eigen::Vector3f coeff(model_coefficients[3], model_coefficients[4], model_coefficients[5]);
-
-     double angle_diff = std::abs (getAngle3D (axis_, coeff));
-     angle_diff = (std::min) (angle_diff, M_PI - angle_diff);
-     // Check whether the current cylinder model satisfies our angle threshold criterion with respect to the given axis
-     if (angle_diff > eps_angle_)
-     {
-       PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Angle between cylinder direction and given axis is too large.\n");
-       return (false);
-     }
-   }
-
-   if (radius_min_ != -std::numeric_limits<double>::max() && model_coefficients[6] < radius_min_)
-   {
-     PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Radius is too small: should be larger than %g, but is %g.\n",
-                radius_min_, model_coefficients[6]);
-     return (false);
-   }
-   if (radius_max_ != std::numeric_limits<double>::max() && model_coefficients[6] > radius_max_)
-   {
-     PCL_DEBUG ("[pcl::SampleConsensusModelDoubleLine::isModelValid] Radius is too big: should be smaller than %g, but is %g.\n",
-                radius_max_, model_coefficients[6]);
-     return (false);
-   }*/
-
     return (true);
 }
 
