@@ -129,10 +129,10 @@ pcl::SampleConsensusModelDoubleLine<PointT>::getDistancesToModel (
 
     distances.resize (indices_->size ());
 
-    float x = model_coefficients[0]
-            float y = model_coefficients[1]
-            float w = model_coefficients[2]
-            float r = model_coefficients[3];
+    float x = model_coefficients[0];
+    float y = model_coefficients[1];
+    float w = model_coefficients[2];
+    float r = model_coefficients[3];
     float d1, d2;
 
     Eigen::Vector2f p1, p2, p3, p4, c1, c2;
