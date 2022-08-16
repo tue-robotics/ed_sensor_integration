@@ -37,80 +37,80 @@
   * $Id$
   a
   */
-  
- #ifndef PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
- #define PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
-  
- #include "ed_sensor_integration/sac_model_horizontal_plane.h"
-  
- //////////////////////////////////////////////////////////////////////////
- 
- template <typename PointT> bool
- pcl::SampleConsensusModelHorizontalPlane<PointT>::computeModelCoefficients (
-       const Indices &samples, Eigen::VectorXf &model_coefficients) const
- {
-	 model_coefficients.resize (model_size_);
-	 model_coefficients[0] = 0;
-	 model_coefficients[1] = 0;
-	 model_coefficients[2] = -1;
-	 model_coefficients[3] = (*input_)[samples[0]].z;
-	 //std::cout <<model_coefficients << std::endl;
-	 return (true);
- }
- 
- template <typename PointT> void
- pcl::SampleConsensusModelHorizontalPlane<PointT>::selectWithinDistance (
-       const Eigen::VectorXf &model_coefficients, const double threshold, Indices &inliers)
- {
-   // Check if the model is valid given the user constraints
-   if (!isModelValid (model_coefficients))
-   {
-     inliers.clear ();
-     return;
-   }
-  
-   SampleConsensusModelPlane<PointT>::selectWithinDistance (model_coefficients, threshold, inliers);
- }
-  
- //////////////////////////////////////////////////////////////////////////
- template <typename PointT> std::size_t
- pcl::SampleConsensusModelHorizontalPlane<PointT>::countWithinDistance (
-       const Eigen::VectorXf &model_coefficients, const double threshold) const
- {
-   // Check if the model is valid given the user constraints
-   if (!isModelValid (model_coefficients))
-   {
-     return (0);
-   }
-   //std::cout << model_coefficients << std::endl;
-  //std::cout << SampleConsensusModelPlane<PointT>::countWithinDistance (model_coefficients, threshold) << std::endl;
-   return (SampleConsensusModelPlane<PointT>::countWithinDistance (model_coefficients, threshold));
- }
-  
- //////////////////////////////////////////////////////////////////////////
- template <typename PointT> void
- pcl::SampleConsensusModelHorizontalPlane<PointT>::getDistancesToModel (
-       const Eigen::VectorXf &model_coefficients, std::vector<double> &distances) const
- {
-   // Check if the model is valid given the user constraints
-   if (!isModelValid (model_coefficients))
-   {
-     distances.clear ();
-     return;
-   }
-  
-   SampleConsensusModelPlane<PointT>::getDistancesToModel (model_coefficients, distances);
- }
-  
- //////////////////////////////////////////////////////////////////////////
- template <typename PointT> bool
- pcl::SampleConsensusModelHorizontalPlane<PointT>::isModelValid (const Eigen::VectorXf &model_coefficients) const
- {
-   if (!SampleConsensusModel<PointT>::isModelValid (model_coefficients))
-   {
-     return (false);
-   }
-  /*
+
+#ifndef PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
+#define PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
+
+#include "ed_sensor_integration/sac_model_horizontal_plane.h"
+
+//////////////////////////////////////////////////////////////////////////
+
+template <typename PointT> bool
+pcl::SampleConsensusModelHorizontalPlane<PointT>::computeModelCoefficients (
+        const Indices &samples, Eigen::VectorXf &model_coefficients) const
+{
+    model_coefficients.resize (model_size_);
+    model_coefficients[0] = 0;
+    model_coefficients[1] = 0;
+    model_coefficients[2] = -1;
+    model_coefficients[3] = (*input_)[samples[0]].z;
+    //std::cout <<model_coefficients << std::endl;
+    return (true);
+}
+
+template <typename PointT> void
+pcl::SampleConsensusModelHorizontalPlane<PointT>::selectWithinDistance (
+        const Eigen::VectorXf &model_coefficients, const double threshold, Indices &inliers)
+{
+    // Check if the model is valid given the user constraints
+    if (!isModelValid (model_coefficients))
+    {
+        inliers.clear ();
+        return;
+    }
+
+    SampleConsensusModelPlane<PointT>::selectWithinDistance (model_coefficients, threshold, inliers);
+}
+
+//////////////////////////////////////////////////////////////////////////
+template <typename PointT> std::size_t
+pcl::SampleConsensusModelHorizontalPlane<PointT>::countWithinDistance (
+        const Eigen::VectorXf &model_coefficients, const double threshold) const
+{
+    // Check if the model is valid given the user constraints
+    if (!isModelValid (model_coefficients))
+    {
+        return (0);
+    }
+    //std::cout << model_coefficients << std::endl;
+    //std::cout << SampleConsensusModelPlane<PointT>::countWithinDistance (model_coefficients, threshold) << std::endl;
+    return (SampleConsensusModelPlane<PointT>::countWithinDistance (model_coefficients, threshold));
+}
+
+//////////////////////////////////////////////////////////////////////////
+template <typename PointT> void
+pcl::SampleConsensusModelHorizontalPlane<PointT>::getDistancesToModel (
+        const Eigen::VectorXf &model_coefficients, std::vector<double> &distances) const
+{
+    // Check if the model is valid given the user constraints
+    if (!isModelValid (model_coefficients))
+    {
+        distances.clear ();
+        return;
+    }
+
+    SampleConsensusModelPlane<PointT>::getDistancesToModel (model_coefficients, distances);
+}
+
+//////////////////////////////////////////////////////////////////////////
+template <typename PointT> bool
+pcl::SampleConsensusModelHorizontalPlane<PointT>::isModelValid (const Eigen::VectorXf &model_coefficients) const
+{
+    if (!SampleConsensusModel<PointT>::isModelValid (model_coefficients))
+    {
+        return (false);
+    }
+    /*
    // Check against template, if given
    if (eps_angle_ > 0.0)
    {
@@ -118,7 +118,7 @@
      Eigen::Vector4f coeff = model_coefficients;
      coeff[3] = 0.0f;
      coeff.normalize ();
-  
+
      Eigen::Vector4f axis (axis_[0], axis_[1], axis_[2], 0.0f);
      if (std::abs (axis.dot (coeff)) > sin_angle_)
      {
@@ -127,9 +127,9 @@
      }
    }
   */
-   return (true);
- }
-  
- #define PCL_INSTANTIATE_SampleConsensusModelHorizontalPlane(T) template class PCL_EXPORTS pcl::SampleConsensusModelHorizontalPlane<T>;
-  
- #endif    // PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
+    return (true);
+}
+
+#define PCL_INSTANTIATE_SampleConsensusModelHorizontalPlane(T) template class PCL_EXPORTS pcl::SampleConsensusModelHorizontalPlane<T>;
+
+#endif    // PCL_SAMPLE_CONSENSUS_IMPL_SAC_MODEL_HORIZONTAL_PLANE_H_
