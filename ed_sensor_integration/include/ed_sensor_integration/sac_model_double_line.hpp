@@ -92,20 +92,11 @@
    
    Eigen::Vector2f c1, c2;
    
-   if (/*eps_angle_ == INFINITY*/true) //if angle is given, only 2 points are required
-   {
-	   c1 = p2 - p1; //vector between point 1 and 2
-	   l = sqrt(c1.dot(c1)); //define length as distance between point 1 and 2
-	   // determine rotation:
-	   r = std::atan2(c1(1), c1(0)); //output: rotation of the double_line
-   }
-   else
-   {
-	   r = eps_angle_; //output: rotation of the double_line
-	   c1(0)=std::cos(r);
-	   c1(1)=std::sin(r);
-	   l = 1;
-   }
+   c1 = p2 - p1; //vector between point 1 and 2
+   l = sqrt(c1.dot(c1)); //define length as distance between point 1 and 2
+   // determine rotation:
+   r = std::atan2(c1(1), c1(0)); //output: orientation of the double_line
+
    c2 = p1 - p3; //vector between point 3 and 1
    w = (c1(0)*c2(1)-c2(0)*c1(1))/l; //output: width defined as distance between c1 and point 3, signed
 	   
@@ -138,19 +129,21 @@
   
    distances.resize (indices_->size ());
    
-   float x = model_coefficients[0], y = model_coefficients[1], w = model_coefficients[2], r = model_coefficients[3];
+   float x = model_coefficients[0]
+   float y = model_coefficients[1]
+   float w = model_coefficients[2]
+   float r = model_coefficients[3];
    float d1, d2;
 
    Eigen::Vector2f p1, p2, p3, p4, c1, c2;
    
+   // #TODO Calculation of distances without needing to define points
    //define edge vectors
    c1(0)=std::cos(r);
    c1(1)=std::sin(r);
 
    c2(0)= std::sin(r)*w;
    c2(1)=-std::cos(r)*w;
-   
-   //std::cout << "c2 = " << std::endl << c2 << std::endl;
 
    //define corner vectors
    p1(0)=x;
@@ -168,37 +161,7 @@
 		d2 = std::abs(c1(0)*(p3(1)-in(1))-(p3(0)-in(0))*c1(1)); //Distance between line 2 and the point
 
 		distances[i] = std::min(d1, d2); //smallest of d1 and d2
-		
-		//std::cout << distances[i] << std::endl;
    }
-   //std::cout << std::accumulate(distances.begin(), distances.end(), 0.0) / distances.size() << ", ";
-  /*
-   Eigen::Vector4f line_pt  (model_coefficients[0], model_coefficients[1], model_coefficients[2], 0.0f);
-   Eigen::Vector4f line_dir (model_coefficients[3], model_coefficients[4], model_coefficients[5], 0.0f);
-   float ptdotdir = line_pt.dot (line_dir);
-   float dirdotdir = 1.0f / line_dir.dot (line_dir);
-   // Iterate through the 3d points and calculate the distances from them to the sphere
-   for (std::size_t i = 0; i < indices_->size (); ++i)
-   {
-     // Approximate the distance from the point to the cylinder as the difference between
-     // dist(point,cylinder_axis) and cylinder radius
-     // @note need to revise this.
-     Eigen::Vector4f pt ((*input_)[(*indices_)[i]].x, (*input_)[(*indices_)[i]].y, (*input_)[(*indices_)[i]].z, 0.0f);
-  
-     const double weighted_euclid_dist = (1.0 - normal_distance_weight_) * std::abs (pointToLineDistance (pt, model_coefficients) - model_coefficients[6]);
-  
-     // Calculate the point's projection on the cylinder axis
-     float k = (pt.dot (line_dir) - ptdotdir) * dirdotdir;
-     Eigen::Vector4f pt_proj = line_pt + k * line_dir;
-     Eigen::Vector4f dir = pt - pt_proj;
-     dir.normalize ();
-  
-     // Calculate the angular distance between the point normal and the (dir=pt_proj->pt) vector
-     Eigen::Vector4f n  ((*normals_)[(*indices_)[i]].normal[0], (*normals_)[(*indices_)[i]].normal[1], (*normals_)[(*indices_)[i]].normal[2], 0.0f);
-     double d_normal = std::abs (getAngle3D (n, dir));
-     d_normal = (std::min) (d_normal, M_PI - d_normal);
-  
-     distances[i] = std::abs (normal_distance_weight_ * d_normal + weighted_euclid_dist);*/
  }
   
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
