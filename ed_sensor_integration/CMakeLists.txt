@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_geometry
   pcl_ros
   sensor_msgs
+  tf2
   tf2_ros
   tue_config
   tue_filesystem
@@ -122,6 +123,9 @@ target_link_libraries(ed_fitter_live ed_kinect)
 
 add_executable(ed_table_modeler tools/table_modeler.cpp)
 target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
+
+add_executable(ed_empty_spot_designator src/kinect/empty_spot_designator.cpp)
+target_link_libraries(ed_empty_spot_designator ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
