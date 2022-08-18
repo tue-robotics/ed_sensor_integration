@@ -1,8 +1,13 @@
 #include <iostream>
 #include <string>
 
+#include <ed/kinect/image_buffer.h>
+
 #include "opencv2/imgproc.hpp"
 #include <opencv2/highgui.hpp>
+
+#include <ros/ros.h>
+#include <rgbd/image.h>
 
 //pcl library
 #include <pcl/io/pcd_io.h>
@@ -11,11 +16,31 @@
 double resolution = 0.005;
 cv::Point2d canvas_center;
 
-void readPCD(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::string filename)
+void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
     // Fill in the cloud data
-    pcl::PCDReader reader;
-    reader.read (filename, *cloud); //
+    cloud->width = image.getDepthImage().cols;
+    cloud->height = image.getDepthImage().rows;
+    cloud->is_dense = false;
+    cloud->resize (cloud->width * cloud->height);
+
+    double fx = image.getCameraModel().fx();
+    double fy = image.getCameraModel().fy();
+
+    double half_height = 0.5 * cloud->height;
+    double half_width = 0.5 * cloud->width;
+
+    for (uint i=0; i < cloud->height; ++i)
+    {
+        for (uint j=0; j < cloud->width; ++j)
+        {
+            double d = image.getDepthImage().at<float>(i,j);
+
+            cloud->at(j,i).x = (-half_width+j) * d / fx;
+            cloud->at(j,i).y = (-half_height+i) * d / fy;
+            cloud->at(j,i).z = d;
+        }
+    }
 }
 
 cv::Point2d worldToCanvas(double x, double y)
@@ -47,49 +72,73 @@ void dilateCostmap(cv::Mat& canvas)
     cv::dilate(canvas, canvas, element );
 }
 
+/**
+ * @brief usage, print how the executable should be used and explain the input
+ */
 void usage()
 {
-    std::cout << "USAGE: empty_spot_designator [pointcloud.pcd] [table_pointcloud.pcd]" << std::endl;
+    std::cout << "Usage: ed_empty_spot_designator RGBD_TOPIC" << std::endl
+              << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl;
 }
 
+
+/**
+ * @brief main executable to visualise the empty spot finder of live images.
+ * @param argc:
+ * @return
+ */
 int main (int argc, char **argv)
 {
-    if (argc != 3)
+    if (argc != 2)
     {
         usage();
         return 0;
     }
 
-    std::cout << "finding empty spot" << std::endl;
+    ros::init(argc, argv, "empty_spot_visualizer");
 
-    std::cout << "Loading pcd file" << std::endl;
+    std::string topic = argv[1];
+    std::cout << "Using topic: " << topic << std::endl;
 
-    std::string filename = argv[2];
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-    readPCD(cloud, filename);
+    ImageBuffer image_buffer;
+    image_buffer.initialize(topic, "base_link");
 
-    // read occupied data
-    std::string occupied_filename = argv[1];
-    pcl::PointCloud<pcl::PointXYZ>::Ptr occupied_cloud (new pcl::PointCloud<pcl::PointXYZ>);
-    readPCD(occupied_cloud, occupied_filename);
+    while(ros::ok())
+    {
+        rgbd::ImageConstPtr image;
+        geo::Pose3D sensor_pose;
 
-    std::cout << "PointCloud representing the planar component: " << cloud->width * cloud->height << " data points." << std::endl;
+        if (!image_buffer.waitForRecentImage(image, sensor_pose, 2.0))
+        {
+            std::cerr << "No image received, will try again." << std::endl;
+            continue;
+        }
+        std::cout << "converting image to cloud" << std::endl;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        imageToCloud(*image, cloud);
 
+        std::cout << "creating costmap" << std::endl;
+        cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
+        cv::Scalar table_color(0, 255, 0);
+        cv::Scalar occupied_color(0, 0, 255);
 
-    std::cout << "creating costmap" << std::endl;
-    cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
-    cv::Scalar table_color(0, 255, 0);
-    cv::Scalar occupied_color(0, 0, 255);
+        //createCostmap(occupied_cloud, canvas, occupied_color);
+        createCostmap(cloud, canvas, table_color);
 
-    //createCostmap(occupied_cloud, canvas, occupied_color);
-    createCostmap(cloud, canvas, table_color);
+        std::cout << "showing costmap" << std::endl;
+        cv::imshow("Laser Vizualization", canvas);
 
-    dilateCostmap(canvas);
+        // show snapshot
+        cv::Mat rgbcanvas = image->getRGBImage();
+        cv::imshow("RGB", rgbcanvas);
 
-    std::cout << "showing costmap" << std::endl;
-    cv::imshow("Laser Vizualization", canvas);
-    cv::waitKey();
+        char key = cv::waitKey(30);
 
-
+        if (key == 'q')
+        {
+            break;
+        }
+    }
+    cv::destroyAllWindows();
     return 0;
 }

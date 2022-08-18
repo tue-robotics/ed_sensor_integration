@@ -125,7 +125,7 @@ add_executable(ed_table_modeler tools/table_modeler.cpp)
 target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
 
 add_executable(ed_empty_spot_designator src/kinect/empty_spot_designator.cpp)
-target_link_libraries(ed_empty_spot_designator ${catkin_LIBRARIES})
+target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
