@@ -9,14 +9,37 @@
 #include <ros/ros.h>
 #include <rgbd/image.h>
 
-//pcl library
+//pcl library # TODO remove the unused ones #TODO find out which ones are unused
+#include <pcl/point_cloud.h>
+#include <pcl/point_representation.h>
+
 #include <pcl/io/pcd_io.h>
+
+#include <pcl/filters/filter.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/conditional_removal.h>
+
+#include <pcl/features/normal_3d.h>
+
+#include <pcl/registration/icp.h>
+#include <pcl/registration/icp_nl.h>
+#include <pcl/registration/transforms.h>
+
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/segmentation/sac_segmentation.h>
+
+#include <pcl/surface/convex_hull.h>
+
+#include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
 
 double resolution = 0.005;
 cv::Point2d canvas_center;
 
-void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     // Fill in the cloud data
     cloud->width = image.getDepthImage().cols;
@@ -43,12 +66,164 @@ void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZ>::Ptr 
     }
 }
 
+Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
+{
+    // convert from geolib coordinates to ros coordinates #TODO remove geolib coordinates for camera pose
+    pose.R = pose.R * geo::Mat3(1, 0, 0, 0, -1, 0, 0, 0, -1);
+
+    float x = pose.t.x;
+    float y = pose.t.y;
+    float z = pose.t.z;
+    float xx = pose.R.xx;
+    float xy = pose.R.xy;
+    float xz = pose.R.xz;
+    float yx = pose.R.yx;
+    float yy = pose.R.yy;
+    float yz = pose.R.yz;
+    float zx = pose.R.zx;
+    float zy = pose.R.zy;
+    float zz = pose.R.zz;
+
+    Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();
+
+    Transform(0,0) = xx;
+    Transform(0,1) = xy;
+    Transform(0,2) = xz;
+    Transform(0,3) = x;
+    Transform(1,0) = yx;
+    Transform(1,1) = yy;
+    Transform(1,2) = yz;
+    Transform(1,3) = y;
+    Transform(2,0) = zx;
+    Transform(2,1) = zy;
+    Transform(2,2) = zz;
+    Transform(2,3) = z;
+
+    std::cout << Transform << std::endl;
+    return Transform;
+}
+
+/**
+ * @brief FilterPlane fit a plane through a pointcloud, filter the points which lie in this plane and return the height of the plane #TODO separation of concerns.
+ * @param cloud: pointcloud to be filtered.
+ * @param out: pointcloud with all points that lie within the plane
+ * @return height (z coordinate) of the fitted plane.
+ */
+float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out)
+{
+    std::vector<int> indices;
+    float threshold = 0.03;
+
+    std::cout << "starting ransac" << std::endl;
+    // Create SAC model
+    pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>(cloud));
+    std::cout << "created plane object" << std::endl;
+    // Create SAC method
+    pcl::RandomSampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZRGB> (plane, threshold));
+    std::cout << "created ransac object" << std::endl;
+    sac->setMaxIterations(10000);
+    sac->setProbability(0.99);
+
+    // Fit model
+    sac->computeModel();
+
+    // Get inliers
+    std::vector<int> inliers;
+    sac->getInliers(inliers);
+
+    // Get the model coefficients
+    Eigen::VectorXf coeff;
+    sac->getModelCoefficients (coeff);
+    std::cout << "ransac complete" << std::endl;
+
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+    range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
+    *out = *cloud;
+    //filter out everything below plane
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    condrem.setCondition (range_cond);
+    condrem.setInputCloud (out);
+    condrem.setKeepOrganized(true);
+
+    condrem.filter (*out);
+    (*out).is_dense = false;
+    pcl::removeNaNFromPointCloud(*out, *out, indices);
+
+    return(coeff[3]);
+}
+
+/**
+ * @brief Segment segment the pointcloud and return the cluster closest to the camera
+ * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
+ * @param x: coordinate of the camera
+ * @param y: coordinate of the camera
+ * @param z: coordinate of the camera
+ * @param [out] tableHeight[m]: estimated height of the table based on the cluster.
+ */
+void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z)
+{
+    std::cout << "starting segmentation" << std::endl;
+    std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
+
+    // Creating the KdTree object for the search method of the extraction
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+    tree->setInputCloud (cloud);
+
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec; //using euclidian cluster extraction
+    ec.setClusterTolerance (0.1);
+    ec.setMinClusterSize ((*cloud).size()/100); //#TODO magic number
+    ec.setMaxClusterSize ((*cloud).size());
+    ec.setSearchMethod (tree);
+    ec.setInputCloud (cloud);
+    ec.extract (cluster_indices);
+
+    std::cout << "obtained cluster indices" <<std::endl;
+
+    //find closest cluster
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
+    float mindist = INFINITY;
+    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it !=
+         cluster_indices.end (); ++it) //iterate through all clusters
+    {
+        //construct cluster
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
+        for (const auto& idx : it->indices)
+            cloud_cluster->push_back ((*cloud)[idx]); //*
+        cloud_cluster->width = cloud_cluster->size ();
+        cloud_cluster->height = 1;
+        cloud_cluster->is_dense = true;
+        float sumx = 0, sumy = 0, sumz = 0, dist = 0;
+        for (uint j=0; j < (*cloud_cluster).width; ++j)
+        {
+            //sum up all points
+            sumx += (*cloud_cluster)[j].x;
+            sumy += (*cloud_cluster)[j].y;
+            sumz += (*cloud_cluster)[j].z;
+        }
+        //find distance from camera to the middle of the cluster
+        dist = pow((sumx/(*cloud_cluster).width-x),2) + pow((sumy/(*cloud_cluster).width-y),2) + pow((sumz/(*cloud_cluster).width-z),2);
+        std::cout << "distance is " << sqrt(dist) << std::endl;
+        if (dist < mindist) //check if closest so far
+        {
+            std::cout << "updating closest cluster" << std::endl;
+            mindist = dist;
+            cloud_out = cloud_cluster;
+        }
+    }
+
+    float height = FilterPlane(cloud_out, cloud_out);
+
+    std::cout << "writing closest cluster" << std::endl;
+    *cloud = *cloud_out;
+}
+
 cv::Point2d worldToCanvas(double x, double y)
 {
     return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
 }
 
-void createCostmap(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, cv::Mat& canvas, cv::Scalar color)
+void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Mat& canvas, cv::Scalar color)
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
@@ -114,8 +289,30 @@ int main (int argc, char **argv)
             continue;
         }
         std::cout << "converting image to cloud" << std::endl;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         imageToCloud(*image, cloud);
+
+        // transform to base link frame
+        Eigen::Matrix4f transform = geolibToEigen(sensor_pose);
+        pcl::transformPointCloud(*cloud, *cloud, transform);
+
+        // keep track of the indices in the original image
+        std::vector<int> indices;
+
+        // Filter out floor
+        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+        range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
+        // build the filter
+        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+        condrem.setCondition (range_cond);
+        condrem.setInputCloud (cloud);
+        condrem.setKeepOrganized(true);
+        // apply filter
+        condrem.filter (*cloud);
+        (*cloud).is_dense = false;
+        pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
+
+        Segment(cloud, 0.0, 0.0, 0.0);
 
         std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
@@ -126,7 +323,7 @@ int main (int argc, char **argv)
         createCostmap(cloud, canvas, table_color);
 
         std::cout << "showing costmap" << std::endl;
-        cv::imshow("Laser Vizualization", canvas);
+        cv::imshow("Costmap topview", canvas);
 
         // show snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
