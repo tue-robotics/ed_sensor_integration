@@ -57,11 +57,16 @@ void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::P
     {
         for (uint j=0; j < cloud->width; ++j)
         {
+
+            cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i,j);
             double d = image.getDepthImage().at<float>(i,j);
 
             cloud->at(j,i).x = (-half_width+j) * d / fx;
             cloud->at(j,i).y = (-half_height+i) * d / fy;
             cloud->at(j,i).z = d;
+            cloud->at(j,i).r = bgr[2];
+            cloud->at(j,i).g = bgr[1];
+            cloud->at(j,i).b = bgr[0];
         }
     }
 }
@@ -278,6 +283,8 @@ int main (int argc, char **argv)
     ImageBuffer image_buffer;
     image_buffer.initialize(topic, "base_link");
 
+    pcl::PCDWriter writer;
+
     while(ros::ok())
     {
         rgbd::ImageConstPtr image;
@@ -331,10 +338,16 @@ int main (int argc, char **argv)
 
         char key = cv::waitKey(30);
 
-        if (key == 'q')
+        if (key == 32)
+        {
+            writer.write<pcl::PointXYZRGB> ("segmented_cloud.pcd", *cloud, false);
+            std::cout << "wrote current cloud to 'segmented_cloud.pcd'." << std::endl;
+        }
+        else if (key == 'q')
         {
             break;
         }
+
     }
     cv::destroyAllWindows();
     return 0;
