@@ -183,39 +183,40 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     ec.setInputCloud (cloud);
     ec.extract (cluster_indices);
 
-    std::cout << "obtained cluster indices" <<std::endl;
+    std::cout << "obtained " << cluster_indices.size() << " cluster indices" <<std::endl;
 
     //find closest cluster
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out;
-    float mindist = INFINITY;
+    pcl::PointIndices closest_cluster;
+    float mindist_sq = INFINITY;
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it !=
          cluster_indices.end (); ++it) //iterate through all clusters
     {
         //construct cluster
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
+        float sumx = 0, sumy = 0, sumz = 0, dist_sq = 0;
+        int n = 0;
         for (const auto& idx : it->indices)
-            cloud_cluster->push_back ((*cloud)[idx]); //*
-        cloud_cluster->width = cloud_cluster->size ();
-        cloud_cluster->height = 1;
-        cloud_cluster->is_dense = true;
-        float sumx = 0, sumy = 0, sumz = 0, dist = 0;
-        for (uint j=0; j < (*cloud_cluster).width; ++j)
         {
-            //sum up all points
-            sumx += (*cloud_cluster)[j].x;
-            sumy += (*cloud_cluster)[j].y;
-            sumz += (*cloud_cluster)[j].z;
+            sumx += (*cloud)[idx].x;
+            sumy += (*cloud)[idx].y;
+            sumz += (*cloud)[idx].z;
+            n++;
         }
+
         //find distance from camera to the middle of the cluster
-        dist = pow((sumx/(*cloud_cluster).width-x),2) + pow((sumy/(*cloud_cluster).width-y),2) + pow((sumz/(*cloud_cluster).width-z),2);
-        std::cout << "distance is " << sqrt(dist) << std::endl;
-        if (dist < mindist) //check if closest so far
+        dist_sq = pow((sumx/n-x),2) + pow((sumy/n-y),2) + pow((sumz/n-z),2);
+        std::cout << "distance is " << sqrt(dist_sq) << std::endl;
+        if (dist_sq < mindist_sq) //check if closest so far
         {
             std::cout << "updating closest cluster" << std::endl;
-            mindist = dist;
-            cloud_out = cloud_cluster;
+            mindist_sq = dist_sq;
+            closest_cluster = *it;
         }
     }
+
+    //construct cluster
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZRGB>);
+    for (uint i : closest_cluster.indices)
+        cloud_out->push_back( (*cloud)[i] ); //*
 
     float height = FilterPlane(cloud_out, cloud_out);
 
