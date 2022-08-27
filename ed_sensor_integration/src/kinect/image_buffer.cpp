@@ -143,7 +143,7 @@ bool ImageBuffer::getMostRecentImageTF()
         if (new_image)
         {
             image_buffer_.push_front(new_image);
-            ROS_DEBUG_STREAM_NAMED("image_buffer", "[IMAGE_BUFFER] New image from the RGBD client with timestamp: " << new_image->getTimestamp());
+            ROS_DEBUG_STREAM_NAMED("image_buffer", "[IMAGE_BUFFER] New image from the RGBD client with timestamp: " << std::fixed << std::setprecision(12) << new_image->getTimestamp());
         }
         else
         {
