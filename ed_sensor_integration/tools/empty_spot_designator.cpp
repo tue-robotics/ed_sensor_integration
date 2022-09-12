@@ -27,6 +27,7 @@
 
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
+#include <pcl/sample_consensus/sac_model_parallel_plane.h>
 
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -224,6 +225,60 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
     *cloud = *cloud_out;
 }
 
+/**
+ * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
+ * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
+ * @param x: coordinate of the camera
+ * @param y: coordinate of the camera
+ * @param z: coordinate of the camera
+ */
+void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z)
+{
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>), cloud_f (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+    // Create the segmentation object
+    pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+    pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB> model (cloud);
+    // Optional
+    seg.setOptimizeCoefficients (true);
+    // Mandatory
+    seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setMaxIterations (1000);
+    seg.setDistanceThreshold (0.01);
+    seg.setAxis (Eigen::Vector3f(1,0,0));
+    seg.setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
+
+    // Create the filtering object
+    pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+
+    int i = 0, nr_points = (int) cloud->size ();
+
+    // Segment the largest planar component from the remaining cloud
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coefficients);
+
+    if (inliers->indices.size() == 0) {
+        std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+        return;
+    }
+
+    // Extract the inliers
+    extract.setInputCloud(cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(false);
+    extract.filter(*cloud_p);
+    std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points."
+              << std::endl;
+
+    // Create the filtering object
+    extract.setNegative(true);
+    extract.filter(*cloud_f);
+    cloud.swap(cloud_f);
+}
+
 cv::Point2d worldToCanvas(double x, double y)
 {
     return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
@@ -319,7 +374,7 @@ int main (int argc, char **argv)
         (*cloud).is_dense = false;
         pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 
-        Segment(cloud, 0.0, 0.0, 0.0);
+        SegmentPlane(cloud, 0.0, 0.0, 0.0);
 
         std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
