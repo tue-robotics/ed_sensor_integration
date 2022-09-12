@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include <ed/kinect/image_buffer.h>
+#include "ed/kinect/image_buffer.h"
 
 #include "opencv2/imgproc.hpp"
 #include <opencv2/highgui.hpp>
