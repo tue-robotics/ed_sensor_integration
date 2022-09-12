@@ -236,7 +236,7 @@ void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Mat& canvas
     for (int nIndex = 0; nIndex < cloud->points.size (); nIndex++)
     {
         double x = cloud->points[nIndex].x;
-        double y = -cloud->points[nIndex].y;
+        double y = cloud->points[nIndex].y;
 
         cv::Point2d p = worldToCanvas(x, y);
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
