@@ -67,8 +67,8 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         res.active_entity_ = e->id().str();
         for (const auto& volume : e->volumes())
         {
-            std::string name = volume.first;
-            geo::ShapeConstPtr shape = volume.second;
+            const std::string& name = volume.first;
+            const geo::ShapeConstPtr& shape = volume.second;
             if (name == "on_top_of")
             {
                 ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());

@@ -225,7 +225,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         // Check if the update_command is a segmented entity.
         // If so, lookup the corresponding area_description
 
-        bool fit_supporting_entity = true;
+        bool fit_supporting_entity = req.fit_supporting_entity;
 
         std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(req.area_description);
         if (it_area_descr != id_to_area_description_.end())

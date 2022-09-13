@@ -24,6 +24,9 @@ struct UpdateRequest
     // When refitting an entity, this states the maximum change in yaw (in radians), i.e., the fitted
     // yaw will deviate at most 'max_yaw_change' from the estimated yaw
     double max_yaw_change;
+
+    // Should the supporting entity be fitted
+    bool fit_supporting_entity;
 };
 
 // ----------------------------------------------------------------------------------------------------
