@@ -21,7 +21,7 @@ public:
 
     PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_), depth_(0.0), entity_("") {}
 
-    void renderPoint(int index, float depth)
+    void renderPoint(uint index, float depth)
     {
         float old_depth = depth_;
         if (old_depth == 0.0 || depth < old_depth)
