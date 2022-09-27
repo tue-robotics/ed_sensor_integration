@@ -34,7 +34,7 @@ Interfaces:
 * bar
 
 ## Tools
-Several tools are available for testing the features of this repository. These can be found in the [tools](tools) along with their documentation.
+Several tools are available for testing the features of this repository. These can be found in the [tools](tools) along with their [documentation](tools/README.md).
 
 ## Issues with current toolchain
 
