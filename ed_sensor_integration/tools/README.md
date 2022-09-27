@@ -1,6 +1,6 @@
 # Tools
 
-### image saver
+## image saver
 
 * `ed_image_saver`: Shows RGBD image stream and allows to save images. Example usage (N.B.: use robot name as a namespace):
 
@@ -8,11 +8,11 @@
 rosrun ed_sensor_integration ed_image_saver __ns:=hero
 ```
 
-and once you see an image in a CV window popping up, press the space bar to save it. The tool will write a json and rgbd file to the current folder with a timestamp as filename.
+and once you see an image in a CV window popping up, press the space bar to save it. The tool will write a `json` and `rgbd` file to the current folder with a timestamp as filename.
 
-### fitter
+## fitter
 
-* `ed_fitter_live`: Shows RGB image stream and a visualisation to show the fitting process. Example usage (N.B.: use robot name as a namespace):
+* `ed_fitter_live`: Shows RGB image stream and a visualization to show the fitting process. Example usage (N.B.: use robot name as a namespace):
 
 ```bash
 rosrun ed_sensor_integration ed_fitter_live <worldmodel_name> <entity_id> <rgbd_topic>
@@ -29,7 +29,7 @@ This visualises an image like the one below. With the original pose of the entit
 rosrun ed_sensor_integration ed_fitter_data <stamp>.json <worldmodel_name> <entity_id>
 ```
 
-### segmenter
+## segmenter
 
 * `ed_segmenter`: Iterates over snapshots in a directory, performs a Kinect update and displays the result. To run:
 
