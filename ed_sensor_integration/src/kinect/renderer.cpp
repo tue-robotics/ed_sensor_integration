@@ -61,8 +61,8 @@ void fitZRP(const geo::Shape& shape, const geo::Pose3D& shape_pose, const rgbd::
 
     // Create a resized version of the sensor depth image
     cv::Mat sensor_depth_img(height, width, CV_32FC1, 0.0);
-    for(int y = 0; y < height; ++y)
-        for(int x = 0; x < width; ++x)
+    for (uint y = 0; y < height; ++y)
+        for (uint x = 0; x < width; ++x)
             sensor_depth_img.at<float>(y, x) = view.getDepth(x, y);
 
     double min_error = 1e9; // TODO

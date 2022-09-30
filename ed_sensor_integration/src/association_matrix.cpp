@@ -86,7 +86,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
         for(unsigned int i = 0; i < assig_indexes.size(); ++i)
         {
             std::vector<Entry>& msr_row = matrix_[i];
-            int j = assig_indexes[i];
+            unsigned int j = assig_indexes[i];
 
             if (j + 1 < msr_row.size())
             {

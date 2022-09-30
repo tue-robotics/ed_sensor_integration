@@ -464,7 +464,7 @@ void Fitter::checkExpectedBeamThroughEntity(const std::vector<double>& model_ran
     expected_ranges = model_ranges;
     std::vector<int> expected_identifiers(nr_data_points_, 0);
     renderEntity(entity, sensor_pose_xya, 1, expected_ranges, expected_identifiers);
-    if (expected_center_beam < 0 || expected_center_beam >= nr_data_points_)
+    if (expected_center_beam < 0 || expected_center_beam >= static_cast<int>(nr_data_points_))
         throw FitterError("Expected beam outside of measurement range(" + std::to_string(nr_data_points_) + "), index: " + std::to_string(expected_center_beam));
     if (expected_identifiers[expected_center_beam] != 1)  // expected center beam MUST contain the rendered model
         throw FitterError("Expected beam does not go through entity");
