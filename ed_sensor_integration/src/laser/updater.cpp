@@ -568,7 +568,7 @@ EntityUpdate LaserUpdater::segmentToConvexHull(const ScanSegment& segment, const
 
     std::vector<geo::Vec2f> points(segment_size);
 
-    float z_min, z_max;
+    float z_min = 0., z_max = 0.;
     for(unsigned int i = 0; i < segment_size; ++i)
     {
         unsigned int j = segment[i];
