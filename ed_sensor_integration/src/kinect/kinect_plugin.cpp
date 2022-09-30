@@ -69,8 +69,6 @@ void KinectPlugin::initialize(ed::InitData& init)
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
-    const ed::WorldModel& world = data.world;
-
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and pose
 

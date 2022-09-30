@@ -138,7 +138,6 @@ int main(int argc, char **argv)
     Updater updater;
 
     std::vector<ed::Snapshot> snapshots;
-    unsigned int i_snapshot = 0;
 
     while(true)
     {
