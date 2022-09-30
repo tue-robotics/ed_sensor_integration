@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(ed_sensor_integration)
 
+add_compile_options(-Wall -Werror=all)
+add_compile_options(-Wextra -Werror=extra)
+
 find_package(catkin REQUIRED COMPONENTS
   ed
   ed_sensor_integration_msgs
@@ -31,6 +34,7 @@ catkin_package(
 
 include_directories(
   include
+  SYSTEM
   ${catkin_INCLUDE_DIRS}
 )
 

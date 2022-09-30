@@ -45,7 +45,7 @@ public:
     {
     }
 
-    void renderPixel(int x, int y, float depth, int i_triangle)
+    void renderPixel(int x, int y, float depth, int /*i_triangle*/)
     {
         float& old_depth = z_buffer.at<float>(y, x);
         if (old_depth == 0 || depth < old_depth)
@@ -107,7 +107,7 @@ public:
         max_buffer = cv::Mat(height, width, CV_32FC1, 0.0);
     }
 
-    void renderPixel(int x, int y, float depth, int i_triangle)
+    void renderPixel(int x, int y, float depth, int /*i_triangle*/)
     {
         // TODO: now the renderer can only deal with convex meshes, which means
         // that at each pixel there can only be one minimum and one maximum pixel

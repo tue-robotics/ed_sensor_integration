@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     {
         world_model = ed::loadWorldModel(model_name);
     }
-    catch (ed::ModelNotFoundException e)
+    catch (const ed::ModelNotFoundException& e)
     {
         std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
         std::cerr << e.what() << std::endl;

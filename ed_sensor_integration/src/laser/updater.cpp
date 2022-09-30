@@ -258,11 +258,15 @@ bool associateSegmentsWithEntities(std::vector<EntityUpdate>& clusters, const st
 void LaserUpdater::configure(tue::Configuration& config)
 {
     config.value("world_association_distance", world_association_distance_);
-    config.value("min_segment_size_pixels", min_segment_size_pixels_);
+    int temp_min_segment_size_pixels = 0;
+    config.value("min_segment_size_pixels", temp_min_segment_size_pixels);
+    min_segment_size_pixels_ = temp_min_segment_size_pixels;
     config.value("segment_depth_threshold", segment_depth_threshold_);
     config.value("min_cluster_size", min_cluster_size_);
     config.value("max_cluster_size", max_cluster_size_);
-    config.value("max_gap_size", max_gap_size_);
+    int temp_max_gap_size = 0;
+    config.value("max_gap_size", temp_max_gap_size);
+    max_gap_size_ = temp_max_gap_size;
 
     fit_entities_ = false;
     config.value("fit_entities", fit_entities_, tue::config::OPTIONAL);
@@ -480,7 +484,7 @@ void LaserUpdater::associate(std::vector<double>& sensor_ranges, const std::vect
 std::vector<ScanSegment> LaserUpdater::segment(const std::vector<double>& sensor_ranges)
 {
     std::vector<ScanSegment> segments;
-    int num_beams = sensor_ranges.size();
+    uint num_beams = sensor_ranges.size();
 
     // Find first valid value
     ScanSegment current_segment;
@@ -498,7 +502,7 @@ std::vector<ScanSegment> LaserUpdater::segment(const std::vector<double>& sensor
         return segments;
     }
 
-    int gap_size = 0;
+    uint gap_size = 0;
 
     for(unsigned int i = current_segment.front(); i < num_beams; ++i)
     {
@@ -564,7 +568,7 @@ EntityUpdate LaserUpdater::segmentToConvexHull(const ScanSegment& segment, const
 
     std::vector<geo::Vec2f> points(segment_size);
 
-    float z_min, z_max;
+    float z_min = 0., z_max = 0.;
     for(unsigned int i = 0; i < segment_size; ++i)
     {
         unsigned int j = segment[i];
