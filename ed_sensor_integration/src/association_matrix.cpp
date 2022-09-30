@@ -15,7 +15,7 @@ bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix:
 
 // ----------------------------------------------------------------------------------------------------
 
-AssociationMatrix::AssociationMatrix(unsigned int num_measurements) : matrix_(num_measurements), i_max_entity_(0)
+AssociationMatrix::AssociationMatrix(unsigned int num_measurements) : i_max_entity_(0), matrix_(num_measurements)
 {
 }
 
