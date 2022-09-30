@@ -89,7 +89,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         }
         else
         {
-            auto bbx = e->shape()->getBoundingBox();
+            const geo::Box& bbx = e->shape()->getBoundingBox();
             opt.setMesh(bbx.getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
             lrf.render(opt, res);
         }
