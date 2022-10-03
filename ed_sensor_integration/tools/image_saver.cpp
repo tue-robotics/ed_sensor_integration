@@ -58,7 +58,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "ed_image_saver");
     ros::NodeHandle nh;
     ros::ServiceClient cl_get_image = nh.serviceClient<ed_sensor_integration_msgs::GetImage>("ed/kinect/get_image");
-    //ros::Subscriber laser_sub = nh.subscribe("base_laser/measurements", 1, LaserCallback);
 
     double fps = 1;
 
