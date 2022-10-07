@@ -234,13 +234,12 @@ void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, fl
  */
 void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z)
 {
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>), cloud_f (new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>);
 
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
     // Create the segmentation object
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-    pcl::SampleConsensusModelParallelPlane<pcl::PointXYZRGB> model (cloud);
     // Optional
     seg.setOptimizeCoefficients (true);
     // Mandatory
@@ -249,7 +248,7 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float 
     seg.setMaxIterations (1000);
     seg.setDistanceThreshold (0.01);
     seg.setAxis (Eigen::Vector3f(1,0,0));
-    seg.setEpsAngle(15*0.0174532925); //*0.0174532925 to radians
+    seg.setEpsAngle(5*0.0174532925); //*0.0174532925 to radians
 
     // Create the filtering object
     pcl::ExtractIndices<pcl::PointXYZRGB> extract;
@@ -270,13 +269,10 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float 
     extract.setIndices(inliers);
     extract.setNegative(false);
     extract.filter(*cloud_p);
-    std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points."
-              << std::endl;
+    std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
+     << "Plane with coefficients: " << *coefficients << std::endl;
 
-    // Create the filtering object
-    extract.setNegative(true);
-    extract.filter(*cloud_f);
-    cloud.swap(cloud_f);
+    cloud->swap(*cloud_p);
 }
 
 cv::Point2d worldToCanvas(double x, double y)
