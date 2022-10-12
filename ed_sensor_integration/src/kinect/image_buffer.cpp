@@ -188,7 +188,7 @@ bool ImageBuffer::getMostRecentImageTF()
             catch (tf2::TransformException& ex)
             {
                 ROS_ERROR_DELAYED_THROTTLE_NAMED(10, "image_buffer", "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
-                ROS_WARN_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
+                ROS_DEBUG_NAMED("image_buffer", "[IMAGE_BUFFER] Could not get latest sensor pose (probably because tf is still initializing): %s", ex.what());
                 continue;
             }
         }
