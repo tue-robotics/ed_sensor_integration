@@ -123,6 +123,10 @@ target_link_libraries(ed_fitter_data ed_kinect)
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
 target_link_libraries(ed_fitter_live ed_kinect)
 
+add_executable(ed_yolo_viewer tools/yolo_viewer.cpp)
+target_link_libraries(ed_yolo_viewer ${catkin_LIBRARIES})
+add_dependencies(ed_yolo_viewer ${catkin_EXPORTED_TARGETS})
+
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
