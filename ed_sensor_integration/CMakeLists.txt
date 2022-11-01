@@ -123,8 +123,11 @@ target_link_libraries(ed_fitter_data ed_kinect)
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
 target_link_libraries(ed_fitter_live ed_kinect)
 
+find_package(OpenCV 4.6.0 EXACT REQUIRED)
+
 add_executable(ed_yolo_viewer tools/yolo_viewer.cpp)
-target_link_libraries(ed_yolo_viewer ${catkin_LIBRARIES})
+target_include_directories(ed_yolo_viewer BEFORE PUBLIC ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(ed_yolo_viewer ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 add_dependencies(ed_yolo_viewer ${catkin_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
@@ -137,6 +140,3 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
   target_link_libraries(test_laser_fitting ed_laser ${catkin_LIBRARIES})
 endif ()
-
-
-
