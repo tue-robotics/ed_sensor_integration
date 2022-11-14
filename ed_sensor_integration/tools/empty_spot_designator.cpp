@@ -374,7 +374,7 @@ int main (int argc, char **argv)
 
         std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
-        cv::Scalar table_color(0, 255, 0);
+        cv::Scalar table_color(0, 0, 255);
         cv::Scalar occupied_color(0, 0, 255);
 
         //createCostmap(occupied_cloud, canvas, occupied_color);
