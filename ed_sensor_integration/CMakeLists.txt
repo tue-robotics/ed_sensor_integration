@@ -121,8 +121,6 @@ target_link_libraries(ed_fitter_data ed_kinect)
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
 target_link_libraries(ed_fitter_live ed_kinect)
 
-add_executable(ed_table_modeler tools/table_modeler.cpp)
-target_link_libraries (ed_table_modeler ${catkin_LIBRARIES})
 
 add_executable(ed_empty_spot_designator tools/empty_spot_designator.cpp)
 target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
