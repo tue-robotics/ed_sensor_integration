@@ -372,7 +372,7 @@ int main (int argc, char **argv)
 
         SegmentPlane(cloud, 0.0, 0.0, 0.0);
 
-        std::cout << "creating costmap" << std::endl;
+        std::cout << "creating costmap test2" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
         cv::Scalar table_color(0, 0, 255);
         cv::Scalar occupied_color(0, 0, 255);
@@ -380,7 +380,7 @@ int main (int argc, char **argv)
         //createCostmap(occupied_cloud, canvas, occupied_color);
         createCostmap(cloud, canvas, table_color);
 
-        std::cout << "showing costmap" << std::endl;
+        std::cout << "showing costmap test2" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
         // show snapshot
