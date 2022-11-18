@@ -31,6 +31,8 @@
 
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
 
 #include <pcl/surface/convex_hull.h>
 
@@ -297,6 +299,39 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float 
     cloud->swap(*cloud_p);
 }
 
+/**
+ * @brief Filter the occluded space and return cloud (occluded_cloud) with these point
+ * @param object_cloud: pointcloud used to 
+ * @param x: coordinate of the camera
+ * @param y: coordinate of the camera
+ * @param z: coordinate of the camera
+ * @param height: z coordinate of the table
+ */
+void OccludedSpace (pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, float x, float y, float z, float height)
+{
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+    occluded_cloud->width=object_cloud->width;
+    occluded_cloud->height=object_cloud->height;
+    occluded_cloud->is_dense = false;
+    occluded_cloud->points.resize(occluded_cloud->width*occluded_cloud->height);
+
+
+    for (int nIndex = 0; nIndex < object_cloud->points.size (); nIndex++)
+    {
+        double lower = object_cloud->points[nIndex].z - z;
+        double upper = height - object_cloud->points[nIndex].y;
+        double lambda = upper / lower;
+        double dx = object_cloud->points[nIndex].x - x;
+        double dy = object_cloud->points[nIndex].y- y;
+
+        
+        occluded_cloud->points[nIndex].z =  height;
+        occluded_cloud->points[nIndex].x = object_cloud->points[nIndex].x + lambda * dx;
+        occluded_cloud->points[nIndex].y = object_cloud->points[nIndex].y + lambda * dy;
+        
+    }
+
+}
 
 cv::Point2d worldToCanvas(double x, double y)
 {
@@ -337,6 +372,25 @@ void createObjectCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, cv
 
     
 }
+void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud, cv::Mat& canvas, cv::Scalar color)
+
+{
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    for (int nIndex = 0; nIndex < occluded_cloud->points.size (); nIndex++)
+    {
+        double x = occluded_cloud->points[nIndex].x;
+        double y = occluded_cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+    }
+
+    
+}
+
+
 
 // void dilateCostmap(cv::Mat& canvas)
 // {
@@ -459,6 +513,30 @@ int main (int argc, char **argv)
         condrem2.setKeepOrganized(true);
         // apply filter
         condrem2.filter (*object_cloud);
+        pcl::removeNaNFromPointCloud(*object_cloud, *object_cloud, indices);
+
+        // Create pointcloud with occluded space
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+        occluded_cloud->width=object_cloud->width;
+        occluded_cloud->height=object_cloud->height;
+        occluded_cloud->is_dense = false;
+        occluded_cloud->points.resize(occluded_cloud->width*occluded_cloud->height);
+        float x = transform(0,3);
+        float y = transform(1,3);
+        float z = transform(2,3);
+        for (int nIndex = 0; nIndex < object_cloud->points.size (); nIndex++)
+        {
+        auto lower = object_cloud->points[nIndex].z - z;
+        auto upper = height - object_cloud->points[nIndex].z;
+        auto lambda = upper / lower;
+        auto dx = object_cloud->points[nIndex].x - x;
+        auto dy = object_cloud->points[nIndex].y- y;
+
+        
+        occluded_cloud->points[nIndex].z =  height;
+        occluded_cloud->points[nIndex].x = object_cloud->points[nIndex].x + lambda * dx;
+        occluded_cloud->points[nIndex].y = object_cloud->points[nIndex].y + lambda * dy;
+        }
 
         SegmentPlane(cloud, 0.0, 0.0, 0.0);
 
@@ -468,9 +546,13 @@ int main (int argc, char **argv)
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
+        cv::Scalar occluded_color(255,0,0);
         
         //createCostmap(occupied_cloud, canvas, table_color);
         createCostmap(cloud, canvas, table_color);
+
+        //prints on top of costmap(object_cloud, canvas, occupied_color)
+        createOccludedCostmap(occluded_cloud, canvas, occluded_color);       
 
         //prints on top of costmap(object_cloud, canvas, occupied_color)
         createObjectCostmap(object_cloud, canvas, occupied_color);
