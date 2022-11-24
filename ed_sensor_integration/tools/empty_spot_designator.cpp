@@ -12,7 +12,7 @@
 //pcl library # TODO remove the unused ones #TODO find out which ones are unused
 #include <pcl/point_cloud.h>
 #include <pcl/point_representation.h>
-
+#include <pcl/common/common.h>
 #include <pcl/io/pcd_io.h>
 
 #include <pcl/filters/filter.h>
@@ -45,8 +45,11 @@ cv::Point2d canvas_center;
 void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     // Fill in the cloud data
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL (new pcl::PointCloud<pcl::PointXYZRGB>);
     cloud->width = image.getDepthImage().cols;
     cloud->height = image.getDepthImage().rows;
+    // FOVL->width = image.getDepthImage(0).col;
+    // FOVL->height = image.getDepthImage().rows;
     cloud->is_dense = false;
     cloud->resize (cloud->width * cloud->height);
 
@@ -252,9 +255,9 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 /**
  * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
  * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
- * @param x: coordinate of the camera
- * @param y: coordinate of the camera
- * @param z: coordinate of the camera
+ * @param x: coordinate of the camera ! unused
+ * @param y: coordinate of the camera ! unused
+ * @param z: coordinate of the camera ! unused
  */
 void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z)
 {
@@ -299,39 +302,6 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float 
     cloud->swap(*cloud_p);
 }
 
-/**
- * @brief Filter the occluded space and return cloud (occluded_cloud) with these point
- * @param object_cloud: pointcloud used to 
- * @param x: coordinate of the camera
- * @param y: coordinate of the camera
- * @param z: coordinate of the camera
- * @param height: z coordinate of the table
- */
-void OccludedSpace (pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, float x, float y, float z, float height)
-{
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-    occluded_cloud->width=object_cloud->width;
-    occluded_cloud->height=object_cloud->height;
-    occluded_cloud->is_dense = false;
-    occluded_cloud->points.resize(occluded_cloud->width*occluded_cloud->height);
-
-
-    for (int nIndex = 0; nIndex < object_cloud->points.size (); nIndex++)
-    {
-        double lower = object_cloud->points[nIndex].z - z;
-        double upper = height - object_cloud->points[nIndex].y;
-        double lambda = upper / lower;
-        double dx = object_cloud->points[nIndex].x - x;
-        double dy = object_cloud->points[nIndex].y- y;
-
-        
-        occluded_cloud->points[nIndex].z =  height;
-        occluded_cloud->points[nIndex].x = object_cloud->points[nIndex].x + lambda * dx;
-        occluded_cloud->points[nIndex].y = object_cloud->points[nIndex].y + lambda * dy;
-        
-    }
-
-}
 
 cv::Point2d worldToCanvas(double x, double y)
 {
@@ -355,6 +325,7 @@ void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Mat& canvas
 
     
 }
+
 void createObjectCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, cv::Mat& canvas, cv::Scalar color)
 
 {
@@ -370,8 +341,8 @@ void createObjectCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, cv
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
     }
 
-    
 }
+
 void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud, cv::Mat& canvas, cv::Scalar color)
 
 {
@@ -385,20 +356,71 @@ void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud
         cv::Point2d p = worldToCanvas(x, y);
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
-
-    
+    }   
 }
 
+void createNotTableCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud, cv::Mat& canvas, cv::Scalar color)
 
+{
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-// void dilateCostmap(cv::Mat& canvas)
-// {
-//     cv::Mat element = cv::getStructuringElement( cv::MORPH_RECT,
-//                                              cv::Size( 11, 11),
-//                                              cv::Point(5, 5) );
-//     cv::dilate(canvas, canvas, element );
-// }
+    for (int nIndex = 0; nIndex < notTable_cloud->points.size (); nIndex++)
+    {
+        double x = notTable_cloud->points[nIndex].x;
+        double y = notTable_cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+    }
+}
+
+void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
+
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
+        {
+        float initial_x = x;
+        float initial_y = y;
+        double y = initial_y + 0.001*nIndex;
+        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
+}
+
+void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
+
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
+        {
+        float initial_x = x;
+        float initial_y = y;
+        double y = initial_y - 0.001*nIndex;
+        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
+}
+
+void dilateCostmap(cv::Mat& canvas)
+{
+    float resolution = 0.005;
+    float radius = 0.10;
+    float margin = 0.01;
+    float length = radius + margin;
+    float Pixelsize = length / resolution;
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::dilate(canvas, canvas, element );
+}
 
 /**
  * @brief usage, print how the executable should be used and explain the input
@@ -454,28 +476,13 @@ int main (int argc, char **argv)
         // keep track of the indices in the original image
         std::vector<int> indices;
 
-        // Filter out floor
-        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-        range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
-        // build the filter
-        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-        condrem.setCondition (range_cond);
-        condrem.setInputCloud (cloud);
-        condrem.setKeepOrganized(true);
-        // apply filter
-        condrem.filter (*cloud);
-        (*cloud).is_dense = false;
-        pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 
         // Filter out objects and put them in seperate cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_backup(new pcl::PointCloud<pcl::PointXYZRGB>);
-        cloud_backup = cloud;  // back-up cloud used for FilterPlane to get the height of the table    
-
+   
         // Get the height of the table for the object detection
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>);
-
         pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
         pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
         // Create the segmentation object
@@ -503,9 +510,9 @@ int main (int argc, char **argv)
 
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.02)));
+        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.03)));
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.25)));
+        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.80)));
         // build the filter
         pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem2;
         condrem2.setCondition (range_cond2);
@@ -514,6 +521,10 @@ int main (int argc, char **argv)
         // apply filter
         condrem2.filter (*object_cloud);
         pcl::removeNaNFromPointCloud(*object_cloud, *object_cloud, indices);
+
+
+
+
 
         // Create pointcloud with occluded space
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -538,24 +549,90 @@ int main (int argc, char **argv)
         occluded_cloud->points[nIndex].y = object_cloud->points[nIndex].y + lambda * dy;
         }
 
+        // Filter out items above table
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr backup_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond3 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+        range_cond3->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height)));
+        // build the filter
+        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem3;
+        condrem3.setCondition (range_cond3);
+        condrem3.setInputCloud (cloud);
+        condrem3.setKeepOrganized(true);
+        // apply filter
+        condrem3.filter (*backup_cloud);
+        (*backup_cloud).is_dense = false;
+        pcl::removeNaNFromPointCloud(*backup_cloud, *backup_cloud, indices);
+
+        // Not table cloud
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+        notTable_cloud->width       = backup_cloud->width;
+        notTable_cloud->height      = backup_cloud->height;
+        notTable_cloud->is_dense    = false;
+        notTable_cloud->points.resize(notTable_cloud->width*notTable_cloud->height);
+        for (int nIndex = 0; nIndex < backup_cloud->points.size (); nIndex++)
+        {
+        auto lower  = z - backup_cloud->points[nIndex].z;
+        auto upper  = height - backup_cloud->points[nIndex].z;
+        auto lambda = upper / lower;
+        auto dx     = x - backup_cloud->points[nIndex].x;
+        auto dy     = y - backup_cloud->points[nIndex].y;       
+        notTable_cloud->points[nIndex].z = height;
+        notTable_cloud->points[nIndex].x = backup_cloud->points[nIndex].x + lambda * dx;
+        notTable_cloud->points[nIndex].y = backup_cloud->points[nIndex].y + lambda * dy;
+        }
+
+        float min_x = cloud->points[0].x; 
+        float min_y = cloud->points[0].y; 
+        float max_x = cloud->points[0].x; 
+        float max_y = cloud->points[0].y;
+
+        // Filter out floor
+        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+        range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
+        // build the filter
+        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+        condrem.setCondition (range_cond);
+        condrem.setInputCloud (cloud);
+        condrem.setKeepOrganized(true);
+        // apply filter
+        condrem.filter (*cloud);
+        (*cloud).is_dense = false;
+        pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
+
+
         SegmentPlane(cloud, 0.0, 0.0, 0.0);
+  
 
-
-
+        
         std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
         cv::Scalar occluded_color(255,0,0);
+        cv::Scalar test_color(0, 255, 255);
         
-        //createCostmap(occupied_cloud, canvas, table_color);
+
+
+        // Add not table to costmap
+        createNotTableCostmap(notTable_cloud, canvas, occupied_color); 
+
+        // Add table plane to costmap
         createCostmap(cloud, canvas, table_color);
 
-        //prints on top of costmap(object_cloud, canvas, occupied_color)
+        // prints on top of costmap(object_cloud, canvas, occupied_color)
         createOccludedCostmap(occluded_cloud, canvas, occluded_color);       
 
-        //prints on top of costmap(object_cloud, canvas, occupied_color)
+        // prints on top of costmap(object_cloud, canvas, occupied_color)
         createObjectCostmap(object_cloud, canvas, occupied_color);
+
+        // FOV left
+        createFOVLCostmap(canvas, occupied_color, transform(0,3), transform(1,3));
+
+        // FOV right
+        createFOVRCostmap(canvas, occupied_color, transform(0,3), transform(1,3));
+
+        // Dilate the costmap
+        dilateCostmap(canvas);
 
         std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
