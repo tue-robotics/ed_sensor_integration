@@ -3,8 +3,10 @@
 
 #include "ed/kinect/image_buffer.h"
 
-#include "opencv2/imgproc.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/core/core.hpp>
+#include <vector>
 
 #include <ros/ros.h>
 #include <rgbd/image.h>
@@ -110,7 +112,7 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
     Transform(2,2) = zz;
     Transform(2,3) = z;
 
-    std::cout << Transform << std::endl;
+    // std::cout << Transform << std::endl;
     return Transform;
 }
 
@@ -255,11 +257,8 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 /**
  * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
  * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
- * @param x: coordinate of the camera ! unused
- * @param y: coordinate of the camera ! unused
- * @param z: coordinate of the camera ! unused
  */
-void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z)
+void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -296,18 +295,18 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float 
     extract.setIndices(inliers);
     extract.setNegative(false);
     extract.filter(*cloud_p);
-    std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
-     << "Plane with coefficients: " << *coefficients << std::endl;
+    // std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
+    //  << "Plane with coefficients: " << *coefficients << std::endl;
 
     cloud->swap(*cloud_p);
 }
-
+// cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
 
 cv::Point2d worldToCanvas(double x, double y)
 {
     return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
 }
-
+ 
 void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Mat& canvas, cv::Scalar color)
 
 {
@@ -409,17 +408,93 @@ void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
         }
 }
 
+void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, float z, float height)
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int i = 0; i < 8; i++)
+        {
+            for (int nIndex = 0; nIndex < 4000; nIndex++)
+            {
+            float initial_x = x;
+            float initial_y = y;
+            double y = initial_y + -2+ 0.001*nIndex;
+            double x = initial_x + (z-height)*tan(67.5/(180/M_PI)); // 0.125*i*
+
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+            }
+        }
+}
+
+void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color)
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        float radius = 0.70;
+            for (float phi = 0; phi < 360; phi++)
+            {
+
+            double y = radius * sin(phi/(180/M_PI));
+            double x = radius * cos(phi/(180/M_PI));
+
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+            }
+        
+}
+
 void dilateCostmap(cv::Mat& canvas)
 {
     float resolution = 0.005;
     float radius = 0.10;
     float margin = 0.01;
-    float length = radius + margin;
+    float length = radius + margin; 
     float Pixelsize = length / resolution;
     cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                              cv::Size( Pixelsize, Pixelsize),
                                              cv::Point(-1, -1) );
     cv::dilate(canvas, canvas, element );
+}
+
+double ExtractPlacementOption(cv::Mat& canvas, cv::Scalar targetColor)
+{
+
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    std::vector<cv::Point> identicalPoints;
+
+    for(int row = canvas.rows; row > 0; --row)
+    {
+        for(int col = canvas.rows; col > 0; --col)
+        {
+            cv::Vec3b currPixel = canvas.at<cv::Vec3b>(row, col);
+            if(currPixel.val[0] == targetColor.val[0] &&
+               currPixel.val[1] == targetColor.val[1] &&
+               currPixel.val[2] == targetColor.val[2])
+            {
+                identicalPoints.push_back(cv::Point(col, row));
+            }
+        }
+    }
+    
+
+    cv::Point Point = identicalPoints[0];
+    double x = (Point.x-canvas_center.x)*-resolution;
+    double y = (Point.y-canvas_center.y)*-resolution;
+
+
+
+    std::cout << "The point on the canvas that is closest to HERO is:" << std::endl;
+    std::cout << Point << std::endl;
+    std::cout << "With X-coordinate:" << std::endl;
+    std::cout << x << std::endl;
+    std::cout << "And Y-coordinate:" << std::endl;
+    std::cout << y << std::endl;  
+
+
+    return x;
+    return y;
 }
 
 /**
@@ -465,7 +540,7 @@ int main (int argc, char **argv)
             std::cerr << "No image received, will try again." << std::endl;
             continue;
         }
-        std::cout << "converting image to cloud" << std::endl;
+        // std::cout << "converting image to cloud" << std::endl;
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         imageToCloud(*image, cloud);
 
@@ -512,7 +587,7 @@ int main (int argc, char **argv)
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
         pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.03)));
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.80)));
+        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.30)));
         // build the filter
         pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem2;
         condrem2.setCondition (range_cond2);
@@ -552,7 +627,7 @@ int main (int argc, char **argv)
         // Filter out items above table
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr backup_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond3 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-        range_cond3->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height)));
+        range_cond3->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height-0.05)));
         // build the filter
         pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem3;
         condrem3.setCondition (range_cond3);
@@ -581,10 +656,6 @@ int main (int argc, char **argv)
         notTable_cloud->points[nIndex].y = backup_cloud->points[nIndex].y + lambda * dy;
         }
 
-        float min_x = cloud->points[0].x; 
-        float min_y = cloud->points[0].y; 
-        float max_x = cloud->points[0].x; 
-        float max_y = cloud->points[0].y;
 
         // Filter out floor
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
@@ -600,16 +671,17 @@ int main (int argc, char **argv)
         pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 
 
-        SegmentPlane(cloud, 0.0, 0.0, 0.0);
+        SegmentPlane(cloud);
   
 
         
-        std::cout << "creating costmap" << std::endl;
+        // std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
         cv::Scalar occluded_color(255,0,0);
-        cv::Scalar test_color(0, 255, 255);
+        cv::Scalar radius_color(100,0,100);
+        cv::Scalar placement_color(100, 255, 100);
         
 
 
@@ -631,10 +703,19 @@ int main (int argc, char **argv)
         // FOV right
         createFOVRCostmap(canvas, occupied_color, transform(0,3), transform(1,3));
 
+        // FOV down
+        createFOVHCostmap(canvas, occupied_color, transform(0,3), transform(1,3), transform(2,3), height);
+
+        // HERO preferred radius
+        createRadiusCostmap(canvas, radius_color);
+
         // Dilate the costmap
         dilateCostmap(canvas);
 
-        std::cout << "showing costmap" << std::endl;
+        ExtractPlacementOption(canvas, placement_color);
+    
+
+        // std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
         // show snapshot
