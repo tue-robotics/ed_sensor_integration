@@ -457,16 +457,16 @@ void dilateCostmap(cv::Mat& canvas)
     cv::dilate(canvas, canvas, element );
 }
 
-double ExtractPlacementOption(cv::Mat& canvas, cv::Scalar targetColor)
+cv::Point2d ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar color)
 {
 
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
 
-    for(int row = canvas.rows; row > 0; --row)
+    for(int row = 0; row < canvas.rows; ++row)
     {
-        for(int col = canvas.rows; col > 0; --col)
+        for(int col = 0; col < canvas.rows; ++col)
         {
             cv::Vec3b currPixel = canvas.at<cv::Vec3b>(row, col);
             if(currPixel.val[0] == targetColor.val[0] &&
@@ -477,24 +477,24 @@ double ExtractPlacementOption(cv::Mat& canvas, cv::Scalar targetColor)
             }
         }
     }
-    
+       
+    for(int i = 0; i < identicalPoints.size(); i++)
+    {   
+        cv::Point2d p = identicalPoints[i];
+        if (p.x >= 0 && p.y >= 0 && p.x < placement_canvas.cols && p.y < placement_canvas.rows)
+            placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(targetColor[0], targetColor[1], targetColor[2]); 
 
-    cv::Point Point = identicalPoints[0];
-    double x = (Point.x-canvas_center.x)*-resolution;
-    double y = (Point.y-canvas_center.y)*-resolution;
+    }
+    cv::Point2d Point = identicalPoints[0];
+    double y = (Point.x-canvas_center.x)*-resolution;
+    double x = (Point.y-canvas_center.y)*-resolution;
 
-
-
-    std::cout << "The point on the canvas that is closest to HERO is:" << std::endl;
     std::cout << Point << std::endl;
-    std::cout << "With X-coordinate:" << std::endl;
-    std::cout << x << std::endl;
-    std::cout << "And Y-coordinate:" << std::endl;
-    std::cout << y << std::endl;  
-
-
-    return x;
-    return y;
+    std::cout <<  x << std::endl;
+    std::cout <<  y << std::endl;
+    cv::Point2d p = cv::Point2d(y, x);
+    placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]); 
+    return Point;
 }
 
 /**
@@ -677,19 +677,19 @@ int main (int argc, char **argv)
         
         // std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
+        cv::Mat placement_canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
         cv::Scalar occluded_color(255,0,0);
         cv::Scalar radius_color(100,0,100);
         cv::Scalar placement_color(100, 255, 100);
+        cv::Scalar point_color(255,0,0);
         
-
+        // Add table plane to costmap
+        createCostmap(cloud, canvas, table_color);
 
         // Add not table to costmap
         createNotTableCostmap(notTable_cloud, canvas, occupied_color); 
-
-        // Add table plane to costmap
-        createCostmap(cloud, canvas, table_color);
 
         // prints on top of costmap(object_cloud, canvas, occupied_color)
         createOccludedCostmap(occluded_cloud, canvas, occluded_color);       
@@ -706,17 +706,21 @@ int main (int argc, char **argv)
         // FOV down
         createFOVHCostmap(canvas, occupied_color, transform(0,3), transform(1,3), transform(2,3), height);
 
-        // HERO preferred radius
-        createRadiusCostmap(canvas, radius_color);
+        // // HERO preferred radius
+        // createRadiusCostmap(canvas, radius_color);
 
         // Dilate the costmap
         dilateCostmap(canvas);
 
-        ExtractPlacementOption(canvas, placement_color);
+
+        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color);
     
 
         // std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
+
+        // // std::cout << "showing costmap" << std::endl;
+        cv::imshow("Placement options costmap topview", placement_canvas);
 
         // show snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
