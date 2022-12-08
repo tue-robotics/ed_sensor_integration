@@ -457,7 +457,7 @@ void dilateCostmap(cv::Mat& canvas)
     cv::dilate(canvas, canvas, element );
 }
 
-cv::Point2d ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar color)
+void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar point_color, double height)
 {
 
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
@@ -477,6 +477,7 @@ cv::Point2d ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, 
             }
         }
     }
+
        
     for(int i = 0; i < identicalPoints.size(); i++)
     {   
@@ -485,16 +486,17 @@ cv::Point2d ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, 
             placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(targetColor[0], targetColor[1], targetColor[2]); 
 
     }
-    cv::Point2d Point = identicalPoints[0];
-    double y = (Point.x-canvas_center.x)*-resolution;
-    double x = (Point.y-canvas_center.y)*-resolution;
+    cv::Point2d PlacementPoint = identicalPoints[0];
+    double y = (PlacementPoint.x-canvas_center.x)*-resolution;
+    double x = (PlacementPoint.y-canvas_center.y)*-resolution;
 
-    std::cout << Point << std::endl;
-    std::cout <<  x << std::endl;
-    std::cout <<  y << std::endl;
-    cv::Point2d p = cv::Point2d(y, x);
-    placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]); 
-    return Point;
+    double margin = 0.02;
+
+    std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
+    std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
+    std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
+    placement_canvas.at<cv::Vec3b>(PlacementPoint) = cv::Vec3b(point_color[0], point_color[1], point_color[2]); 
+
 }
 
 /**
@@ -685,6 +687,7 @@ int main (int argc, char **argv)
         cv::Scalar placement_color(100, 255, 100);
         cv::Scalar point_color(255,0,0);
         
+        
         // Add table plane to costmap
         createCostmap(cloud, canvas, table_color);
 
@@ -712,8 +715,9 @@ int main (int argc, char **argv)
         // Dilate the costmap
         dilateCostmap(canvas);
 
+        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
 
-        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color);
+        // VisualizePlacementPoint(PlacementPoint, placement_canvas, point_color);
     
 
         // std::cout << "showing costmap" << std::endl;
