@@ -257,11 +257,10 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 /**
  * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
  * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
+ * @return height of the segmented plane
  */
-void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out)
 {
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>);
-
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
     // Create the segmentation object
@@ -279,26 +278,26 @@ void SegmentPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
     // Create the filtering object
     pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
-    int i = 0, nr_points = (int) cloud->size ();
+    int i = 0, nr_points = (int) cloud_in->size ();
 
     // Segment the largest planar component from the remaining cloud
-    seg.setInputCloud(cloud);
+    seg.setInputCloud(cloud_in);
     seg.segment(*inliers, *coefficients);
 
     if (inliers->indices.size() == 0) {
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
-        return;
+        return -1.0;
     }
 
     // Extract the inliers
-    extract.setInputCloud(cloud);
+    extract.setInputCloud(cloud_in);
     extract.setIndices(inliers);
     extract.setNegative(false);
-    extract.filter(*cloud_p);
-    // std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
-    //  << "Plane with coefficients: " << *coefficients << std::endl;
+    extract.filter(*cloud_out);
+    std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
+      << "Plane with coefficients: " << *coefficients << std::endl;
 
-    cloud->swap(*cloud_p);
+    return abs(coefficients->values[3]);
 }
 // cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
 
@@ -463,6 +462,8 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
+    cv::Point2d PlacementPoint;
+    bool found = false;
 
     for(int row = 0; row < canvas.rows; ++row)
     {
@@ -473,20 +474,18 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
                currPixel.val[1] == targetColor.val[1] &&
                currPixel.val[2] == targetColor.val[2])
             {
-                identicalPoints.push_back(cv::Point(col, row));
+                cv::Point2d p = cv::Point(col, row);
+                PlacementPoint = p;
+                found = true;
+                if (p.x >= 0 && p.y >= 0 && p.x < placement_canvas.cols && p.y < placement_canvas.rows)
+                    placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(targetColor[0], targetColor[1], targetColor[2]);
             }
         }
     }
 
-       
-    for(int i = 0; i < identicalPoints.size(); i++)
-    {   
-        cv::Point2d p = identicalPoints[i];
-        if (p.x >= 0 && p.y >= 0 && p.x < placement_canvas.cols && p.y < placement_canvas.rows)
-            placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(targetColor[0], targetColor[1], targetColor[2]); 
+    if (!found)
+        return;
 
-    }
-    cv::Point2d PlacementPoint = identicalPoints[0];
     double y = (PlacementPoint.x-canvas_center.x)*-resolution;
     double x = (PlacementPoint.y-canvas_center.y)*-resolution;
 
@@ -542,7 +541,7 @@ int main (int argc, char **argv)
             std::cerr << "No image received, will try again." << std::endl;
             continue;
         }
-        // std::cout << "converting image to cloud" << std::endl;
+        std::cout << "converting image to cloud" << std::endl;
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         imageToCloud(*image, cloud);
 
@@ -552,6 +551,26 @@ int main (int argc, char **argv)
 
         // keep track of the indices in the original image
         std::vector<int> indices;
+
+
+        // Filter out floor
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr floorless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+        range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
+        // build the filter
+        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+        condrem.setCondition (range_cond);
+        condrem.setInputCloud (cloud);
+        condrem.setKeepOrganized(true);
+        // apply filter
+        condrem.filter (*floorless_cloud);
+        (*floorless_cloud).is_dense = false;
+        pcl::removeNaNFromPointCloud(*floorless_cloud, *floorless_cloud, indices);
+
+        std::cout << "segmentPlane" << std::endl;
+        float height = SegmentPlane(floorless_cloud, floorless_cloud);
+        std::cout << "found height " << height << std::endl;
 
 
         // Filter out objects and put them in seperate cloud
@@ -582,8 +601,6 @@ int main (int argc, char **argv)
         // Segment the largest planar component from the remaining cloud
         seg.setInputCloud(cloud);
         seg.segment(*inliers, *coefficients);
-
-        float height = abs(coefficients->values[3]);
 
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
@@ -658,24 +675,6 @@ int main (int argc, char **argv)
         notTable_cloud->points[nIndex].y = backup_cloud->points[nIndex].y + lambda * dy;
         }
 
-
-        // Filter out floor
-        pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-        range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, 0.1)));
-        // build the filter
-        pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-        condrem.setCondition (range_cond);
-        condrem.setInputCloud (cloud);
-        condrem.setKeepOrganized(true);
-        // apply filter
-        condrem.filter (*cloud);
-        (*cloud).is_dense = false;
-        pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
-
-
-        SegmentPlane(cloud);
-  
-
         
         // std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
@@ -687,9 +686,9 @@ int main (int argc, char **argv)
         cv::Scalar placement_color(100, 255, 100);
         cv::Scalar point_color(255,0,0);
         
-        
+        std::cout << "creating costmap" << std::endl;
         // Add table plane to costmap
-        createCostmap(cloud, canvas, table_color);
+        createCostmap(floorless_cloud, canvas, table_color);
 
         // Add not table to costmap
         createNotTableCostmap(notTable_cloud, canvas, occupied_color); 
@@ -713,8 +712,9 @@ int main (int argc, char **argv)
         // createRadiusCostmap(canvas, radius_color);
 
         // Dilate the costmap
-        dilateCostmap(canvas);
+        //dilateCostmap(canvas);
 
+        std::cout << "extract placement options" << std::endl;
         ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
 
         // VisualizePlacementPoint(PlacementPoint, placement_canvas, point_color);
