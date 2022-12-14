@@ -127,49 +127,6 @@ sensor_msgs::CameraInfo getDefaultCamInfo(const ImageResolution& resolution)
     return cam_info;
 }
 
-/**
- * @brief setupRasterizer sets up the rasterizer
- * N.B.: shouldn't we move this somewhere else? It's being used more often
- * @param rasterizer
- */
-void setupRasterizer(image_geometry::PinholeCameraModel& cam_model, geo::DepthCamera& rasterizer)
-{
-    sensor_msgs::CameraInfo cam_info = getDefaultCamInfo({CAM_RESOLUTION_WIDTH, CAM_RESOLUTION_HEIGHT});
-    cam_model.fromCameraInfo(cam_info);
-
-    rasterizer.setFocalLengths(cam_model.fx(), cam_model.fy());
-    rasterizer.setOpticalCenter(cam_model.cx(), cam_model.cy());
-    rasterizer.setOpticalTranslation(cam_model.Tx(), cam_model.Ty());
-}
-
-
-/**
- * @brief renderImage renders an rgbd image from a world model.
- * N.B.: copied from https://github.com/tue-robotics/fast_simulator/blob/master/src/Kinect.cpp
- * @param wm
- */
-// ToDo: generalize
-void renderImage(const geo::DepthCamera& rasterizer, const geo::Pose3D& cam_pose, const ed::WorldModel& wm, cv::Mat& depth_image)
-{
-    cv::Mat image(depth_image.rows, depth_image.cols, CV_8UC3, cv::Scalar(20, 20, 20));
-    bool result = ed::renderWorldModel(wm, ed::ShowVolumes::NoVolumes, rasterizer, cam_pose.inverse(), depth_image, image);
-    ROS_DEBUG_STREAM("\nRender result: " << result << "\n");
-
-    if (SHOW_DEBUG_IMAGES)
-    {
-        cv::namedWindow("Colored image", 1);
-        cv::imshow("Colored image", image);
-        std::cout << "Press any key to continue" << std::endl;
-        cv::waitKey(0);
-        cv::namedWindow("Depth image", 1);
-        cv::imshow("Depth image", depth_image);
-        std::cout << "Press any key to continue" << std::endl;
-        cv::waitKey(0);
-        cv::destroyAllWindows();
-    }
-}
-
-
 
 void moveFurnitureObject(const ed::UUID& id, const geo::Pose3D& new_pose, ed::WorldModel& wm)
 {
@@ -346,10 +303,7 @@ private:
     {
         sensor_msgs::CameraInfo cam_info = getDefaultCamInfo({CAM_RESOLUTION_WIDTH, CAM_RESOLUTION_HEIGHT});
         cam_model_.fromCameraInfo(cam_info);
-
-        rasterizer_.setFocalLengths(cam_model_.fx(), cam_model_.fy());
-        rasterizer_.setOpticalCenter(cam_model_.cx(), cam_model_.cy());
-        rasterizer_.setOpticalTranslation(cam_model_.Tx(), cam_model_.Ty());
+        rasterizer_.initFromCamModel(cam_model_);
     }
 
     void setupCamPose()
@@ -391,8 +345,7 @@ private:
     }
 
     // ToDo: do or don't have as a member
-    bool fitSupportingEntity(const rgbd::Image* image, const ed::UUID& entity_id,
-                             geo::Pose3D& new_pose) const
+    bool fitSupportingEntity(const rgbd::Image* image, const ed::UUID& entity_id, geo::Pose3D& new_pose) const
     {
         // ToDo: create a function for this in the library
         // ToDo: does it make sense to provide RGBD data here or rather a more standard data type?
@@ -414,7 +367,6 @@ private:
     Fitter fitter_;
     geo::Pose3D cam_pose_;
     double max_yaw_change = degToRad(45.0);
-
 };
 
 
