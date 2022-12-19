@@ -36,6 +36,8 @@
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
 
+  <doc_depend>doxygen</doc_depend>
+
   <export>
     <ed plugin="${prefix}/plugins.xml" />
     <rosdoc config="rosdoc.yaml" />
