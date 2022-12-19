@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   image_geometry
   rgbd
+  rgbd_image_buffer
   roscpp
   sensor_msgs
   tf2_ros
