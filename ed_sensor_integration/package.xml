@@ -5,7 +5,7 @@
 <package format="3">
   <name>ed_sensor_integration</name>
   <version>0.0.0</version>
-  <description>No description available</description>
+  <description>Plugins to integrate sensor data into the ED worldmodel</description>
 
   <maintainer email="s.v.d.dries@tue.nl">Sjoerd van den Dries</maintainer>
 
@@ -35,6 +35,8 @@
   <exec_depend>tf2_ros</exec_depend>
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
+
+  <test_depend>catkin_lint_cmake</test_depend>
 
   <doc_depend>doxygen</doc_depend>
 

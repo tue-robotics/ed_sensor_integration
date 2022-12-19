@@ -9,7 +9,7 @@ find_package(PCL REQUIRED COMPONENTS common kdtree)
 find_package(catkin REQUIRED COMPONENTS
   code_profiler
   ed
-  ed_sensor_integration_msgs
+  ${PROJECT_NAME}_msgs
   geolib2
   geometry_msgs
   image_geometry
@@ -30,7 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
-  CATKIN_DEPENDS code_profiler ed ed_sensor_integration_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
   DEPENDS OpenCV PCL
 )
 
@@ -49,34 +49,34 @@ include_directories(
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_association
+  include/${PROJECT_NAME}/association_matrix.h
   src/association_matrix.cpp
-  include/ed_sensor_integration/association_matrix.h
 )
 
 add_library(ed_kinect
-    src/kinect/fitter.cpp
-    include/ed/kinect/fitter.h
-    src/kinect/beam_model.cpp
-    include/ed/kinect/beam_model.h
-    src/kinect/mesh_tools.cpp
-    include/ed/kinect/mesh_tools.h
-    src/kinect/segmenter.cpp
-    include/ed/kinect/segmenter.h
-    src/kinect/association.cpp
     include/ed/kinect/association.h
-    src/kinect/updater.cpp
-    include/ed/kinect/updater.h
+    include/ed/kinect/beam_model.h
     include/ed/kinect/entity_update.h
-    src/kinect/renderer.cpp
+    include/ed/kinect/fitter.h
+    include/ed/kinect/mesh_tools.h
     include/ed/kinect/renderer.h
+    include/ed/kinect/segmenter.h
+    include/ed/kinect/updater.h
+    src/kinect/association.cpp
+    src/kinect/beam_model.cpp
+    src/kinect/fitter.cpp
+    src/kinect/mesh_tools.cpp
+    src/kinect/renderer.cpp
+    src/kinect/segmenter.cpp
+    src/kinect/updater.cpp
 )
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
 add_dependencies(ed_kinect ${catkin_EXPORTED_TARGETS})
 
 add_library(ed_laser
-  src/laser/updater.cpp
-  include/ed/laser/updater.h
   include/ed/laser/entity_update.h
+  include/ed/laser/updater.h
+  src/laser/updater.cpp
 )
 target_link_libraries(ed_laser ed_association ${catkin_LIBRARIES})
 add_dependencies(ed_laser ${catkin_EXPORTED_TARGETS})
@@ -128,9 +128,48 @@ add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
 target_link_libraries(ed_fitter_live ed_kinect)
 
 # ------------------------------------------------------------------------------------------------
+#                                          Install
+# ------------------------------------------------------------------------------------------------
+
+install(
+  FILES plugins.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+)
+
+install(
+  TARGETS
+    ed_association
+    ed_clearer_plugin
+    ed_kinect
+    ed_kinect_plugin
+    ed_laser
+    ed_laser_plugin
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+
+install(
+  TARGETS
+    ed_fitter_data
+    ed_fitter_live
+    ed_image_saver
+    ed_segmenter
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+# ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
-if(CATKIN_ENABLE_TESTING)
+if (CATKIN_ENABLE_TESTING)
+  find_package(catkin_lint_cmake REQUIRED)
+  catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
+
   catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
   target_link_libraries(test_furniture_fitting ed_kinect ${catkin_LIBRARIES})
 
