@@ -4,12 +4,17 @@ project(ed_sensor_integration)
 add_compile_options(-Wall -Werror=all)
 add_compile_options(-Wextra -Werror=extra)
 
+find_package(OpenCV REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common kdtree)
 find_package(catkin REQUIRED COMPONENTS
+  code_profiler
   ed
   ed_sensor_integration_msgs
   geolib2
   geometry_msgs
   image_geometry
+  rgbd
+  roscpp
   sensor_msgs
   tf2_ros
   tue_config
@@ -24,8 +29,8 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
-  # DEPENDS
-  CATKIN_DEPENDS ed ed_sensor_integration_msgs tue_config
+  CATKIN_DEPENDS code_profiler ed ed_sensor_integration_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  DEPENDS OpenCV PCL
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -48,8 +53,6 @@ add_library(ed_association
 )
 
 add_library(ed_kinect
-    src/kinect/image_buffer.cpp
-    include/ed/kinect/image_buffer.h
     src/kinect/fitter.cpp
     include/ed/kinect/fitter.h
     src/kinect/beam_model.cpp

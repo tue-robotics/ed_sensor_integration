@@ -13,16 +13,27 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <depend>code_profiler</depend>
   <depend>ed</depend>
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
-  <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
-  <depend>sensor_msgs</depend>
-  <depend>tf2_ros</depend>
+  <depend>libopencv-dev</depend>
+  <depend>libpcl-common</depend>
+  <depend>libpcl-kdtree</depend>
+  <depend>rgbd</depend>
+  <depend>roscpp</depend>
   <depend>tue_config</depend>
-  <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
+
+  <build_depend>geometry_msgs</build_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <build_depend>tf2_ros</build_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <build_depend>tue_filesystem</build_depend>
+  <exec_depend>tue_filesystem</exec_depend>
 
   <export>
     <ed plugin="${prefix}/plugins.xml" />
