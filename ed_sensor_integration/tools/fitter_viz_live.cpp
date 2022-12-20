@@ -2,9 +2,10 @@
 #include <ed/world_model.h>
 
 #include <ed/kinect/fitter.h>
-#include <ed/kinect/image_buffer.h>
 
 #include <geolib/math_types.h>
+
+#include <rgbd/image_buffer/image_buffer.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -64,7 +65,7 @@ int main(int argc, char **argv)
     std::string topic = argv[3];
     std::cout << "Using topic: " << topic << std::endl;
 
-    ImageBuffer image_buffer;
+    rgbd::ImageBuffer image_buffer;
     image_buffer.initialize(topic, "map");
 
     Fitter fitter;
