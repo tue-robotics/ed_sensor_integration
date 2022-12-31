@@ -239,7 +239,7 @@ Fitter::Fitter()
 
 // ----------------------------------------------------------------------------------------------------
 
-Fitter::Fitter(uint nr_data_points, float fx) :
+Fitter::Fitter(unsigned int nr_data_points, float fx) :
     nr_data_points_(nr_data_points)
 {
     double w = 2 * nr_data_points / fx;
