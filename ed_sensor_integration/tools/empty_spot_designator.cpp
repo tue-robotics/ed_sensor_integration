@@ -597,9 +597,9 @@ int main (int argc, char **argv)
         (*floorless_cloud).is_dense = false;
         pcl::removeNaNFromPointCloud(*floorless_cloud, *floorless_cloud, indices);
 
-        // std::cout << "SegmentPlane" << std::endl;
+        std::cout << "SegmentPlane" << std::endl;
         float height = SegmentPlane(floorless_cloud, floorless_cloud);
-        // std::cout << "Found plane height " << height << std::endl;
+        std::cout << "Found plane height " << height << std::endl;
 
 
         // Filter out objects and put them in seperate cloud
@@ -690,7 +690,7 @@ int main (int argc, char **argv)
         float length = object_diameter + error_margin; 
         float placement_margin = 2*0.02 + length;
         
-        // std::cout << "creating costmap" << std::endl;
+        std::cout << "creating costmap" << std::endl;
         // Add table plane to costmap
         createCostmap(floorless_cloud, canvas, table_color);
 
@@ -722,10 +722,10 @@ int main (int argc, char **argv)
 
         ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
 
-        // std::cout << "showing costmap" << std::endl;
+        std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
-        // std::cout << "showing costmap" << std::endl;
+        std::cout << "showing placement costmap" << std::endl;
         cv::imshow("Placement options costmap topview", placement_canvas);
 
         // show snapshot
