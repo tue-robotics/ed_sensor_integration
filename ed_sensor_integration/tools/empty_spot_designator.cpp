@@ -44,7 +44,7 @@
 double resolution = 0.005;
 cv::Point2d canvas_center;
 
-void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     // Fill in the cloud data
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -77,6 +77,7 @@ void imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::P
             cloud->at(j,i).b = bgr[0];
         }
     }
+return image.getCameraModel().fx();
 }
 
 Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
@@ -294,8 +295,8 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::
     extract.setIndices(inliers);
     extract.setNegative(false);
     extract.filter(*cloud_out);
-    std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
-      << "Plane with coefficients: " << *coefficients << std::endl;
+    // std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
+    //   << "Plane with coefficients: " << *coefficients << std::endl;
 
     return abs(coefficients->values[3]);
 }
@@ -373,21 +374,39 @@ void createNotTableCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud
     }
 }
 
-void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
+void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, double fx)
 
 {
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         for (int nIndex = 0; nIndex < 3000 ; nIndex++)
         {
+        // double d = image.getDepthImage().at<float>(i,j);
+        // double fx = image.getCameraModel().fx();
+        float dpix = canvas.cols;
         float initial_x = x;
         float initial_y = y;
-        double y = initial_y + 0.001*nIndex;
+        double y = initial_y + (0.001)*nIndex;
         double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
+        // double x = y * (1/fx) *dpix;
+        // std::cout << x << std::endl;
 
         cv::Point2d p = worldToCanvas(x, y);
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
         }
+
+
+        // for (int nIndex = 0; nIndex < 500 ; nIndex++)
+        // {
+        // float dpix = nIndex/2;
+        // double y = 0.005*nIndex;
+        // double x = y * (1/fx) * dpix;
+        // std::cout << x << std::endl;
+        // cv::Point2d p = worldToCanvas(x, y);
+        // if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+        //     canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+        // }
 }
 
 void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
@@ -410,14 +429,14 @@ void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
 void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, float z, float height)
 {
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 100; i++)
         {
             for (int nIndex = 0; nIndex < 4000; nIndex++)
             {
             float initial_x = x;
             float initial_y = y;
             double y = initial_y + -2+ 0.001*nIndex;
-            double x = initial_x + (z-height)*tan(67.5/(180/M_PI)); // 0.125*i*
+            double x = 0.01*i*(initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
 
             cv::Point2d p = worldToCanvas(x, y);
             if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
@@ -426,11 +445,11 @@ void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, floa
         }
 }
 
-void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color)
+void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
 {
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        float upper_radius = 0.805;
-        float lower_radius = 0.545;
+        float upper_radius = 0.75 + placement_margin/2;
+        float lower_radius = 0.60 - placement_margin/2;
             for (float phi = 0; phi < 360; phi++)
             {
                 for (int i = 0; i < 100; i++)
@@ -456,17 +475,14 @@ void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color)
         
 }
 
-void dilateCostmap(cv::Mat& canvas)
+void dilateCostmap(cv::Mat& canvas, float placement_margin)
 {
-    float resolution = 0.005;
-    float radius = 0.10;
-    float margin = 0.01;
-    float length = radius + margin; 
-    float Pixelsize = length / resolution;
+    float Pixelsize = placement_margin / resolution;
     cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                              cv::Size( Pixelsize, Pixelsize),
                                              cv::Point(-1, -1) );
     cv::dilate(canvas, canvas, element );
+
 }
 
 void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar point_color, double height)
@@ -504,9 +520,9 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
 
     double margin = 0.02;
 
-    std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
-    std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
-    std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
+    // std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
+    // std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
+    // std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
     placement_canvas.at<cv::Vec3b>(PlacementPoint) = cv::Vec3b(point_color[0], point_color[1], point_color[2]); 
 
 }
@@ -554,9 +570,9 @@ int main (int argc, char **argv)
             std::cerr << "No image received, will try again." << std::endl;
             continue;
         }
-        std::cout << "converting image to cloud" << std::endl;
+        // std::cout << "converting image to cloud" << std::endl;
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-        imageToCloud(*image, cloud);
+        double fx = imageToCloud(*image, cloud);
 
         // transform to base link frame
         Eigen::Matrix4f transform = geolibToEigen(sensor_pose);
@@ -581,16 +597,16 @@ int main (int argc, char **argv)
         (*floorless_cloud).is_dense = false;
         pcl::removeNaNFromPointCloud(*floorless_cloud, *floorless_cloud, indices);
 
-        std::cout << "SegmentPlane" << std::endl;
+        // std::cout << "SegmentPlane" << std::endl;
         float height = SegmentPlane(floorless_cloud, floorless_cloud);
-        std::cout << "Found plane height " << height << std::endl;
+        // std::cout << "Found plane height " << height << std::endl;
 
 
         // Filter out objects and put them in seperate cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.05)));
+        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.02)));
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
         pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.30)));
         // build the filter
@@ -667,8 +683,14 @@ int main (int argc, char **argv)
         cv::Scalar radius_color(100,0,100);
         cv::Scalar placement_color(100, 255, 100);
         cv::Scalar point_color(255,0,0);
+
+        // Object placement margins
+        float object_diameter = 0.10;
+        float error_margin = 0.02;
+        float length = object_diameter + error_margin; 
+        float placement_margin = 2*0.02 + length;
         
-        std::cout << "creating costmap" << std::endl;
+        // std::cout << "creating costmap" << std::endl;
         // Add table plane to costmap
         createCostmap(floorless_cloud, canvas, table_color);
 
@@ -682,30 +704,28 @@ int main (int argc, char **argv)
         createObjectCostmap(object_cloud, canvas, occupied_color);
 
         // FOV left
-        createFOVLCostmap(canvas, occupied_color, transform(0,3), transform(1,3));
+        createFOVLCostmap(canvas, occluded_color, transform(0,3), transform(1,3), fx);
 
         // FOV right
-        createFOVRCostmap(canvas, occupied_color, transform(0,3), transform(1,3));
+        createFOVRCostmap(canvas, occluded_color, transform(0,3), transform(1,3));
 
         // FOV down
-        createFOVHCostmap(canvas, occupied_color, transform(0,3), transform(1,3), transform(2,3), height);
+        createFOVHCostmap(canvas, occluded_color, transform(0,3), transform(1,3), transform(2,3), height);
 
         // HERO preferred radius
-        createRadiusCostmap(canvas, radius_color);
+        createRadiusCostmap(canvas, radius_color, placement_margin);
 
         // Dilate the costmap
-        dilateCostmap(canvas);
+        dilateCostmap(canvas, placement_margin);
 
         std::cout << "extract placement options" << std::endl;
-        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
 
-        // VisualizePlacementPoint(PlacementPoint, placement_canvas, point_color);
-    
+        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
 
         // std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
-        // // std::cout << "showing costmap" << std::endl;
+        // std::cout << "showing costmap" << std::endl;
         cv::imshow("Placement options costmap topview", placement_canvas);
 
         // show snapshot
