@@ -436,7 +436,7 @@ void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, floa
             float initial_x = x;
             float initial_y = y;
             double y = initial_y + -2+ 0.001*nIndex;
-            double x = 0.01*i*(initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
+            double x = (initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
 
             cv::Point2d p = worldToCanvas(x, y);
             if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
@@ -475,13 +475,13 @@ void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_marg
         
 }
 
-void dilateCostmap(cv::Mat& canvas, float placement_margin)
+void dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin)
 {
     float Pixelsize = placement_margin / resolution;
     cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
                                              cv::Size( Pixelsize, Pixelsize),
                                              cv::Point(-1, -1) );
-    cv::dilate(canvas, canvas, element );
+    cv::dilate(canvas, dilated_canvas, element );
 
 }
 
@@ -520,9 +520,9 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
 
     double margin = 0.02;
 
-    // std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
-    // std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
-    // std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
+    std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
+    std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
+    std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
     placement_canvas.at<cv::Vec3b>(PlacementPoint) = cv::Vec3b(point_color[0], point_color[1], point_color[2]); 
 
 }
@@ -606,7 +606,7 @@ int main (int argc, char **argv)
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.02)));
+        pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.05)));
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
         pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.30)));
         // build the filter
@@ -617,7 +617,7 @@ int main (int argc, char **argv)
         // apply filter
         condrem2.filter (*object_cloud);
         pcl::removeNaNFromPointCloud(*object_cloud, *object_cloud, indices);
-
+        
         // Create pointcloud with occluded space
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
         occluded_cloud->width=object_cloud->width;
@@ -676,7 +676,8 @@ int main (int argc, char **argv)
         
         // std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
-        cv::Mat placement_canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
+        cv::Mat dilated_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
+        cv::Mat placement_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
         cv::Scalar occluded_color(255,0,0);
@@ -697,10 +698,10 @@ int main (int argc, char **argv)
         // Add not table to costmap
         createNotTableCostmap(notTable_cloud, canvas, occupied_color); 
 
-        // prints on top of costmap(object_cloud, canvas, occupied_color)
+        // Add occluded space to costmap
         createOccludedCostmap(occluded_cloud, canvas, occluded_color);       
 
-        // prints on top of costmap(object_cloud, canvas, occupied_color)
+        // Add objects to costmap
         createObjectCostmap(object_cloud, canvas, occupied_color);
 
         // FOV left
@@ -716,17 +717,20 @@ int main (int argc, char **argv)
         createRadiusCostmap(canvas, radius_color, placement_margin);
 
         // Dilate the costmap
-        dilateCostmap(canvas, placement_margin);
+        dilateCostmap(canvas, dilated_canvas, placement_margin);
 
         std::cout << "extract placement options" << std::endl;
 
-        ExtractPlacementOptions(canvas, placement_canvas, table_color, point_color, height);
+        ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
 
         std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
         std::cout << "showing placement costmap" << std::endl;
         cv::imshow("Placement options costmap topview", placement_canvas);
+
+        std::cout << "showing dilated costmap" << std::endl;
+        cv::imshow("Dilated costmap topview", dilated_canvas);
 
         // show snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
