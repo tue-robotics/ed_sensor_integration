@@ -29,6 +29,8 @@
 
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <build_depend>rosconsole_bridge</build_depend>
+  <exec_depend>rosconsole_bridge</exec_depend>
   <build_depend>sensor_msgs</build_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <build_depend>tf2_ros</build_depend>
