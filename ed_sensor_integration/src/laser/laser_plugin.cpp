@@ -19,8 +19,6 @@
 #include <ros/console.h>
 #include <ros/node_handle.h>
 
-#include <tf2_ros/transform_listener.h>
-
 #include <iostream>
 
 
@@ -47,7 +45,7 @@ void lasermsgToSensorRanges(const sensor_msgs::LaserScan::ConstPtr& scan, std::v
     }
 }
 
-LaserPlugin::LaserPlugin() : tf_buffer_(), tf_listener_(nullptr)
+LaserPlugin::LaserPlugin()
 {
 }
 
@@ -71,11 +69,6 @@ void LaserPlugin::initialize(ed::InitData& init)
 
     // Communication
     sub_scan_ = nh.subscribe<sensor_msgs::LaserScan>(laser_topic, 3, &LaserPlugin::scanCallback, this);
-
-    if (!tf_listener_)
-        tf_listener_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_);
-
-    //pose_cache.clear();
 }
 
 void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
@@ -92,7 +85,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
         try
         {
             geometry_msgs::TransformStamped gm_sensor_pose;
-            gm_sensor_pose = tf_buffer_.lookupTransform("map", scan->header.frame_id, scan->header.stamp);
+            gm_sensor_pose = tf_buffer_->lookupTransform("map", scan->header.frame_id, scan->header.stamp);
             scan_buffer_.pop();
             geo::Pose3D sensor_pose;
             geo::convert(gm_sensor_pose.transform, sensor_pose);
@@ -107,7 +100,7 @@ void LaserPlugin::process(const ed::WorldModel& world, ed::UpdateRequest& req)
                 // Now we have to check if the error was an interpolation or extrapolation error
                 // (i.e., the scan is too old or too new, respectively)
                 geometry_msgs::TransformStamped latest_transform;
-                latest_transform = tf_buffer_.lookupTransform("map", scan->header.frame_id, ros::Time(0));
+                latest_transform = tf_buffer_->lookupTransform("map", scan->header.frame_id, ros::Time(0));
 
                 if (scan_buffer_.front()->header.stamp > latest_transform.header.stamp)
                 {

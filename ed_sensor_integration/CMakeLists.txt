@@ -18,7 +18,6 @@ find_package(catkin REQUIRED COMPONENTS
   rosconsole_bridge
   roscpp
   sensor_msgs
-  tf2_ros
   tue_config
   tue_filesystem
   visualization_msgs
