@@ -10,17 +10,11 @@
 
 #include <ros/subscriber.h>
 #include <ros/callback_queue.h>
-#include <tf2_ros/buffer.h>
 #include <sensor_msgs/LaserScan.h>
 
 #include <queue>
 #include <map>
 #include <memory>
-
-namespace tf2_ros
-{
-class TransformListener;
-}
 
 class LaserPlugin : public ed::Plugin
 {
@@ -43,9 +37,6 @@ private:
     ros::Subscriber sub_scan_;
 
     std::queue<sensor_msgs::LaserScan::ConstPtr> scan_buffer_;
-
-    tf2_ros::Buffer tf_buffer_;
-    std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 
     LaserUpdater updater_;
 

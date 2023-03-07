@@ -33,8 +33,6 @@
   <exec_depend>rosconsole_bridge</exec_depend>
   <build_depend>sensor_msgs</build_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <build_depend>tf2_ros</build_depend>
-  <exec_depend>tf2_ros</exec_depend>
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
 
