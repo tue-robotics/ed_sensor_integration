@@ -78,9 +78,6 @@ double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>:
             cloud->at(j,i).g = bgr[1];
             cloud->at(j,i).b = bgr[0];
 
-            // FOVL->at(j,0).y = cloud->at(j,0).y;
-            // FOVL->at(j,0).x = cloud->at(j,0).x;
-
         }
     }
 
@@ -123,144 +120,6 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
     // std::cout << Transform << std::endl;
     return Transform;
 }
-
-// /**
-//  * @brief FilterPlane fit a plane through a pointcloud, filter the points which lie in this plane and return the height of the plane #TODO separation of concerns.
-//  * @param cloud_backup: pointcloud to be filtered.
-//  * @param out: pointcloud with all points that lie within the plane
-//  * @return height (z coordinate) of the fitted plane.
-//  */
-// float FilterPlane (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_backup, pcl::PointCloud<pcl::PointXYZRGB>::Ptr out)
-// {
-//     std::vector<int> indices;
-//     float threshold = 0.03;
-
-//     std::cout << "starting ransac" << std::endl;
-//     // Create SAC model
-//     pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>::Ptr plane (new pcl::SampleConsensusModelHorizontalPlane<pcl::PointXYZRGB>(cloud_backup));
-//     std::cout << "created plane object" << std::endl;
-//     // Create SAC method
-//     pcl::RandomSampleConsensus<pcl::PointXYZRGB>::Ptr sac (new pcl::RandomSampleConsensus<pcl::PointXYZRGB> (plane, threshold));
-//     std::cout << "created ransac object" << std::endl;
-//     sac->setMaxIterations(10000);
-//     sac->setProbability(0.99);
-
-//     // Fit model
-//     sac->computeModel();
-
-//     // Get inliers
-//     std::vector<int> inliers;
-//     sac->getInliers(inliers);
-
-//     // Get the model coefficients
-//     Eigen::VectorXf coeff;
-//     sac->getModelCoefficients (coeff);
-//     std::cout << "ransac complete" << std::endl;
-
-//     pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-//     range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, (coeff[3]-0.01))));
-//     *out = *cloud_backup;
-
-//     //filter out everything below plane
-//     pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-//     condrem.setCondition (range_cond);
-//     condrem.setInputCloud (out);
-//     condrem.setKeepOrganized(true);
-
-//     condrem.filter (*out);
-//     (*out).is_dense = false;
-//     pcl::removeNaNFromPointCloud(*out, *out, indices);
-
-//     return(coeff[3]);
-    
-
-//  }
-
-// /**
-//  * @brief Segment the pointcloud and return the cluster closest to the camera
-//  * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
-//  * @param x: coordinate of the camera
-//  * @param y: coordinate of the camera
-//  * @param z: coordinate of the camera
-//  * @param [out] height [m]: estimated height of the table based on the cluster.
-//  */
-// void Segment (pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float x, float y, float z,pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud)
-// {
-//     std::cout << "starting segmentation" << std::endl;
-//     std::cout << "x = " << x << ", y = " << y << ", z = " << z << std::endl;
-
-//     // Creating the KdTree object for the search method of the extraction
-//     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-//     tree->setInputCloud (cloud);
-
-//     std::vector<pcl::PointIndices> cluster_indices;
-//     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec; //using euclidian cluster extraction
-//     ec.setClusterTolerance (0.1);
-//     ec.setMinClusterSize ((*cloud).size()/100); //#TODO magic number
-//     ec.setMaxClusterSize ((*cloud).size());
-//     ec.setSearchMethod (tree);
-//     ec.setInputCloud (cloud);
-//     ec.extract (cluster_indices);
-
-//     std::cout << "obtained " << cluster_indices.size() << " cluster indices" <<std::endl;
-
-//     //find closest cluster
-//     pcl::PointIndices closest_cluster;
-//     float mindist_sq = INFINITY;
-//     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it !=
-//          cluster_indices.end (); ++it) //iterate through all clusters
-//     {
-//         //construct cluster
-//         float sumx = 0, sumy = 0, sumz = 0, dist_sq = 0;
-//         int n = 0;
-//         for (const auto& idx : it->indices)
-//         {
-//             sumx += (*cloud)[idx].x;
-//             sumy += (*cloud)[idx].y;
-//             sumz += (*cloud)[idx].z;
-//             n++;
-//         }
-
-//         //find distance from camera to the middle of the cluster
-//         dist_sq = pow((sumx/n-x),2) + pow((sumy/n-y),2) + pow((sumz/n-z),2);
-//         std::cout << "distance is " << sqrt(dist_sq) << std::endl;
-//         if (dist_sq < mindist_sq) //check if closest so far
-//         {
-//             std::cout << "updating closest cluster" << std::endl;
-//             mindist_sq = dist_sq;
-//             closest_cluster = *it;
-//         }
-//     }
-
-    // //construct cluster
-    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZRGB>);
-    // // pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-    // for (uint i : closest_cluster.indices)
-    //     cloud_out->push_back( (*cloud)[i] ); //*
-
-    // // float height = FilterPlane(cloud_out, cloud_out);
-
-    // std::cout << "writing closest cluster" << std::endl;
-
-    // // Filter out objects and put them in seperate cloud
-    // pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-    // range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-    // pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::GT, height+0.02)));
-    // range_cond->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
-    // pcl::FieldComparison<pcl::PointXYZRGB> ("z", pcl::ComparisonOps::LT, height+0.30)));
-    // // build the filter
-    // pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-    // condrem.setCondition (range_cond);
-    // condrem.setInputCloud (cloud);
-    // condrem.setKeepOrganized(true);
-    // // apply filter
-    // condrem.filter (*object_cloud);
-    
-    // Update cloud
-    // *cloud = *cloud_out;
-
-// }
-
 
 /**
  * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
@@ -315,7 +174,7 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
 
     return abs(coefficients->values[3]);
 }
-// cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(50, 50, 50));
+
 
 cv::Point2d worldToCanvas(double x, double y)
 {
@@ -373,94 +232,28 @@ void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud
     }   
 }
 
-
-
-void createNotTableCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud, cv::Mat& canvas, cv::Scalar color)
-
+void CloseCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
 {
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
-    for (int nIndex = 0; nIndex < notTable_cloud->points.size (); nIndex++)
-    {
-        double x = notTable_cloud->points[nIndex].x;
-        double y = notTable_cloud->points[nIndex].y;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
+    float Pixelsize = 5*(placement_margin / resolution);
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::dilate(canvas, closed_canvas, element );
+    cv::erode(closed_canvas, closed_canvas, element);
 }
 
-void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, double fx)
 
+void AlterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin)
 {
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
-        {
-        // double d = image.getDepthImage().at<float>(i,j);
-        // double fx = image.getCameraModel().fx();
-        float dpix = canvas.cols;
-        float initial_x = x;
-        float initial_y = y;
-        double y = initial_y + (0.001)*nIndex;
-        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
-        // double x = y * (1/fx) *dpix;
-        // std::cout << x << std::endl;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-        }
-
-
-        // for (int nIndex = 0; nIndex < 500 ; nIndex++)
-        // {
-        // float dpix = nIndex/2;
-        // double y = 0.005*nIndex;
-        // double x = y * (1/fx) * dpix;
-        // std::cout << x << std::endl;
-        // cv::Point2d p = worldToCanvas(x, y);
-        // if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-        //     canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-
-        // }
+    float Pixelsize = 2*(placement_margin / resolution);
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::erode(closed_canvas, smallplane_canvas, element);
 }
 
-void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
 
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
-        {
-        float initial_x = x;
-        float initial_y = y;
-        double y = initial_y - 0.001*nIndex;
-        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
 
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-        }
-}
-
-void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, float z, float height) // Replace with morphology
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int i = 0; i < 100; i++)
-        {
-            for (int nIndex = 0; nIndex < 4000; nIndex++)
-            {
-            float initial_x = x;
-            float initial_y = y;
-            double y = initial_y + -2+ 0.001*nIndex;
-            double x = (initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
-
-            cv::Point2d p = worldToCanvas(x, y);
-            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-            }
-        }
-}
 
 void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
 {
@@ -535,7 +328,7 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
     double y = (PlacementPoint.x-canvas_center.x)*-resolution;
     double x = (PlacementPoint.y-canvas_center.y)*-resolution;
 
-    double margin = 0.02;
+    double margin = 0.02; // So the robot does not attempt to place an object in the table
 
     std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
     std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
@@ -625,7 +418,7 @@ int main (int argc, char **argv)
         std::cout << "Found plane height " << height << std::endl;
 
 
-        // Filter out objects and put them in seperate cloud
+        // Filter out objects abov the table plane and put them in seperate cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2 (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
         range_cond2->addComparison (pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr (new 
@@ -641,7 +434,7 @@ int main (int argc, char **argv)
         condrem2.filter (*object_cloud);
         pcl::removeNaNFromPointCloud(*object_cloud, *object_cloud, indices);
         
-        // Create pointcloud with occluded space
+        // Create pointcloud with occluded space based on the object cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
         occluded_cloud->width=object_cloud->width;
         occluded_cloud->height=object_cloud->height;
@@ -700,6 +493,7 @@ int main (int argc, char **argv)
         // std::cout << "creating costmap" << std::endl;
         cv::Mat canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Mat dilated_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
+        cv::Mat closed_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Mat placement_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
         cv::Scalar table_color(0, 255, 0);
         cv::Scalar occupied_color(0, 0, 255);
@@ -718,48 +512,43 @@ int main (int argc, char **argv)
 
         // Add table plane to costmap
         createCostmap(plane_cloud, canvas, table_color);
+
+        // Fill missing data gaps inside the table sheet cluster
+        CloseCanvas(canvas, closed_canvas, placement_margin);
+
+        // Decrease the size of the table plane to accomodate for the placement radius while taking dilation into account
+        AlterPlane(closed_canvas, closed_canvas, placement_margin);
                 
         // Add objects to costmap
-        createObjectCostmap(object_cloud, canvas, occupied_color);
+        createObjectCostmap(object_cloud, closed_canvas, occupied_color);
 
         // Add occluded space to costmap
-        createOccludedCostmap(occluded_cloud, canvas, occluded_color); 
-
-
-        ///// Replace the commented steps with image processing technniques instead
-
-
-        // // Add not table to costmap 
-        // createNotTableCostmap(notTable_cloud, canvas, occupied_color); 
-
-        // // FOV left
-        // createFOVLCostmap(canvas, occluded_color, transform(0,3), transform(1,3), fx);
-
-        // // FOV right
-        // createFOVRCostmap(canvas, occluded_color, transform(0,3), transform(1,3));
-
-        // // FOV down
-        // createFOVHCostmap(canvas, occluded_color, transform(0,3), transform(1,3), transform(2,3), height);
+        createOccludedCostmap(occluded_cloud, closed_canvas, occluded_color); 
 
         // HERO preferred radius
-        createRadiusCostmap(canvas, radius_color, placement_margin);
+        createRadiusCostmap(closed_canvas, radius_color, placement_margin);
 
         // Dilate the costmap and create a new canvas
-        dilateCostmap(canvas, dilated_canvas, placement_margin);
+        dilateCostmap(closed_canvas, dilated_canvas, placement_margin);
 
         // Extract the placement options and choose a placement solution
         ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
 
-        std::cout << "showing costmap" << std::endl;
+        // Show the different canvasses
+        
+        // std::cout << "showing closed costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
-        std::cout << "showing placement costmap" << std::endl;
-        cv::imshow("Placement options costmap topview", placement_canvas);
-
-        std::cout << "showing dilated costmap" << std::endl;
+        // std::cout << "showing costmap" << std::endl;
+        cv::imshow("closed canvas topview", closed_canvas);
+                
+        // std::cout << "showing dilated costmap" << std::endl;
         cv::imshow("Dilated costmap topview", dilated_canvas);
 
-        // show snapshot
+        // std::cout << "showing placement costmap" << std::endl;
+        cv::imshow("Placement options costmap topview", placement_canvas);
+
+        // Show RGB snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
         cv::imshow("RGB", rgbcanvas);
 
