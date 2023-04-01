@@ -57,6 +57,29 @@ geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
     return geo::Vector3(origin.x + ratio * direction.x, origin.y + ratio * direction.y, 0);
 }
 
+void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::ImageConstPtr& caminfo)
+{
+    // convert vectors to world frame
+    direction = sensor_pose.R.transpose() * direction;
+
+    if (direction.z > 0.0)
+    {
+        std::cout << "above plane" << std::endl;
+        return;
+    }
+
+    // project vectors on place
+    geo::Vector3 p1 = simpleRayTrace(sensor_pose.t, direction);
+
+    // draw projected points
+    cv::Point2d p1_canvas = cv::Point2d(-p1.y / resolution, -p1.x / resolution) + canvas_center;
+    cv::Scalar fovcolor(0, 255, 255); // Red
+    cv::circle(canvas, p1_canvas, 5, fovcolor, -1);
+
+    std::cout << "FoV debug info c: " << direction << std::endl;
+    std::cout << "p1: " << p1 << std::endl;
+    std::cout << "cvpoint: x: " << p1_canvas.x << ", y: " << p1_canvas.y << std::endl;
+}
 /**
  * @brief Draw the fiel of view of the camera on a plane.
  * 
@@ -76,34 +99,17 @@ void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::Image
     double fy = caminfo->getCameraModel().fy();
 
     // determine vectors pointing to corners of FoV
-    geo::Vector3 c1(fx*half_width, fy*half_height, 1.0); // upper left of image
-    geo::Vector3 c2(-fx*half_width, fy*half_height, 1.0); // upper right of image
-    geo::Vector3 c3(-fx*half_width, -fy*half_height, 1.0); // lower right of image
-    geo::Vector3 c4(fx*half_width, -fy*half_height, 1.0); // lower left of image
+    geo::Vector3 c0(0, 0, -1.0); // upper left of image
+    geo::Vector3 c1(fx*half_width, fy*half_height, -1.0); // upper left of image
+    geo::Vector3 c2(-fx*half_width, fy*half_height, -1.0); // upper right of image
+    geo::Vector3 c3(-fx*half_width, -fy*half_height, -1.0); // lower right of image
+    geo::Vector3 c4(fx*half_width, -fy*half_height, -1.0); // lower left of image
 
-    // convert vectors to world frame
-    c1 = sensor_pose.R.transpose() * c1;
-    c2 = sensor_pose.R.transpose() * c2;
-    c3 = sensor_pose.R.transpose() * c3;
-    c4 = sensor_pose.R.transpose() * c4;
-
-    // project vectors on place
-    geo::Vector3 p1 = simpleRayTrace(sensor_pose.t, c1);
-    geo::Vector3 p2 = simpleRayTrace(sensor_pose.t, c2);
-    geo::Vector3 p3 = simpleRayTrace(sensor_pose.t, c3);
-    geo::Vector3 p4 = simpleRayTrace(sensor_pose.t, c4);
-
-    // draw projected points
-    cv::Point2d p1_canvas = cv::Point2d(-p1.y / resolution, -p1.x / resolution) + canvas_center;
-    cv::Point2d p2_canvas = cv::Point2d(-p2.y / resolution, -p2.x / resolution) + canvas_center;
-    cv::Point2d p3_canvas = cv::Point2d(-p3.y / resolution, -p3.x / resolution) + canvas_center;
-    cv::Point2d p4_canvas = cv::Point2d(-p4.y / resolution, -p4.x / resolution) + canvas_center;
-    cv::Scalar fovcolor(255, 0, 255); // Red
-    cv::circle(canvas, p1_canvas, 5, fovcolor);
-    cv::circle(canvas, p2_canvas, 5, fovcolor);
-    cv::circle(canvas, p3_canvas, 5, fovcolor);
-    cv::circle(canvas, p4_canvas, 5, fovcolor);
-
+    // draw
+    drawFoVMacro(c1, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c2, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c3, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c4, canvas, sensor_pose, caminfo);
 }
 
 /**
