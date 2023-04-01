@@ -83,9 +83,9 @@ void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_po
 /**
  * @brief Draw the fiel of view of the camera on a plane.
  * 
- * @param canvas
- * @param sensor_pose
- * @param caminfo
+ * @param canvas image representing a plane
+ * @param sensor_pose pose of the camera with respect to the plane. It is assumed that the origin corresponds to the canvas_center point on the plane.
+ * @param caminfo Used to get focal lengths of the camera
  */
 void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::ImageConstPtr& caminfo)
 {
@@ -106,9 +106,15 @@ void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::Image
     geo::Vector3 c4(half_width / fx, -half_height / fy, -1.0); // lower left of image
 
     // draw
+    std::cout << "center" << std::endl;
+    drawFoVMacro(c0, canvas, sensor_pose, caminfo);
+    std::cout << "upper left" << std::endl;
     drawFoVMacro(c1, canvas, sensor_pose, caminfo);
+    std::cout << "upper right" << std::endl;
     drawFoVMacro(c2, canvas, sensor_pose, caminfo);
+    std::cout << "lower right" << std::endl;
     drawFoVMacro(c3, canvas, sensor_pose, caminfo);
+    std::cout << "lower left" << std::endl;
     drawFoVMacro(c4, canvas, sensor_pose, caminfo);
 }
 
