@@ -52,7 +52,7 @@ geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
     {
         std::cout << "Raytrace went terribly wrong" << std::endl;
     }
-    double ratio = origin.z / direction.z;
+    double ratio = -origin.z / direction.z;
 
     return geo::Vector3(origin.x + ratio * direction.x, origin.y + ratio * direction.y, 0);
 }
@@ -60,25 +60,26 @@ geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
 void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::ImageConstPtr& caminfo)
 {
     // convert vectors to world frame
-    direction = sensor_pose.R.transpose() * direction;
+    geo::Vector3 direction_world = sensor_pose.R * direction;
 
-    if (direction.z > 0.0)
+    if (direction_world.z > 0.0)
     {
         std::cout << "above plane" << std::endl;
         return;
     }
 
     // project vectors on place
-    geo::Vector3 p1 = simpleRayTrace(sensor_pose.t, direction);
+    geo::Vector3 projected_point = simpleRayTrace(sensor_pose.t, direction_world);
 
     // draw projected points
-    cv::Point2d p1_canvas = cv::Point2d(-p1.y / resolution, -p1.x / resolution) + canvas_center;
+    cv::Point2d p1_canvas = cv::Point2d(-projected_point.y / resolution, -projected_point.x / resolution) + canvas_center;
     cv::Scalar fovcolor(0, 255, 255); // Red
     cv::circle(canvas, p1_canvas, 5, fovcolor, -1);
 
-    std::cout << "FoV debug info direction: " << direction << std::endl;
-    std::cout << "projection: " << p1 << std::endl;
-    std::cout << "cvpoint: x: " << p1_canvas.x << ", y: " << p1_canvas.y << std::endl;
+    std::cout << "direction in camera frame: " << direction << std::endl;
+    std::cout << "direction in world frame: " << direction_world << std::endl;
+    std::cout << "projection in world frame: " << projected_point << std::endl;
+    std::cout << "cvpoint in canvas frame: x: " << p1_canvas.x << ", y: " << p1_canvas.y << std::endl;
 }
 /**
  * @brief Draw the fiel of view of the camera on a plane.
@@ -175,7 +176,10 @@ int main (int argc, char **argv)
         place_area_finder.getCanvas(canvas);
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-        drawFieldOfView(canvas, sensor_pose, image);
+        geo::Pose3D sensor_pose_canvas = sensor_pose;
+        sensor_pose_canvas.t.z = sensor_pose.t.z - place_pose.t.z;
+        drawFieldOfView(canvas, sensor_pose_canvas, image);
+
         // Show the different canvasses
         
         // std::cout << "showing costmap" << std::endl;
