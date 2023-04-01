@@ -93,10 +93,16 @@ int main (int argc, char **argv)
             continue;
         }
         
-        place_area_finder.findArea(image, sensor_pose, place_pose);
+        if (!place_area_finder.findArea(image, sensor_pose, place_pose))
+        {
+            std::cout << "no place area found" << std::endl;
+        }
 
         cv::Mat canvas;
         place_area_finder.getCanvas(canvas);
+
+        std::cout << place_pose << std::endl;
+
         // Show the different canvasses
         
         // std::cout << "showing costmap" << std::endl;
