@@ -10,7 +10,6 @@
 #include <ros/ros.h>
 
 //pcl library # TODO remove the unused ones #TODO find out which ones are unused
-#include <pcl/point_cloud.h>
 #include <pcl/point_representation.h>
 #include <pcl/common/common.h>
 #include <pcl/io/pcd_io.h>
@@ -38,9 +37,6 @@
 
 #include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
-
-double resolution = 0.005;
-cv::Point2d canvas_center;
 
 double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL)
 {
@@ -173,79 +169,7 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
     return abs(coefficients->values[3]);
 }
 
-
-cv::Point2d worldToCanvas(double x, double y)
-{
-    return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
-}
- 
-void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Mat& canvas, cv::Scalar color)
-
-{
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
-    for (int nIndex = 0; nIndex < cloud->points.size (); nIndex++)
-    {
-        double x = cloud->points[nIndex].x;
-        double y = cloud->points[nIndex].y;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
-
-    
-}
-
-void createObjectCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud, cv::Mat& canvas, cv::Scalar color)
-
-{
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
-    for (int nIndex = 0; nIndex < object_cloud->points.size (); nIndex++)
-    {
-        double x = object_cloud->points[nIndex].x;
-        double y = object_cloud->points[nIndex].y;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
-
-}
-
-void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud, cv::Mat& canvas, cv::Scalar color)
-
-{
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
-    for (int nIndex = 0; nIndex < occluded_cloud->points.size (); nIndex++)
-    {
-        double x = occluded_cloud->points[nIndex].x;
-        double y = occluded_cloud->points[nIndex].y;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }   
-}
-
-void createNotTableCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud, cv::Mat& canvas, cv::Scalar color)
-
-{
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
-    for (int nIndex = 0; nIndex < notTable_cloud->points.size (); nIndex++)
-    {
-        double x = notTable_cloud->points[nIndex].x;
-        double y = notTable_cloud->points[nIndex].y;
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
-}
-
+/*
 void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, double fx)
 
 {
@@ -299,74 +223,13 @@ void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, floa
             }
         }
 }
+*/
 
-void CloseCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
-{
-    float Pixelsize = 5*(placement_margin / resolution);
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::dilate(canvas, closed_canvas, element );
-    cv::erode(closed_canvas, closed_canvas, element);
-}
-
-
-void AlterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin)
-{
-    float Pixelsize = 2*(placement_margin / resolution);
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::erode(closed_canvas, smallplane_canvas, element);
-}
-
-
-
-
-void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        float upper_radius = 0.75 + placement_margin/2;
-        float lower_radius = 0.60 - placement_margin/2;
-            for (float phi = 0; phi < 360; phi++)
-            {
-                for (int i = 0; i < 100; i++)
-                {
-                double y = upper_radius * sin(phi/(180/M_PI)) + 0.03 * i * sin(phi/(180/M_PI));
-                double x = upper_radius * cos(phi/(180/M_PI)) + 0.03 * i * cos(phi/(180/M_PI));
-
-                cv::Point2d p = worldToCanvas(x, y);
-                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-                }
-
-                for (int i = 0; i < 100; i++)
-                {
-                double y = lower_radius * sin(phi/(180/M_PI)) - lower_radius/100 * i * sin(phi/(180/M_PI));
-                double x = lower_radius * cos(phi/(180/M_PI)) - lower_radius/100 * i * cos(phi/(180/M_PI));
-
-                cv::Point2d p = worldToCanvas(x, y);
-                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-                }
-            }
-        
-}
-
-void dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin)
-{
-    float Pixelsize = placement_margin / resolution;
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::dilate(canvas, dilated_canvas, element );
-
-}
 
 void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar point_color, double height)
 {
 
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+    cv::Point2d canvas_center(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
     cv::Point2d PlacementPoint;
@@ -393,14 +256,9 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
     if (!found)
         return;
 
-    double y = (PlacementPoint.x-canvas_center.x)*-resolution;
-    double x = (PlacementPoint.y-canvas_center.y)*-resolution;
+    //double y = (PlacementPoint.x-canvas_center.x)*-resolution;
+    //double x = (PlacementPoint.y-canvas_center.y)*-resolution;
 
-    double margin = 0.02; // So the robot does not attempt to place an object in the table
-
-    std::cout << "The selected point for placement in (x,y,z) coordinates is:" << std::endl;
-    std::cout << "(" << x << ", " << y << ", " << height+margin << ")" << std::endl;
-    std::cout << "Which is " << sqrt(pow(x,2)+pow(y,2)) << " cm away from HERO" << std::endl;
     placement_canvas.at<cv::Vec3b>(PlacementPoint) = cv::Vec3b(point_color[0], point_color[1], point_color[2]); 
 
 }
@@ -540,7 +398,7 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     std::cout << "creating costmap" << std::endl;
 
     // Add table plane to costmap
-    createCostmap(plane_cloud, canvas, table_color);
+    createCostmap(plane_cloud, table_color);
 
     // Adding boundaries with morphological operations
 
@@ -568,22 +426,22 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Adding boundaries with additional PCL data
 
     // Add objects to costmap
-    createObjectCostmap(object_cloud, canvas, occupied_color);
+    createCostmap(object_cloud, occupied_color);
 
     // Add occluded space to costmap
-    createOccludedCostmap(occluded_cloud, canvas, occluded_color);
+    createCostmap(occluded_cloud, occluded_color);
 
     // Add not_Table to define the table edge
-    createNotTableCostmap(notTable_cloud, canvas, occupied_color);
+    createCostmap(notTable_cloud, occupied_color);
 
     // FOV left
-    createFOVLCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), fx);
+//    createFOVLCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), fx);
 
     // FOV right
-    createFOVRCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3));
+  //  createFOVRCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3));
 
     // FOV down
-    createFOVHCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), transform(2, 3), height);
+   // createFOVHCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), transform(2, 3), height);
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
@@ -594,5 +452,95 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Extract the placement options and choose a placement solution
     ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
 
+    // fill result
+    geo::Pose3D placement_pose;
+    placement_pose.t.z = height;
+
     return;
+}
+
+cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
+{
+    return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
+}
+
+void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
+
+{
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    for (int nIndex = 0; nIndex < cloud->points.size (); nIndex++)
+    {
+        double x = cloud->points[nIndex].x;
+        double y = cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+    }
+
+    
+}
+
+void PlaceAreaFinder::closeCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
+{
+    float Pixelsize = 5*(placement_margin / resolution);
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::dilate(canvas, closed_canvas, element );
+    cv::erode(closed_canvas, closed_canvas, element);
+}
+
+
+void PlaceAreaFinder::alterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin)
+{
+    float Pixelsize = 2*(placement_margin / resolution);
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::erode(closed_canvas, smallplane_canvas, element);
+}
+
+
+
+
+void PlaceAreaFinder::createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        float upper_radius = 0.75 + placement_margin/2;
+        float lower_radius = 0.60 - placement_margin/2;
+            for (float phi = 0; phi < 360; phi++)
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                double y = upper_radius * sin(phi/(180/M_PI)) + 0.03 * i * sin(phi/(180/M_PI));
+                double x = upper_radius * cos(phi/(180/M_PI)) + 0.03 * i * cos(phi/(180/M_PI));
+
+                cv::Point2d p = worldToCanvas(x, y);
+                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+                }
+
+                for (int i = 0; i < 100; i++)
+                {
+                double y = lower_radius * sin(phi/(180/M_PI)) - lower_radius/100 * i * sin(phi/(180/M_PI));
+                double x = lower_radius * cos(phi/(180/M_PI)) - lower_radius/100 * i * cos(phi/(180/M_PI));
+
+                cv::Point2d p = worldToCanvas(x, y);
+                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+                }
+            }
+        
+}
+
+void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin)
+{
+    float Pixelsize = placement_margin / resolution;
+    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                                             cv::Size( Pixelsize, Pixelsize),
+                                             cv::Point(-1, -1) );
+    cv::dilate(canvas, dilated_canvas, element );
+
 }
