@@ -4,8 +4,20 @@ project(ed_sensor_integration)
 add_compile_options(-Wall -Werror=all)
 add_compile_options(-Wextra -Werror=extra)
 
+find_package (Python COMPONENTS Interpreter REQUIRED)
+execute_process(
+ COMMAND ${PYTHON_EXECUTABLE} -c "import torch; print(torch.__path__[0])"
+ OUTPUT_VARIABLE TORCH_LIBRARY_PATH
+ OUTPUT_STRIP_TRAILING_WHITESPACE
+ ERROR_QUIET
+)
+message(VERBOSE "TORCH_LIBRARY_PATH: ${TORCH_LIBRARY_PATH}")
+
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
+find_package(Torch 1.10 REQUIRED
+  PATHS "${TORCH_LIBRARY_PATH}/share/cmake"
+)
 find_package(catkin REQUIRED COMPONENTS
   code_profiler
   ed
@@ -31,7 +43,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
   CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
-  DEPENDS OpenCV PCL
+  DEPENDS OpenCV PCL Torch
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -42,6 +54,7 @@ include_directories(
   include
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
+  ${TORCH_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -121,6 +134,9 @@ target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 #                                           TOOLS
 # ------------------------------------------------------------------------------------------------
 
+add_executable(test_torch tools/test_torch.cpp)
+target_link_libraries(test_torch ${TORCH_LIBRARIES})
+
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
@@ -168,6 +184,7 @@ install(
     ed_fitter_live
     ed_image_saver
     ed_segmenter
+    test_torch
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -184,6 +201,3 @@ if (CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
   target_link_libraries(test_laser_fitting ${PROJECT_NAME}_console_bridge ed_laser ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 endif ()
-
-
-
