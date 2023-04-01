@@ -12,6 +12,7 @@
 #include <ed_sensor_integration_msgs/GetImage.h>
 #include <ed_sensor_integration_msgs/Update.h>
 #include <ed_sensor_integration_msgs/RayTrace.h>
+#include <ed_sensor_integration_msgs/PlaceArea.h>
 
 // Visualization
 #include <ros/publisher.h>
@@ -72,6 +73,9 @@ private:
 
     ros::Publisher ray_trace_visualization_publisher_;
 
+    bool srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res);
+
+    ros::ServiceServer srv_place_area_;
 
 
 

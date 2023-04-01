@@ -61,6 +61,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
     srv_update_ = nh.advertiseService("kinect/update", &KinectPlugin::srvUpdate, this);
     srv_ray_trace_ = nh.advertiseService("ray_trace", &KinectPlugin::srvRayTrace, this);
+    srv_place_area_ = nh.advertiseService("place_area", &KinectPlugin::srvPlaceArea, this);
 
     ray_trace_visualization_publisher_ = nh.advertise<visualization_msgs::Marker>("ray_trace_visualization", 10);
 }
@@ -271,6 +272,12 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
         ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
     }
 
+    return true;
+}
+
+bool KinectPlugin::srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res)
+{
+    ROS_INFO("Determine place area");
     return true;
 }
 
