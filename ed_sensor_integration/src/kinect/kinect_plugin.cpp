@@ -277,7 +277,27 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
 
 bool KinectPlugin::srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res)
 {
-    ROS_INFO("Determine place area");
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Get new image
+
+    rgbd::ImageConstPtr image;
+    geo::Pose3D sensor_pose;
+
+    if (!image_buffer_.waitForRecentImage(image, sensor_pose, 2.0))
+    {
+        res.error_msg = "Could not get image";
+        return true;
+    }
+
+    // Determine place area
+    geo::Pose3D place_pose;
+    if (!place_area_finder_.findArea(image, sensor_pose, place_pose))
+    {
+        res.error_msg = "No valid place area found";
+        return true;
+    }
+    //TODO fill res.pose
+
     return true;
 }
 
