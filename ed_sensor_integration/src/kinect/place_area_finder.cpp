@@ -232,8 +232,6 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
     cv::Point2d canvas_center(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
-    cv::Point2d PlacementPoint;
-    bool found = false;
 
     for(int row = canvas.rows; row > 0; --row)
     {
@@ -245,22 +243,30 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
                currPixel.val[2] == targetColor.val[2])
             {
                 cv::Point2d p = cv::Point(col, row);
-                PlacementPoint = p;
-                found = true;
                 if (p.x >= 0 && p.y >= 0 && p.x < placement_canvas.cols && p.y < placement_canvas.rows)
                     placement_canvas.at<cv::Vec3b>(p) = cv::Vec3b(targetColor[0], targetColor[1], targetColor[2]);
             }
         }
     }
+}
 
-    if (!found)
-        return;
-
-    //double y = (PlacementPoint.x-canvas_center.x)*-resolution;
-    //double x = (PlacementPoint.y-canvas_center.y)*-resolution;
-
-    placement_canvas.at<cv::Vec3b>(PlacementPoint) = cv::Vec3b(point_color[0], point_color[1], point_color[2]); 
-
+bool GetPlacementOption(cv::Mat& canvas, cv::Scalar targetColor, cv::Point2d& point)
+{
+    for(int row = 0; row <canvas.rows; ++row)
+    {
+        for(int col = canvas.cols; col > 0; --col)
+        {
+            cv::Vec3b currPixel = canvas.at<cv::Vec3b>(row, col);
+            if(currPixel.val[0] == targetColor.val[0] &&
+               currPixel.val[1] == targetColor.val[1] &&
+               currPixel.val[2] == targetColor.val[2])
+            {
+                point = cv::Point(col, row);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 PlaceAreaFinder::PlaceAreaFinder()
@@ -450,11 +456,21 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     dilateCostmap(canvas, dilated_canvas, placement_margin);
 
     // Extract the placement options and choose a placement solution
-    ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
+    cv::Point2d place_point_canvas;
+    if (!GetPlacementOption(dilated_canvas, table_color, place_point_canvas))
+    {
+        return;
+    }
+
+    geo::Vec2d place_point;
+    place_point = canvasToWorld(place_point_canvas);
 
     // fill result
     geo::Pose3D placement_pose;
-    placement_pose.t.z = height;
+
+    placement_pose.t.x = place_point.x;
+    placement_pose.t.y = place_point.y;
+    placement_pose.t.z = height + 0.02;
 
     return;
 }
@@ -462,6 +478,13 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
 {
     return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
+}
+
+geo::Vec2d PlaceAreaFinder::canvasToWorld(cv::Point2d point)
+{
+    double y = (point.x-canvas_center.x)*-resolution;
+    double x = (point.y-canvas_center.y)*-resolution;
+    return geo::Vec2d(x, y);
 }
 
 void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
@@ -477,9 +500,7 @@ void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud
         cv::Point2d p = worldToCanvas(x, y);
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }
-
-    
+    }    
 }
 
 void PlaceAreaFinder::closeCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
@@ -501,8 +522,6 @@ void PlaceAreaFinder::alterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_can
                                              cv::Point(-1, -1) );
     cv::erode(closed_canvas, smallplane_canvas, element);
 }
-
-
 
 
 void PlaceAreaFinder::createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)

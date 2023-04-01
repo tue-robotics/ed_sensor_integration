@@ -33,6 +33,7 @@ private:
     cv::Mat canvas;
 
     cv::Point2d worldToCanvas(double x, double y);
+    geo::Vec2d canvasToWorld(cv::Point2d point);
     void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
     void closeCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin);
     void alterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin);
