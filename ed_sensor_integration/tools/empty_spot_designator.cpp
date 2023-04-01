@@ -76,8 +76,8 @@ void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_po
     cv::Scalar fovcolor(0, 255, 255); // Red
     cv::circle(canvas, p1_canvas, 5, fovcolor, -1);
 
-    std::cout << "FoV debug info c: " << direction << std::endl;
-    std::cout << "p1: " << p1 << std::endl;
+    std::cout << "FoV debug info direction: " << direction << std::endl;
+    std::cout << "projection: " << p1 << std::endl;
     std::cout << "cvpoint: x: " << p1_canvas.x << ", y: " << p1_canvas.y << std::endl;
 }
 /**
@@ -100,10 +100,10 @@ void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::Image
 
     // determine vectors pointing to corners of FoV
     geo::Vector3 c0(0, 0, -1.0); // upper left of image
-    geo::Vector3 c1(fx*half_width, fy*half_height, -1.0); // upper left of image
-    geo::Vector3 c2(-fx*half_width, fy*half_height, -1.0); // upper right of image
-    geo::Vector3 c3(-fx*half_width, -fy*half_height, -1.0); // lower right of image
-    geo::Vector3 c4(fx*half_width, -fy*half_height, -1.0); // lower left of image
+    geo::Vector3 c1(half_width / fx, half_height / fy, -1.0); // upper left of image
+    geo::Vector3 c2(-half_width / fx, half_height / fy, -1.0); // upper right of image
+    geo::Vector3 c3(-half_width / fx, -half_height / fy, -1.0); // lower right of image
+    geo::Vector3 c4(half_width / fx, -half_height / fy, -1.0); // lower left of image
 
     // draw
     drawFoVMacro(c1, canvas, sensor_pose, caminfo);
