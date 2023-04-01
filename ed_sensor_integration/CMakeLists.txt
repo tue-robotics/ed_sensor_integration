@@ -137,6 +137,9 @@ target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 add_executable(test_torch tools/test_torch.cpp)
 target_link_libraries(test_torch ${TORCH_LIBRARIES})
 
+add_executable(test_yolo tools/test_yolo.cpp)
+target_link_libraries(test_yolo ${TORCH_LIBRARIES})
+
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
@@ -185,6 +188,7 @@ install(
     ed_image_saver
     ed_segmenter
     test_torch
+    test_yolo
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
