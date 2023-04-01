@@ -6,6 +6,7 @@
 
 #include "ed/kinect/image_buffer.h"
 #include "ed/kinect/updater.h"
+#include "ed/kinect/place_area_finder.h"
 
 // Services
 #include <ros/service_server.h>
@@ -45,7 +46,7 @@ private:
 
 
     Updater updater_;
-
+    PlaceAreaFinder place_area_finder_;
 
     // Communication
 

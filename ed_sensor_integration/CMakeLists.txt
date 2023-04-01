@@ -63,6 +63,8 @@ add_library(ed_kinect
     include/ed/kinect/entity_update.h
     src/kinect/renderer.cpp
     include/ed/kinect/renderer.h
+    src/kinect/place_area_finder.cpp
+    include/ed/kinect/place_area_finder.h
 )
 target_link_libraries(ed_kinect ed_association ${catkin_LIBRARIES})
 add_dependencies(ed_kinect ${catkin_EXPORTED_TARGETS})
