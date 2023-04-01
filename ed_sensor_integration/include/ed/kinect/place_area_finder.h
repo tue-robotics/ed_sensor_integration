@@ -22,7 +22,7 @@ public:
 
     ~PlaceAreaFinder();
 
-    void findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose);
+    bool findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose);
 
     void getCanvas(cv::Mat& image){ canvas.copyTo(image); }
 

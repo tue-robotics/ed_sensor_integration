@@ -85,6 +85,7 @@ int main (int argc, char **argv)
     {
         rgbd::ImageConstPtr image;
         geo::Pose3D sensor_pose;
+        geo::Pose3D place_pose;
 
         if (!image_buffer.waitForRecentImage(image, sensor_pose, 2.0))
         {
@@ -92,7 +93,7 @@ int main (int argc, char **argv)
             continue;
         }
         
-        place_area_finder.findArea(image, sensor_pose);
+        place_area_finder.findArea(image, sensor_pose, place_pose);
 
         cv::Mat canvas;
         place_area_finder.getCanvas(canvas);

@@ -277,7 +277,7 @@ PlaceAreaFinder::~PlaceAreaFinder()
 {
 }
 
-void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose)
+bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose)
 {
     // std::cout << "converting image to cloud" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -459,20 +459,15 @@ void PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     cv::Point2d place_point_canvas;
     if (!GetPlacementOption(dilated_canvas, table_color, place_point_canvas))
     {
-        return;
+        return false;
     }
 
     geo::Vec2d place_point;
     place_point = canvasToWorld(place_point_canvas);
 
     // fill result
-    geo::Pose3D placement_pose;
-
-    placement_pose.t.x = place_point.x;
-    placement_pose.t.y = place_point.y;
-    placement_pose.t.z = height + 0.02;
-
-    return;
+    place_pose = geo::Pose3D(place_point.x, place_point.y, height+0.02);
+    return true;
 }
 
 cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
