@@ -46,6 +46,66 @@
 double resolution = 0.005;
 cv::Point2d canvas_center;
 
+geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
+{
+    if (direction.z > 0)
+    {
+        std::cout << "Raytrace went terribly wrong" << std::endl;
+    }
+    double ratio = origin.z / direction.z;
+
+    return geo::Vector3(origin.x + ratio * direction.x, origin.y + ratio * direction.y, 0);
+}
+
+/**
+ * @brief Draw the fiel of view of the camera on a plane.
+ * 
+ * @param canvas
+ * @param sensor_pose
+ * @param caminfo
+ */
+void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::ImageConstPtr& caminfo)
+{
+    // Get camera info
+    int width = caminfo->getDepthImage().cols;
+    int height = caminfo->getDepthImage().rows;
+    double half_height = 0.5*height;
+    double half_width = 0.5*width;
+
+    double fx = caminfo->getCameraModel().fx();
+    double fy = caminfo->getCameraModel().fy();
+
+    // determine vectors pointing to corners of FoV
+    geo::Vector3 c1(fx*half_width, fy*half_height, 1.0); // upper left of image
+    geo::Vector3 c2(-fx*half_width, fy*half_height, 1.0); // upper right of image
+    geo::Vector3 c3(-fx*half_width, -fy*half_height, 1.0); // lower right of image
+    geo::Vector3 c4(fx*half_width, -fy*half_height, 1.0); // lower left of image
+
+    // convert vectors to world frame
+    c1 = sensor_pose.R.transpose() * c1;
+    c2 = sensor_pose.R.transpose() * c2;
+    c3 = sensor_pose.R.transpose() * c3;
+    c4 = sensor_pose.R.transpose() * c4;
+
+    // project vectors on place
+    geo::Vector3 p1 = simpleRayTrace(sensor_pose.t, c1);
+    geo::Vector3 p2 = simpleRayTrace(sensor_pose.t, c2);
+    geo::Vector3 p3 = simpleRayTrace(sensor_pose.t, c3);
+    geo::Vector3 p4 = simpleRayTrace(sensor_pose.t, c4);
+
+    // draw projected points
+    cv::Point2d p1_canvas = cv::Point2d(-p1.y / resolution, -p1.x / resolution) + canvas_center;
+    cv::Point2d p2_canvas = cv::Point2d(-p2.y / resolution, -p2.x / resolution) + canvas_center;
+    cv::Point2d p3_canvas = cv::Point2d(-p3.y / resolution, -p3.x / resolution) + canvas_center;
+    cv::Point2d p4_canvas = cv::Point2d(-p4.y / resolution, -p4.x / resolution) + canvas_center;
+    cv::Scalar fovcolor(255, 0, 255); // Red
+    cv::circle(canvas, p1_canvas, 5, fovcolor);
+    cv::circle(canvas, p2_canvas, 5, fovcolor);
+    cv::circle(canvas, p3_canvas, 5, fovcolor);
+    cv::circle(canvas, p4_canvas, 5, fovcolor);
+
+}
+
 /**
  * @brief usage, print how the executable should be used and explain the input
  */
@@ -97,12 +157,13 @@ int main (int argc, char **argv)
         {
             std::cout << "no place area found" << std::endl;
         }
+        std::cout << place_pose << std::endl;
 
         cv::Mat canvas;
         place_area_finder.getCanvas(canvas);
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-        std::cout << place_pose << std::endl;
-
+        drawFieldOfView(canvas, sensor_pose, image);
         // Show the different canvasses
         
         // std::cout << "showing costmap" << std::endl;
