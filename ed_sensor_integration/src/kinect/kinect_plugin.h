@@ -39,6 +39,7 @@ private:
     // Image retrieval
 
     ImageBuffer image_buffer_;
+    ImageBuffer image_buffer_bl_;
 
 //    rgbd::ImageConstPtr last_image_;
 

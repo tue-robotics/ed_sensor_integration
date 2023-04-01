@@ -50,6 +50,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     {
         ROS_INFO_STREAM("[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'.");
         image_buffer_.initialize(topic, "map");
+        image_buffer_bl_.initialize(topic, "base_link");
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -281,23 +282,22 @@ bool KinectPlugin::srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& 
     // Get new image
 
     rgbd::ImageConstPtr image;
-    geo::Pose3D sensor_pose;
+    geo::Pose3D sensor_pose; // in base link frame
 
-    if (!image_buffer_.waitForRecentImage(image, sensor_pose, 2.0))
+    if (!image_buffer_bl_.waitForRecentImage(image, sensor_pose, 2.0))
     {
         res.error_msg = "Could not get image";
         return true;
     }
 
     // Determine place area
-    geo::Pose3D place_pose;
+    geo::Pose3D place_pose; // w.r.t base link
     if (!place_area_finder_.findArea(image, sensor_pose, place_pose))
     {
         res.error_msg = "No valid place area found";
         return true;
     }
-    //TODO fill res.pose
-
+    geo::convert(place_pose, res.pose.pose);
     return true;
 }
 
