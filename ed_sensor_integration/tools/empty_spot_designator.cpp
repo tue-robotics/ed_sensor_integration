@@ -232,6 +232,76 @@ void createOccludedCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud
     }   
 }
 
+void createNotTableCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud, cv::Mat& canvas, cv::Scalar color)
+
+{
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    for (int nIndex = 0; nIndex < notTable_cloud->points.size (); nIndex++)
+    {
+        double x = notTable_cloud->points[nIndex].x;
+        double y = notTable_cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+    }
+}
+
+void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, double fx)
+
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
+        {
+        float initial_x = x;
+        float initial_y = y;
+        double y = initial_y + (0.001)*nIndex;
+        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
+
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
+}
+
+void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
+
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
+        {
+        float initial_x = x;
+        float initial_y = y;
+        double y = initial_y - 0.001*nIndex;
+        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
+
+        cv::Point2d p = worldToCanvas(x, y);
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
+}
+
+void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, float z, float height)
+{
+        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+        for (int i = 0; i < 100; i++)
+        {
+            for (int nIndex = 0; nIndex < 4000; nIndex++)
+            {
+            float initial_x = x;
+            float initial_y = y;
+            double y = initial_y + -2+ 0.001*nIndex;
+            double x = (initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
+
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+            }
+        }
+}
+
 void CloseCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
 {
     float Pixelsize = 5*(placement_margin / resolution);
@@ -513,34 +583,65 @@ int main (int argc, char **argv)
         // Add table plane to costmap
         createCostmap(plane_cloud, canvas, table_color);
 
-        // Fill missing data gaps inside the table sheet cluster
-        CloseCanvas(canvas, closed_canvas, placement_margin);
+        // Adding boundaries with morphological operations
 
-        // Decrease the size of the table plane to accomodate for the placement radius while taking dilation into account
-        AlterPlane(closed_canvas, closed_canvas, placement_margin);
+            // // Fill missing data gaps inside the table sheet cluster
+            // CloseCanvas(canvas, closed_canvas, placement_margin);
+
+            // // Decrease the size of the table plane to accomodate for the placement radius while taking dilation into account
+            // AlterPlane(closed_canvas, closed_canvas, placement_margin);
                 
-        // Add objects to costmap
-        createObjectCostmap(object_cloud, closed_canvas, occupied_color);
+            // // Add objects to costmap
+            // createObjectCostmap(object_cloud, closed_canvas, occupied_color);
 
-        // Add occluded space to costmap
-        createOccludedCostmap(occluded_cloud, closed_canvas, occluded_color); 
+            // // Add occluded space to costmap
+            // createOccludedCostmap(occluded_cloud, closed_canvas, occluded_color); 
 
-        // HERO preferred radius
-        createRadiusCostmap(closed_canvas, radius_color, placement_margin);
+            // // HERO preferred radius
+            // createRadiusCostmap(closed_canvas, radius_color, placement_margin);
 
-        // Dilate the costmap and create a new canvas
-        dilateCostmap(closed_canvas, dilated_canvas, placement_margin);
+            // // Dilate the costmap and create a new canvas
+            // dilateCostmap(closed_canvas, dilated_canvas, placement_margin);
 
-        // Extract the placement options and choose a placement solution
-        ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
+            // // Extract the placement options and choose a placement solution
+            // ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
+
+        // Adding boundaries with additional PCL data
+
+            // Add objects to costmap
+            createObjectCostmap(object_cloud, canvas, occupied_color);
+
+            // Add occluded space to costmap
+            createOccludedCostmap(occluded_cloud, canvas, occluded_color); 
+
+            // Add not_Table to define the table edge                  
+            createNotTableCostmap(notTable_cloud, canvas, occupied_color);             
+
+            // FOV left
+            createFOVLCostmap(canvas, occluded_color, transform(0,3), transform(1,3), fx);
+
+            // FOV right
+            createFOVRCostmap(canvas, occluded_color, transform(0,3), transform(1,3));
+
+            // FOV down
+            createFOVHCostmap(canvas, occluded_color, transform(0,3), transform(1,3), transform(2,3), height);
+
+            // HERO preferred radius
+            createRadiusCostmap(canvas, radius_color, placement_margin);
+
+            // Dilate the costmap and create a new canvas
+            dilateCostmap(canvas, dilated_canvas, placement_margin);
+
+            // Extract the placement options and choose a placement solution
+            ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);            
 
         // Show the different canvasses
         
-        // std::cout << "showing closed costmap" << std::endl;
+        // std::cout << "showing costmap" << std::endl;
         cv::imshow("Costmap topview", canvas);
 
-        // std::cout << "showing costmap" << std::endl;
-        cv::imshow("closed canvas topview", closed_canvas);
+        // // std::cout << "showing costmap" << std::endl;
+        // cv::imshow("closed canvas topview", closed_canvas);
                 
         // std::cout << "showing dilated costmap" << std::endl;
         cv::imshow("Dilated costmap topview", dilated_canvas);
