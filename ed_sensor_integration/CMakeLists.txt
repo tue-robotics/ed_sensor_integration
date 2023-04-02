@@ -6,7 +6,7 @@ add_compile_options(-Wextra -Werror=extra)
 
 find_package (Python COMPONENTS Interpreter REQUIRED)
 execute_process(
- COMMAND ${Python_EXECUTABLE} -c "import torch; print(torch.__path__[0])"
+ COMMAND ${Python_EXECUTABLE} -c "import torch; from sys import stderr; print(torch.__path__[0]); print(f'{torch.__path__[0]}=', file=stderr)"
  OUTPUT_VARIABLE TORCH_LIBRARY_PATH
  OUTPUT_STRIP_TRAILING_WHITESPACE
 )
