@@ -11,13 +11,14 @@ execute_process(
  OUTPUT_STRIP_TRAILING_WHITESPACE
  ERROR_QUIET
 )
-message(VERBOSE "TORCH_LIBRARY_PATH: ${TORCH_LIBRARY_PATH}")
+message(WARNING "TORCH_LIBRARY_PATH: ${TORCH_LIBRARY_PATH}")
 
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
 find_package(Torch 1.10 REQUIRED
   PATHS "${TORCH_LIBRARY_PATH}/share/cmake"
 )
+message(WARNING "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 find_package(catkin REQUIRED COMPONENTS
   code_profiler
   ed
