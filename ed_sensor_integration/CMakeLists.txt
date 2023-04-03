@@ -5,6 +5,7 @@ add_compile_options(-Wall -Werror=all)
 add_compile_options(-Wextra -Werror=extra)
 
 find_package (Python COMPONENTS Interpreter REQUIRED)
+message(WARNING "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 execute_process(
  COMMAND ${PYTHON_EXECUTABLE} -c "import torch; print(torch.__path__[0])"
  OUTPUT_VARIABLE TORCH_LIBRARY_PATH
