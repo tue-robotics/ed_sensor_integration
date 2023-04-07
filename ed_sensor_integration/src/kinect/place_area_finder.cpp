@@ -137,7 +137,6 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
     // Create the filtering object
     pcl::ExtractIndices<pcl::PointXYZRGB> extract;
     pcl::ExtractIndices<pcl::PointXYZRGB> extract2;
-    int i = 0, nr_points = (int) cloud_in->size ();
 
     // Segment the largest planar component from the remaining cloud
     seg.setInputCloud(cloud_in);
@@ -224,7 +223,7 @@ void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, floa
 */
 
 
-void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor, cv::Scalar point_color, double height)
+void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor)
 {
 
     cv::Point2d canvas_center(canvas.rows / 2, canvas.cols);
@@ -281,7 +280,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVR(new pcl::PointCloud<pcl::PointXYZRGB>);
-    double fx = imageToCloud(*image, cloud, FOVL);
+    imageToCloud(*image, cloud, FOVL);
 
     // transform to base link frame
     Eigen::Matrix4f transform = geolibToEigen(sensor_pose);

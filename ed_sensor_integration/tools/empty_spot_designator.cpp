@@ -57,7 +57,7 @@ geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
     return geo::Vector3(origin.x + ratio * direction.x, origin.y + ratio * direction.y, 0);
 }
 
-void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::ImageConstPtr& caminfo)
+void drawFoVMacro(geo::Vector3 direction, cv::Mat& canvas, geo::Pose3D sensor_pose)
 {
     // convert vectors to world frame
     geo::Vector3 direction_world = sensor_pose.R * direction;
@@ -108,15 +108,15 @@ void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::Image
 
     // draw
     std::cout << "center" << std::endl;
-    drawFoVMacro(c0, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c0, canvas, sensor_pose);
     std::cout << "upper left" << std::endl;
-    drawFoVMacro(c1, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c1, canvas, sensor_pose);
     std::cout << "upper right" << std::endl;
-    drawFoVMacro(c2, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c2, canvas, sensor_pose);
     std::cout << "lower right" << std::endl;
-    drawFoVMacro(c3, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c3, canvas, sensor_pose);
     std::cout << "lower left" << std::endl;
-    drawFoVMacro(c4, canvas, sensor_pose, caminfo);
+    drawFoVMacro(c4, canvas, sensor_pose);
 }
 
 /**
