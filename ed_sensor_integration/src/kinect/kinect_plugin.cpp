@@ -275,7 +275,7 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
     return true;
 }
 
-bool KinectPlugin::srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res)
+bool KinectPlugin::srvPlaceArea(__attribute__((unused)) ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res)
 {
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
