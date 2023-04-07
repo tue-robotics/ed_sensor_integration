@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "ed/kinect/image_buffer.h"
+#include <rgbd/image_buffer/image_buffer.h>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -147,7 +147,7 @@ int main (int argc, char **argv)
     std::string topic = argv[1];
     std::cout << "Using topic: " << topic << std::endl;
 
-    ImageBuffer image_buffer;
+    rgbd::ImageBuffer image_buffer;
     image_buffer.initialize(topic, "base_link");
 
     pcl::PCDWriter writer;

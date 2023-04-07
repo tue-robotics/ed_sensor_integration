@@ -3,8 +3,6 @@
 #include <iostream>
 #include <string>
 
-#include "ed/kinect/image_buffer.h"
-
 #include <vector>
 
 #include <ros/ros.h>
