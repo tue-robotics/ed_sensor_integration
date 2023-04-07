@@ -335,7 +335,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     float x = transform(0, 3);
     float y = transform(1, 3);
     float z = transform(2, 3);
-    for (int nIndex = 0; nIndex < object_cloud->points.size(); nIndex++)
+    for (uint nIndex = 0; nIndex < object_cloud->points.size(); nIndex++)
     {
         auto lower = object_cloud->points[nIndex].z - z;
         auto upper = height - object_cloud->points[nIndex].z;
@@ -368,7 +368,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     notTable_cloud->height = backup_cloud->height;
     notTable_cloud->is_dense = false;
     notTable_cloud->points.resize(notTable_cloud->width * notTable_cloud->height);
-    for (int nIndex = 0; nIndex < backup_cloud->points.size(); nIndex++)
+    for (uint nIndex = 0; nIndex < backup_cloud->points.size(); nIndex++)
     {
         auto lower = z - backup_cloud->points[nIndex].z;
         auto upper = height - backup_cloud->points[nIndex].z;
@@ -484,7 +484,7 @@ void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-    for (int nIndex = 0; nIndex < cloud->points.size (); nIndex++)
+    for (uint nIndex = 0; nIndex < cloud->points.size (); nIndex++)
     {
         double x = cloud->points[nIndex].x;
         double y = cloud->points[nIndex].y;
