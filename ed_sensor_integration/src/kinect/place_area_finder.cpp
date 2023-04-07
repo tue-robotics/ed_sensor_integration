@@ -36,6 +36,14 @@
 #include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
 
+/**
+ * @brief transform an rgbd image to a pointcloud
+ * 
+ * @param image rgbd image
+ * @param[out] cloud pcl pointcloud, points are expressed in the frame of the camera according to pcl conventions
+ * @param FOVL to be removed
+ * @return double to be removed
+ */
 double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL)
 {
     // Fill in the cloud data
@@ -76,6 +84,12 @@ double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>:
 return image.getCameraModel().fx();
 }
 
+/**
+ * @brief transform a geolib pose into a transformation matrix from the Eigen library
+ * 
+ * @param pose geolib pose
+ * @return Eigen::Matrix4f 
+ */
 Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 {
     // convert from geolib coordinates to ros coordinates #TODO remove geolib coordinates for camera pose
@@ -114,9 +128,12 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 }
 
 /**
- * @brief SegmentPlane segment the pointcloud and return the cluster closest to the camera
- * @param cloud: pointcloud to be segmented, this function will change the pointcloud to only include the segmented cluster.
- * @return height of the segmented plane
+ * @brief segment the larges horizontal plane in the pointcloud. Horizontal is assumed to be normal to the z-axis. The plane is also assumed to be above z=0.0
+ * @param cloud_in pointcloud to be segmented
+ * @param cloud_in2 ? todo remove input, it is same as cloud_in
+ * @param cloud_out A pointcloud containing all points within the found plane
+ * @param cloud_no_plane A pointcloud containing all points not within the found plane
+ * @return height of the segmented plane OR -1.0 if no plane could be found
  */
 float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in2, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane)
 {
@@ -147,7 +164,7 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
         return -1.0;
     }
 
-    // Extract the inliers to a cloud with a plane
+    // Extract the inliers to a cloud with just the plane
     extract.setInputCloud(cloud_in);
     extract.setIndices(inliers);
     extract.setNegative(false);
@@ -222,7 +239,13 @@ void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, floa
 }
 */
 
-
+/**
+ * @brief extract all pixels of a certain color from a canvas
+ * 
+ * @param canvas original image
+ * @param[out] placement_canvas image to draw the extracted pixels on must be the same size as canvas 
+ * @param targetColor color to be extracted
+ */
 void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor)
 {
 
@@ -247,6 +270,14 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
     }
 }
 
+/**
+ * @brief Get the coordinates of a point in an image which matches the target color
+ * 
+ * @param canvas image to check
+ * @param targetColor color to be found
+ * @param point coordinates of one point which has the targetColor
+ * @return whether or not a pixel was found
+ */
 bool GetPlacementOption(cv::Mat& canvas, cv::Scalar targetColor, cv::Point2d& point)
 {
     for(int row = 0; row <canvas.rows; ++row)
