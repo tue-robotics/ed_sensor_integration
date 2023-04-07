@@ -126,7 +126,7 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
             // Update the entity
             const ed::EntityConstPtr& e = entities[i_entity];
-            const ed::ConvexHull& entity_chull = e->convexHull();
+//            const ed::ConvexHull& entity_chull = e->convexHull();
 
             id = e->id();
 

@@ -4,9 +4,10 @@
 #include <ed/plugin.h>
 #include <ed/types.h>
 
-#include "ed/kinect/image_buffer.h"
 #include "ed/kinect/updater.h"
 #include "ed/kinect/place_area_finder.h"
+
+#include <rgbd/image_buffer/image_buffer.h>
 
 // Services
 #include <ros/service_server.h>
@@ -38,8 +39,8 @@ private:
 
     // Image retrieval
 
-    ImageBuffer image_buffer_;
-    ImageBuffer image_buffer_bl_;
+    rgbd::ImageBuffer image_buffer_;
+    rgbd::ImageBuffer image_buffer_bl_;
 
 //    rgbd::ImageConstPtr last_image_;
 

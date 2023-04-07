@@ -15,7 +15,7 @@ bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix:
 
 // ----------------------------------------------------------------------------------------------------
 
-AssociationMatrix::AssociationMatrix(unsigned int num_measurements) : matrix_(num_measurements), i_max_entity_(0)
+AssociationMatrix::AssociationMatrix(unsigned int num_measurements) : i_max_entity_(0), matrix_(num_measurements)
 {
 }
 
@@ -86,7 +86,7 @@ bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
         for(unsigned int i = 0; i < assig_indexes.size(); ++i)
         {
             std::vector<Entry>& msr_row = matrix_[i];
-            int j = assig_indexes[i];
+            unsigned int j = assig_indexes[i];
 
             if (j + 1 < msr_row.size())
             {

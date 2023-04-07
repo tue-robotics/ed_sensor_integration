@@ -5,7 +5,7 @@
 <package format="3">
   <name>ed_sensor_integration</name>
   <version>0.0.0</version>
-  <description>No description available</description>
+  <description>Plugins to integrate sensor data into the ED worldmodel</description>
 
   <maintainer email="s.v.d.dries@tue.nl">Sjoerd van den Dries</maintainer>
 
@@ -13,17 +13,34 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <depend>code_profiler</depend>
   <depend>ed</depend>
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
-  <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
   <depend>pcl_ros</depend>
-  <depend>sensor_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>libopencv-dev</depend>
+  <depend>libpcl-common</depend>
+  <depend>libpcl-kdtree</depend>
+  <depend>rgbd</depend>
+  <depend>rgbd_image_buffer</depend>
+  <depend>roscpp</depend>
   <depend>tue_config</depend>
-  <depend>tue_filesystem</depend>
   <depend>visualization_msgs</depend>
+
+  <build_depend>geometry_msgs</build_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <build_depend>rosconsole_bridge</build_depend>
+  <exec_depend>rosconsole_bridge</exec_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <build_depend>tue_filesystem</build_depend>
+  <exec_depend>tue_filesystem</exec_depend>
+
+  <test_depend>catkin_lint_cmake</test_depend>
+
+  <doc_depend>doxygen</doc_depend>
 
   <export>
     <ed plugin="${prefix}/plugins.xml" />

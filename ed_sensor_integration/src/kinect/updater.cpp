@@ -122,7 +122,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
   std::vector<int> collided_indices;
   std::map<int, std::vector<int> > collission_map;
 
-  for (int i = 0; i < updates.size(); ++i)
+  for (uint i = 0; i < updates.size(); ++i)
   {
     const EntityUpdate& u1 = updates[i];
 
@@ -132,7 +132,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
       continue;
     }
 
-    for (int j = 0; j < updates.size(); ++j)
+    for (uint j = 0; j < updates.size(); ++j)
     {
     // skip self
         if (i == j)
@@ -153,7 +153,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
   }
 
   // Now again loop over the updates and only push back in the new updates if it will not be merged into an other entity
-  for (int i = 0; i < updates.size(); ++i)
+  for (uint i = 0; i < updates.size(); ++i)
   {
     // If index in collided_indices, it will be merged to another one
     if (std::find(collided_indices.begin(), collided_indices.end(), i) == collided_indices.end())
@@ -225,7 +225,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         // Check if the update_command is a segmented entity.
         // If so, lookup the corresponding area_description
 
-        bool fit_supporting_entity = true;
+        bool fit_supporting_entity = req.fit_supporting_entity;
 
         std::map<ed::UUID, std::string>::const_iterator it_area_descr = id_to_area_description_.find(req.area_description);
         if (it_area_descr != id_to_area_description_.end())

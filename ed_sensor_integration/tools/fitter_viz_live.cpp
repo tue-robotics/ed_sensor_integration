@@ -2,9 +2,10 @@
 #include <ed/world_model.h>
 
 #include <ed/kinect/fitter.h>
-#include <ed/kinect/image_buffer.h>
 
 #include <geolib/math_types.h>
+
+#include <rgbd/image_buffer/image_buffer.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -46,7 +47,7 @@ int main(int argc, char **argv)
     {
         world_model = ed::loadWorldModel(model_name);
     }
-    catch (ed::ModelNotFoundException e)
+    catch (const ed::ModelNotFoundException& e)
     {
         std::cerr << "World model '" << model_name << "' could not be loaded." << std::endl;
         std::cerr << e.what() << std::endl;
@@ -64,7 +65,7 @@ int main(int argc, char **argv)
     std::string topic = argv[3];
     std::cout << "Using topic: " << topic << std::endl;
 
-    ImageBuffer image_buffer;
+    rgbd::ImageBuffer image_buffer;
     image_buffer.initialize(topic, "map");
 
     Fitter fitter;

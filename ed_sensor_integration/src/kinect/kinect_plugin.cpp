@@ -71,8 +71,6 @@ void KinectPlugin::initialize(ed::InitData& init)
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
-    const ed::WorldModel& world = data.world;
-
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and pose
 
@@ -169,6 +167,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, e
     UpdateRequest kinect_update_req;
     kinect_update_req.area_description = req.area_description;
     kinect_update_req.background_padding = req.background_padding;
+    kinect_update_req.fit_supporting_entity = req.fit_supporting_entity;
 
     // We expect the orientation of the supporting entity to be approximately correct.
     // Therefore, only allow rotation updates up to 45 degrees (both clock-wise and anti-clock-wise)

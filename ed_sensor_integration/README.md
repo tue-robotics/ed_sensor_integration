@@ -34,31 +34,7 @@ Interfaces:
 * bar
 
 ## Tools
-
-* `ed_image_saver`: Shows RGBD image stream and allows to save images. Example usage (N.B.: use robot name as a namespace):
-
-```bash
-rosrun ed_sensor_integration ed_image_saver __ns:=hero
-```
-
-and once you see an image in a CV window popping up, press the space bar to save it. The tool will write a json and rgbd file to the current folder with a timestamp as filename.
-
-* `ed_segmenter`: Iterates over snapshots in a directory, performs a Kinect update and displays the result. To run:
-
-```bash
-rosrun ed_sensor_integration ed_segmenter <stamp>.json
-```
-
-This includes the entire 'update' sequence, including (but not limited to):
-
-* Updating entity position
-* Updating sensor pose
-* Removing the background
-* Clearing convex hulls that are no longer there
-* Clustering
-* Merging overlapping convex hulls
-* Associate and update entities
-* Removing entities that are not associated
+Several tools are available for testing the features of this repository. These can be found in the [tools](tools) along with their [documentation](tools/README.md).
 
 ## Issues with current toolchain
 

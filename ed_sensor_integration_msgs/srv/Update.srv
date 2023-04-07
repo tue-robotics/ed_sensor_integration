@@ -12,6 +12,9 @@ string area_description
 # Padding of the world model when subtracting background for segmentation (in meters)
 float32 background_padding
 
+# Should the supporting entity be fitted
+bool fit_supporting_entity
+
 ---
 string[] new_ids      # ids of new entities
 string[] updated_ids  # ids of updated entities

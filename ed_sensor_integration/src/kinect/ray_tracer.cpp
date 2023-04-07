@@ -21,7 +21,7 @@ public:
 
     PointRenderResult() : geo::LaserRangeFinder::RenderResult(dummy_ranges_), depth_(0.0), entity_("") {}
 
-    void renderPoint(int index, float depth)
+    void renderPoint(uint /*index*/, float depth)
     {
         float old_depth = depth_;
         if (old_depth == 0.0 || depth < old_depth)
@@ -67,8 +67,8 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         res.active_entity_ = e->id().str();
         for (const auto& volume : e->volumes())
         {
-            std::string name = volume.first;
-            geo::ShapeConstPtr shape = volume.second;
+            const std::string& name = volume.first;
+            const geo::ShapeConstPtr& shape = volume.second;
             if (name == "on_top_of")
             {
                 ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());
