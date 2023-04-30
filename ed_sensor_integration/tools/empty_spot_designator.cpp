@@ -175,7 +175,6 @@ int main (int argc, char **argv)
         cv::Mat canvas;
         place_area_finder.getCanvas(canvas);
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-
         geo::Pose3D sensor_pose_canvas = sensor_pose;
         sensor_pose_canvas.t.z = sensor_pose.t.z - place_pose.t.z;
         drawFieldOfView(canvas, sensor_pose_canvas, image);
@@ -188,11 +187,11 @@ int main (int argc, char **argv)
         // // std::cout << "showing costmap" << std::endl;
         // cv::imshow("closed canvas topview", closed_canvas);
                 
-        // std::cout << "showing dilated costmap" << std::endl;
-        //cv::imshow("Dilated costmap topview", dilated_canvas);
+        // // std::cout << "showing dilated costmap" << std::endl;
+        // cv::imshow("Dilated costmap topview", dilated_canvas);
 
-        // std::cout << "showing placement costmap" << std::endl;
-        //cv::imshow("Placement options costmap topview", placement_canvas);
+        // // std::cout << "showing placement costmap" << std::endl;
+        // cv::imshow("Placement options costmap topview", placement_canvas);
 
         // Show RGB snapshot
         cv::Mat rgbcanvas = image->getRGBImage();

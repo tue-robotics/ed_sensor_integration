@@ -183,61 +183,6 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
     return abs(coefficients->values[3]);
 }
 
-/*
-void createFOVLCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, double fx)
-
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
-        {
-        float initial_x = x;
-        float initial_y = y;
-        double y = initial_y + (0.001)*nIndex;
-        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
-
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-        }
-}
-
-void createFOVRCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y)
-
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int nIndex = 0; nIndex < 3000 ; nIndex++)
-        {
-        float initial_x = x;
-        float initial_y = y;
-        double y = initial_y - 0.001*nIndex;
-        double x = initial_x + 0.001*nIndex*tan(60/(180/M_PI));
-
-        cv::Point2d p = worldToCanvas(x, y);
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-        }
-}
-
-void createFOVHCostmap(cv::Mat& canvas, cv::Scalar color, float x, float y, float z, float height)
-{
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        for (int i = 0; i < 100; i++)
-        {
-            for (int nIndex = 0; nIndex < 4000; nIndex++)
-            {
-            float initial_x = x;
-            float initial_y = y;
-            double y = initial_y + -2+ 0.001*nIndex;
-            double x = (initial_x + (z-height)*tan(67.0/(180/M_PI))); // 67.5 deg
-
-            cv::Point2d p = worldToCanvas(x, y);
-            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-            }
-        }
-}
-*/
 
 /**
  * @brief extract all pixels of a certain color from a canvas
@@ -434,48 +379,16 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Add table plane to costmap
     createCostmap(plane_cloud, table_color);
 
-    // Adding boundaries with morphological operations
-
-    // // Fill missing data gaps inside the table sheet cluster
-    // CloseCanvas(canvas, closed_canvas, placement_margin);
-
-    // // Decrease the size of the table plane to accomodate for the placement radius while taking dilation into account
-    // AlterPlane(closed_canvas, closed_canvas, placement_margin);
-
-    // // Add objects to costmap
-    // createObjectCostmap(object_cloud, closed_canvas, occupied_color);
-
-    // // Add occluded space to costmap
-    // createOccludedCostmap(occluded_cloud, closed_canvas, occluded_color);
-
-    // // HERO preferred radius
-    // createRadiusCostmap(closed_canvas, radius_color, placement_margin);
-
-    // // Dilate the costmap and create a new canvas
-    // dilateCostmap(closed_canvas, dilated_canvas, placement_margin);
-
-    // // Extract the placement options and choose a placement solution
-    // ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color, point_color, height);
-
     // Adding boundaries with additional PCL data
 
-    // Add objects to costmap
-    createCostmap(object_cloud, occupied_color);
+        // Add objects to costmap
+        createCostmap(object_cloud, occupied_color);
 
-    // Add occluded space to costmap
-    createCostmap(occluded_cloud, occluded_color);
+        // Add occluded space to costmap
+        createCostmap(occluded_cloud, occluded_color);
 
-    // Add not_Table to define the table edge
-    createCostmap(notTable_cloud, occupied_color);
-
-    // FOV left
-//    createFOVLCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), fx);
-
-    // FOV right
-  //  createFOVRCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3));
-
-    // FOV down
-   // createFOVHCostmap(canvas, occluded_color, transform(0, 3), transform(1, 3), transform(2, 3), height);
+        // Add not_Table to define the table edge
+        createCostmap(notTable_cloud, occupied_color);
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
@@ -526,28 +439,8 @@ void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud
     }    
 }
 
-void PlaceAreaFinder::closeCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin)
-{
-    float Pixelsize = 5*(placement_margin / resolution);
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::dilate(canvas, closed_canvas, element );
-    cv::erode(closed_canvas, closed_canvas, element);
-}
-
-
-void PlaceAreaFinder::alterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin)
-{
-    float Pixelsize = 2*(placement_margin / resolution);
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::erode(closed_canvas, smallplane_canvas, element);
-}
-
-
 void PlaceAreaFinder::createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
+
 {
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         float upper_radius = 0.75 + placement_margin/2;
@@ -586,3 +479,4 @@ void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, fl
     cv::dilate(canvas, dilated_canvas, element );
 
 }
+

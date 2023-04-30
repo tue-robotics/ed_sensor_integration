@@ -32,7 +32,7 @@ public:
      *
      * @param image image in which to find a place position
      * @param sensor_pose pose of the sensor with respect to a horizontal plane 'base_link' recommended
-     * @param[out] place_pose one of the possible poses where an object may be placed
+     * @param[out] place_pose one of the possible poses where an object may be placed, currently returns the pose furthest on the table
      * @return whether or not a suitable place was found
      */
     bool findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose);
@@ -76,15 +76,6 @@ private:
     void createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
 
     /**
-     * @brief morphological closing operation
-     *
-     * @param canvas image to close
-     * @param closed_canvas image after closing
-     * @param placement_margin radius for closing in meters! will be converted internally. #TODO remove
-     */
-    void closeCanvas(cv::Mat& canvas, cv::Mat& closed_canvas, float placement_margin);
-
-    /**
      * @brief morphological dilation
      *
      * @param canvas image to dilate
@@ -94,20 +85,11 @@ private:
     void dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin);
 
     /**
-     * @brief not a clue, appears to be an erosion operation
-     *
-     * @param closed_canvas
-     * @param smallplane_canvas
-     * @param placement_margin
-     */
-    void alterPlane(cv::Mat& closed_canvas, cv::Mat& smallplane_canvas, float placement_margin);
-
-    /**
      * @brief Draw a Circle on the canvas indicating the prefered distance to the robot. This distance is currently hardcoded.
      *
      * @param canvas canvas to draw on
      * @param color color to draw with
-     * @param placement_margin width of the semi-circle.
+     * @param placement_margin 
      */
     void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin);
 
