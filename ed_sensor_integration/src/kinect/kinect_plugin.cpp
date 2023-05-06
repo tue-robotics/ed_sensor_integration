@@ -4,10 +4,11 @@
 
 #include <ros/node_handle.h>
 
+#include <ed/entity.h>
+#include <ed/error_context.h>
+#include <ed/update_request.h>
 #include <ed/uuid.h>
 #include <ed/world_model.h>
-#include <ed/entity.h>
-#include <ed/update_request.h>
 
 #include <tue/config/reader.h>
 
@@ -31,18 +32,21 @@
 
 KinectPlugin::KinectPlugin()
 {
+    ed::ErrorContext errc("RGBDPlugin", "constructor");
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 KinectPlugin::~KinectPlugin()
 {
+    ed::ErrorContext errc("RGBDPlugin", "destructor");
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 void KinectPlugin::initialize(ed::InitData& init)
 {
+    ed::ErrorContext errc("RGBDPlugin", "initialize");
     tue::Configuration& config = init.config;
 
     std::string topic;
@@ -69,6 +73,7 @@ void KinectPlugin::initialize(ed::InitData& init)
 
 void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 {
+    ed::ErrorContext errc("RGBDPlugin", "process");
     // - - - - - - - - - - - - - - - - - -
     // Fetch kinect image and pose
 
@@ -94,6 +99,7 @@ void KinectPlugin::process(const ed::PluginInput& data, ed::UpdateRequest& req)
 
 bool KinectPlugin::srvGetImage(ed_sensor_integration_msgs::GetImage::Request& req, ed_sensor_integration_msgs::GetImage::Response& res)
 {
+    ed::ErrorContext errc("RGBDPlugin", "srvGetImage");
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
 
@@ -147,6 +153,7 @@ bool KinectPlugin::srvGetImage(ed_sensor_integration_msgs::GetImage::Request& re
 
 bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, ed_sensor_integration_msgs::Update::Response& res)
 {
+    ed::ErrorContext errc("RGBDPlugin", "srvUpdate");
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
 
@@ -203,6 +210,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, e
 
 bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& req, ed_sensor_integration_msgs::RayTrace::Response& res)
 {
+    ed::ErrorContext errc("RGBDPlugin", "srvRayTrace");
     if (req.raytrace_pose.header.frame_id != "/map" && req.raytrace_pose.header.frame_id != "map")
     {
         ROS_ERROR("KinectPlugin::srvRayTrace only works with poses expressed in map frame");

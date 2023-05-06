@@ -1,7 +1,8 @@
 #include "ray_tracer.h"
 
-#include <ed/world_model.h>
 #include <ed/entity.h>
+#include <ed/error_context.h>
+#include <ed/world_model.h>
 
 #include <geolib/Shape.h>
 
@@ -47,6 +48,7 @@ public:
 
 RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrace_pose)
 {
+    ed::ErrorContext errc("ray_trace");
     PointRenderResult res;
 
     geo::LaserRangeFinder lrf;
