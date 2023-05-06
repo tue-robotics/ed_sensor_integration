@@ -73,11 +73,11 @@ void Segmenter::removeBackground(cv::Mat& depth_image, const ed::WorldModel& wor
     for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
     {
         const ed::EntityConstPtr& e = *it;
-        if (!e->shape() || !e->has_pose())
+        if (!e->visual() || !e->has_pose())
             continue;
 
         geo::RenderOptions opt;
-        opt.setMesh(e->shape()->getMesh(), sensor_pose.inverse() * e->pose());
+        opt.setMesh(e->visual()->getMesh(), sensor_pose.inverse() * e->pose());
         cam.render(opt, res);
     }
 

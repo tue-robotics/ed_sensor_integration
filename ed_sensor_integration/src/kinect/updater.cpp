@@ -307,7 +307,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
         if (false)
         {
-            fitZRP(*e->shape(), new_pose, *image, sensor_pose_const, sensor_pose);
+            fitZRP(*e->visual(), new_pose, *image, sensor_pose_const, sensor_pose);
 
             ROS_DEBUG_STREAM("Old sensor pose: " << sensor_pose_const);
             ROS_DEBUG_STREAM("New sensor pose: " << sensor_pose);
@@ -365,7 +365,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     for(ed::WorldModel::const_iterator e_it = world.begin(); e_it != world.end(); ++e_it)
     {
         const ed::EntityConstPtr& e = *e_it;
-        if (e->shape() || !e->has_pose() || e->convexHull().points.empty())
+        if (e->visual() || !e->has_pose() || e->convexHull().points.empty())
             continue;
 
         associatable_entities.push_back(e);
