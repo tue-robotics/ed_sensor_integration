@@ -63,7 +63,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (!e->visual() || !e->has_pose())
+        if ((!e->collision() && !e->visual()) || !e->has_pose())
             continue;
 
         res.active_entity_ = e->id().str();
@@ -81,9 +81,10 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             }
         }
 
-        ROS_DEBUG_STREAM("Raytracing to " << e->id() << " mesh");
+        ROS_DEBUG_STREAM("Raytracing to " << e->id() << " " << (e->collision() ? "collision" : "visual") << " mesh");
         geo::LaserRangeFinder::RenderOptions opt;
-        opt.setMesh(e->collision()->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        geo::ShapeConstPtr shape = e->collision() ? e->collision() : e->visual();
+        opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
 
         lrf.render(opt, res);
     }
