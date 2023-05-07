@@ -49,6 +49,7 @@ public:
 RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrace_pose)
 {
     ed::ErrorContext errc("ray_trace");
+    const geo::Pose3D raytrace_pose_inv = raytrace_pose.inverse();
     PointRenderResult res;
 
     geo::LaserRangeFinder lrf;
@@ -75,7 +76,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
             {
                 ROS_DEBUG("Raytrace on_top_of array of %s included", e->id().c_str());
                 geo::LaserRangeFinder::RenderOptions opt;
-                opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose());
+                opt.setMesh(shape->getMesh(), raytrace_pose_inv * e->pose());
 
                 lrf.render(opt, res);
             }
@@ -84,7 +85,7 @@ RayTraceResult ray_trace(const ed::WorldModel& world, const geo::Pose3D& raytrac
         ROS_DEBUG_STREAM("Raytracing to " << e->id() << " " << (e->collision() ? "collision" : "visual") << " mesh");
         geo::LaserRangeFinder::RenderOptions opt;
         geo::ShapeConstPtr shape = e->collision() ? e->collision() : e->visual();
-        opt.setMesh(shape->getMesh(), raytrace_pose.inverse() * e->pose()); // Use mesh
+        opt.setMesh(shape->getMesh(), raytrace_pose_inv * e->pose()); // Use mesh
 
         lrf.render(opt, res);
     }
