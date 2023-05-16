@@ -42,13 +42,30 @@ public:
      *
      * @param[out] image canvas to write the image to.
      */
-    void getCanvas(cv::Mat& image){ canvas.copyTo(image); }
+    void getCanvas(cv::Mat& image){ canvas.copyTo(image);}
+
+    /**
+     * @brief Dilate the image, used for introspection
+     *
+     * @param[out] image canvas to write the image to.
+     */
+    void getDilatedCanvas(cv::Mat& image){ dilated_canvas.copyTo(image);}
+
+    /**
+     * @brief Shows the available placement points, used for introspection
+     *
+     * @param[out] image canvas to write the image to.
+     */
+    void getPlacementCanvas(cv::Mat& image){ placement_canvas.copyTo(image);}
+
 
 private:
     // internal occupancy representation
     double resolution = 0.005;
     cv::Point2d canvas_center;
     cv::Mat canvas;
+    cv::Mat dilated_canvas;
+    cv::Mat placement_canvas;
 
     /**
      * @brief transform a point in meters to a pixel on the canvas

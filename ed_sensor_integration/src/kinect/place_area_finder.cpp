@@ -358,9 +358,8 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     // std::cout << "creating costmap" << std::endl;
     canvas = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Mat dilated_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Mat closed_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Mat placement_canvas(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
+    dilated_canvas = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
+    placement_canvas = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
     cv::Scalar table_color(0, 255, 0);
     cv::Scalar occupied_color(0, 0, 255);
     cv::Scalar occluded_color(255, 0, 0);
@@ -395,6 +394,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     // Dilate the costmap and create a new canvas
     dilateCostmap(canvas, dilated_canvas, placement_margin);
+
+    ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color);
+    
+
+
 
     // Extract the placement options and choose a placement solution
     cv::Point2d place_point_canvas;

@@ -416,7 +416,7 @@ bool Fitter::evaluateCandidate(const EstimationInputData &static_data, Candidate
 
 Shape2D Fitter::get2DShape(ed::EntityConstPtr entity_ptr) const
 {
-    if (!entity_ptr->shape())
+    if (!entity_ptr->visual())
         throw FitterError("Entity " + entity_ptr->id().str() + " has no shape");
 
     EntityRepresentation2D repr_2d = GetOrCreateEntity2D(entity_ptr);
@@ -538,7 +538,7 @@ EntityRepresentation2D Fitter::GetOrCreateEntity2D(const ed::EntityConstPtr& e) 
     decomposePose(e->pose(), pose_xya, pose_zrp);
 
     EntityRepresentation2D& entity_model = entity_shapes_[e->id()];
-    dml::project2D(e->shape()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
+    dml::project2D(e->visual()->getMesh().getTransformed(pose_zrp), entity_model.shape_2d);
 
     return entity_model;
 }
@@ -553,7 +553,7 @@ void Fitter::renderEntity(const ed::EntityConstPtr& e, const geo::Pose3D& sensor
     if (model_ranges.size() != beam_model_.num_beams())
         model_ranges.resize(beam_model_.num_beams(), 0);
 
-    if (!e->shape() || !e->has_pose())
+    if (!e->visual() || !e->has_pose())
         return;
 
     // Decompose entity pose into X Y YAW and Z ROLL PITCH
