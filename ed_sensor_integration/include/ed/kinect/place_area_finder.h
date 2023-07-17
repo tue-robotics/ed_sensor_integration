@@ -32,7 +32,7 @@ public:
      *
      * @param image image in which to find a place position
      * @param sensor_pose pose of the sensor with respect to a horizontal plane 'base_link' recommended
-     * @param[out] place_pose one of the possible poses where an object may be placed, currently returns the pose furthest on the table
+     * @param[out] place_pose expressed in the same frame as sensor pose. One of the possible poses where an object may be placed, currently returns the pose furthest on the table
      * @return whether or not a suitable place was found
      */
     bool findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose);

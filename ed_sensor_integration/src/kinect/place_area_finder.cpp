@@ -170,7 +170,6 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
     extract.setNegative(false);
     extract.filter(*cloud_out);
 
-    
     // std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
     //   << "Plane with coefficients: " << *coefficients << std::endl;
 
@@ -193,7 +192,6 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
  */
 void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor)
 {
-
     cv::Point2d canvas_center(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
@@ -380,14 +378,14 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     // Adding boundaries with additional PCL data
 
-        // Add objects to costmap
-        createCostmap(object_cloud, occupied_color);
+    // Add objects to costmap
+    createCostmap(object_cloud, occupied_color);
 
-        // Add occluded space to costmap
-        createCostmap(occluded_cloud, occluded_color);
+    // Add occluded space to costmap
+    createCostmap(occluded_cloud, occluded_color);
 
-        // Add not_Table to define the table edge
-        createCostmap(notTable_cloud, occupied_color);
+    // Add not_Table to define the table edge
+    createCostmap(notTable_cloud, occupied_color);
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
@@ -396,9 +394,6 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     dilateCostmap(canvas, dilated_canvas, placement_margin);
 
     ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color);
-    
-
-
 
     // Extract the placement options and choose a placement solution
     cv::Point2d place_point_canvas;
@@ -444,34 +439,32 @@ void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud
 }
 
 void PlaceAreaFinder::createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
-
 {
-        canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-        float upper_radius = 0.75 + placement_margin/2;
-        float lower_radius = 0.60 - placement_margin/2;
-            for (float phi = 0; phi < 360; phi++)
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+    float upper_radius = 0.75 + placement_margin/2;
+    float lower_radius = 0.60 - placement_margin/2;
+        for (float phi = 0; phi < 360; phi++)
+        {
+            for (int i = 0; i < 100; i++)
             {
-                for (int i = 0; i < 100; i++)
-                {
-                double y = upper_radius * sin(phi/(180/M_PI)) + 0.03 * i * sin(phi/(180/M_PI));
-                double x = upper_radius * cos(phi/(180/M_PI)) + 0.03 * i * cos(phi/(180/M_PI));
+            double y = upper_radius * sin(phi/(180/M_PI)) + 0.03 * i * sin(phi/(180/M_PI));
+            double x = upper_radius * cos(phi/(180/M_PI)) + 0.03 * i * cos(phi/(180/M_PI));
 
-                cv::Point2d p = worldToCanvas(x, y);
-                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-                }
-
-                for (int i = 0; i < 100; i++)
-                {
-                double y = lower_radius * sin(phi/(180/M_PI)) - lower_radius/100 * i * sin(phi/(180/M_PI));
-                double x = lower_radius * cos(phi/(180/M_PI)) - lower_radius/100 * i * cos(phi/(180/M_PI));
-
-                cv::Point2d p = worldToCanvas(x, y);
-                if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-                }
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
             }
-        
+
+            for (int i = 0; i < 100; i++)
+            {
+            double y = lower_radius * sin(phi/(180/M_PI)) - lower_radius/100 * i * sin(phi/(180/M_PI));
+            double x = lower_radius * cos(phi/(180/M_PI)) - lower_radius/100 * i * cos(phi/(180/M_PI));
+
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+            }
+        }
 }
 
 void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin)
@@ -481,6 +474,5 @@ void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, fl
                                              cv::Size( Pixelsize, Pixelsize),
                                              cv::Point(-1, -1) );
     cv::dilate(canvas, dilated_canvas, element );
-
 }
 
