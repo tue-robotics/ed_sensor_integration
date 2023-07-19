@@ -41,21 +41,15 @@
  * 
  * @param image rgbd image
  * @param[out] cloud pcl pointcloud, points are expressed in the frame of the camera according to pcl conventions
- * @param FOVL to be removed
  * @return double to be removed
  */
-double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL)
+double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     // Fill in the cloud data
     cloud->width = image.getDepthImage().cols;
     cloud->height = image.getDepthImage().rows;
     cloud->is_dense = false;
     cloud->resize (cloud->width * cloud->height);
-
-    FOVL->width = cloud->width;
-    FOVL->height = image.getDepthImage().rows;
-    FOVL->is_dense = false;
-    FOVL->resize (FOVL->width * FOVL->height);
 
     double fx = image.getCameraModel().fx();
     double fy = image.getCameraModel().fy();
@@ -130,14 +124,13 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 /**
  * @brief segment the larges horizontal plane in the pointcloud. Horizontal is assumed to be normal to the z-axis. The plane is also assumed to be above z=0.0
  * @param cloud_in pointcloud to be segmented
- * @param cloud_in2 ? todo remove input, it is same as cloud_in
+ * @param plane_coefficients the 4 coefficients that define a parallel plane
  * @param cloud_out A pointcloud containing all points within the found plane
  * @param cloud_no_plane A pointcloud containing all points not within the found plane
  * @return height of the segmented plane OR -1.0 if no plane could be found
  */
-float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in2, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane)
+bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::ModelCoefficients::Ptr plane_coefficients, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane)
 {
-    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
     // Create the segmentation object
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
@@ -157,11 +150,11 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
 
     // Segment the largest planar component from the remaining cloud
     seg.setInputCloud(cloud_in);
-    seg.segment(*inliers, *coefficients);
+    seg.segment(*inliers, *plane_coefficients);
 
     if (inliers->indices.size() == 0) {
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
-        return -1.0;
+        return false;
     }
 
     // Extract the inliers to a cloud with just the plane
@@ -174,12 +167,12 @@ float SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, const
     //   << "Plane with coefficients: " << *coefficients << std::endl;
 
     // Extract outliers to the main cloud without the table plane
-    extract2.setInputCloud(cloud_in2);
+    extract2.setInputCloud(cloud_in);
     extract2.setIndices(inliers);
     extract2.setNegative(true);
     extract2.filter(*cloud_no_plane);
 
-    return abs(coefficients->values[3]);
+    return true;
 }
 
 
@@ -240,6 +233,76 @@ bool GetPlacementOption(cv::Mat& canvas, cv::Scalar targetColor, cv::Point2d& po
     return false;
 }
 
+/**
+ * @brief remove the floor from a pointcloud cloud_in and return the cloud_out with index. It is assumed the floor is aligned with the plane z=0
+ * 
+ * @param cloud_in 
+ * @param cloud_out 
+ * @param index 
+ */
+void removeFloor(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &index)
+{
+    float buffer = 0.1;
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZRGB>());
+    range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::GT, buffer)));
+    // build the filter
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+    condrem.setCondition(range_cond);
+    condrem.setInputCloud(cloud_in);
+    condrem.setKeepOrganized(true);
+    // apply filter
+    condrem.filter(*cloud_out);
+    (*cloud_out).is_dense = false;
+    pcl::removeNaNFromPointCloud(*cloud_out, *cloud_out, index);
+}
+
+void filterHeight(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, float height_min, float height_max, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &index)
+{
+    // Filter out objects above the table plane and put them in seperate cloud
+    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZRGB>());
+    range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::GT, height_min)));
+    range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::LT, height_max)));
+    // build the filter
+    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem2;
+    condrem2.setCondition(range_cond);
+    condrem2.setInputCloud(cloud_in);
+    condrem2.setKeepOrganized(true);
+    // apply filter
+    condrem2.filter(*cloud_out);
+    pcl::removeNaNFromPointCloud(*cloud_out, *cloud_out, index);
+}
+
+/**
+ * @brief Project a plane onto a a plane along the beams of the camera
+ * 
+ * @param cloud_in cloud with points to be projected
+ * @param transform transform between the camera and the origin of the cloud in
+ * @param plane_height height of the plane to be projected onto.
+ * @param cloud_out cloud containing points with z=height
+ */
+void projectToPlane(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, Eigen::Matrix4f transform, float plane_height, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out)
+{
+    cloud_out->width = cloud_in->width;
+    cloud_out->height = cloud_in->height;
+    cloud_out->is_dense = cloud_in->is_dense;
+    cloud_out->points.resize(cloud_out->width * cloud_out->height);
+    float x = transform(0, 3);
+    float y = transform(1, 3);
+    float z = transform(2, 3);
+    for (uint nIndex = 0; nIndex < cloud_in->points.size(); nIndex++)
+    {
+        float lower = cloud_in->points[nIndex].z - z; // height between camera and point. 
+        float upper = plane_height - cloud_in->points[nIndex].z; // height between the point and the table
+        float lambda = upper / lower; // ratio between camera-point distance and point-projection distance
+        float dx = cloud_in->points[nIndex].x - x; // difference between point x and camera x
+        float dy = cloud_in->points[nIndex].y - y; // difference between point y and camera y
+
+        cloud_out->points[nIndex].z = plane_height;
+        cloud_out->points[nIndex].x = cloud_in->points[nIndex].x + lambda * dx;
+        cloud_out->points[nIndex].y = cloud_in->points[nIndex].y + lambda * dy;
+    }
+}
+
 PlaceAreaFinder::PlaceAreaFinder()
 {
 }
@@ -252,9 +315,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 {
     // std::cout << "converting image to cloud" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVL(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr FOVR(new pcl::PointCloud<pcl::PointXYZRGB>);
-    imageToCloud(*image, cloud, FOVL);
+    imageToCloud(*image, cloud);
 
     // transform to base link frame
     Eigen::Matrix4f transform = geolibToEigen(sensor_pose);
@@ -262,97 +323,42 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     // keep track of the indices in the original image
     std::vector<int> indices;
+    pcl::Indices floorless_index;
 
     // Filter out floor
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr floorless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    removeFloor(cloud, floorless_cloud, floorless_index);
 
-    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZRGB>());
-    range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::GT, 0.1)));
-    // build the filter
-    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-    condrem.setCondition(range_cond);
-    condrem.setInputCloud(cloud);
-    condrem.setKeepOrganized(true);
-    // apply filter
-    condrem.filter(*floorless_cloud);
-    (*floorless_cloud).is_dense = false;
-    pcl::removeNaNFromPointCloud(*floorless_cloud, *floorless_cloud, indices);
-
+    // Segment the table plane and return a cloud with the plane and a cloud where the plane is removed
     std::cout << "SegmentPlane" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr planeless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    // Segment the table plane and return a cloud with the plane and a cloud where the plane is removed
-    float height = SegmentPlane(floorless_cloud, floorless_cloud, plane_cloud, planeless_cloud);
+    pcl::ModelCoefficients::Ptr plane_coefficients (new pcl::ModelCoefficients ());
+    if (!SegmentPlane(floorless_cloud, plane_coefficients, plane_cloud, planeless_cloud))
+    {
+        std::cout << "Could not find plane" << std::endl;
+        return false;
+    }
+    float height = abs(plane_coefficients->values[3]); // take the absolute value in case the plane is fitted upside down
     std::cout << "Found plane height " << height << std::endl;
 
-    // Filter out objects abov the table plane and put them in seperate cloud
+    // Filter out objects above the table plane and put them in seperate cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond2(new pcl::ConditionAnd<pcl::PointXYZRGB>());
-    range_cond2->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::GT, height)));
-    range_cond2->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::LT, height + 0.30)));
-    // build the filter
-    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem2;
-    condrem2.setCondition(range_cond2);
-    condrem2.setInputCloud(planeless_cloud);
-    condrem2.setKeepOrganized(true);
-    // apply filter
-    condrem2.filter(*object_cloud);
-    pcl::removeNaNFromPointCloud(*object_cloud, *object_cloud, indices);
+    pcl::Indices object_index;
+    filterHeight(planeless_cloud, height, height+0.30, object_cloud, object_index);
 
     // Create pointcloud with occluded space based on the object cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    occluded_cloud->width = object_cloud->width;
-    occluded_cloud->height = object_cloud->height;
-    occluded_cloud->is_dense = false;
-    occluded_cloud->points.resize(occluded_cloud->width * occluded_cloud->height);
-    float x = transform(0, 3);
-    float y = transform(1, 3);
-    float z = transform(2, 3);
-    for (uint nIndex = 0; nIndex < object_cloud->points.size(); nIndex++)
-    {
-        auto lower = object_cloud->points[nIndex].z - z;
-        auto upper = height - object_cloud->points[nIndex].z;
-        auto lambda = upper / lower;
-        auto dx = object_cloud->points[nIndex].x - x;
-        auto dy = object_cloud->points[nIndex].y - y;
+    projectToPlane(object_cloud, transform, height, occluded_cloud);
 
-        occluded_cloud->points[nIndex].z = height;
-        occluded_cloud->points[nIndex].x = object_cloud->points[nIndex].x + lambda * dx;
-        occluded_cloud->points[nIndex].y = object_cloud->points[nIndex].y + lambda * dy;
-    }
+    // Filter out objects below the table plane and put them in seperate cloud
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr below_table_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::Indices below_index;
+    filterHeight(planeless_cloud, 0.0, height-0.02, below_table_cloud, below_index);
 
-    // Filter out items below table to create not table cloud
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr backup_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr range_cond3(new pcl::ConditionAnd<pcl::PointXYZRGB>());
-    range_cond3->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::LT, height - 0.02)));
-    // build the filter
-    pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem3;
-    condrem3.setCondition(range_cond3);
-    condrem3.setInputCloud(floorless_cloud);
-    condrem3.setKeepOrganized(true);
-    // apply filter
-    condrem3.filter(*backup_cloud);
-    (*backup_cloud).is_dense = false;
-    pcl::removeNaNFromPointCloud(*backup_cloud, *backup_cloud, indices);
-
-    // Not table cloud
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr notTable_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    notTable_cloud->width = backup_cloud->width;
-    notTable_cloud->height = backup_cloud->height;
-    notTable_cloud->is_dense = false;
-    notTable_cloud->points.resize(notTable_cloud->width * notTable_cloud->height);
-    for (uint nIndex = 0; nIndex < backup_cloud->points.size(); nIndex++)
-    {
-        auto lower = z - backup_cloud->points[nIndex].z;
-        auto upper = height - backup_cloud->points[nIndex].z;
-        auto lambda = upper / lower;
-        auto dx = x - backup_cloud->points[nIndex].x;
-        auto dy = y - backup_cloud->points[nIndex].y;
-        notTable_cloud->points[nIndex].z = height;
-        notTable_cloud->points[nIndex].x = backup_cloud->points[nIndex].x + lambda * dx;
-        notTable_cloud->points[nIndex].y = backup_cloud->points[nIndex].y + lambda * dy;
-    }
+    // Create pointcloud with unoccluded space based on the bewow table cloud
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr not_table_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    projectToPlane(below_table_cloud, transform, height, not_table_cloud);    
 
     // std::cout << "creating costmap" << std::endl;
     canvas = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -365,7 +371,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     cv::Scalar placement_color(100, 255, 100);
     cv::Scalar point_color(255, 0, 0);
 
-    // Object placement margins
+    // Object placement margins #TODO hardcoded parameters
     float object_diameter = 0.10;
     float error_margin = 0.02;
     float length = object_diameter + error_margin;
@@ -373,19 +379,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     std::cout << "creating costmap" << std::endl;
 
-    // Add table plane to costmap
+    // draw clouds to costmap
     createCostmap(plane_cloud, table_color);
-
-    // Adding boundaries with additional PCL data
-
-    // Add objects to costmap
     createCostmap(object_cloud, occupied_color);
-
-    // Add occluded space to costmap
     createCostmap(occluded_cloud, occluded_color);
-
-    // Add not_Table to define the table edge
-    createCostmap(notTable_cloud, occupied_color);
+    createCostmap(not_table_cloud, occupied_color);
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
