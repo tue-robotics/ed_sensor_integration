@@ -377,6 +377,10 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     float length = object_diameter + error_margin;
     float placement_margin = 2 * 0.02 + length;
 
+    std::cout << "annotating image" << std::endl;
+    annotated_image = image->getRGBImage().clone();
+    annotateImage(*image, floorless_index, table_color);
+
     std::cout << "creating costmap" << std::endl;
 
     // draw clouds to costmap
@@ -474,3 +478,17 @@ void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, fl
     cv::dilate(canvas, dilated_canvas, element );
 }
 
+void PlaceAreaFinder::annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color)
+{
+    int width = image.getDepthImage().cols;
+    
+    for (uint i = 0; i < index.size(); i++)
+    {
+        int col = index[i] % width;
+        int row = index[i] / width;
+
+        cv::Point2d p = cv::Point2d(col, row);
+        if (p.x >= 0 && p.y >= 0 && p.x < annotated_image.cols && p.y < annotated_image.rows)
+            annotated_image.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+    }    
+}

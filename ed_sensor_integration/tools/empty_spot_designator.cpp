@@ -193,6 +193,12 @@ int main (int argc, char **argv)
         // std::cout << "showing placement costmap" << std::endl;
         cv::imshow("Placement options costmap topview", placement_canvas);
 
+        if (true)
+        {
+            cv::Mat annotated_image;
+            place_area_finder.getAnnotatedImage(annotated_image);
+            cv::imshow("Annotated_image", annotated_image);
+        }
         // Show RGB snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
         cv::imshow("RGB", rgbcanvas);

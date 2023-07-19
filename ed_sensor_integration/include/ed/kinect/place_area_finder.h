@@ -10,6 +10,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/core.hpp>
 
+#include <pcl/filters/filter.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -58,6 +59,13 @@ public:
      */
     void getPlacementCanvas(cv::Mat& image){ placement_canvas.copyTo(image);}
 
+    /**
+     * @brief Shows the annotated image, used for introspection
+     *
+     * @param[out] image canvas to write the image to.
+     */
+    void getAnnotatedImage(cv::Mat& image){ annotated_image.copyTo(image);}
+
 
 private:
     // internal occupancy representation
@@ -66,6 +74,8 @@ private:
     cv::Mat canvas;
     cv::Mat dilated_canvas;
     cv::Mat placement_canvas;
+
+    cv::Mat annotated_image;
 
     /**
      * @brief transform a point in meters to a pixel on the canvas
@@ -109,6 +119,14 @@ private:
      * @param placement_margin 
      */
     void createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin);
+
+    /**
+     * @brief fill the selected pixels with a color for annotation
+     * 
+     * @param indeces 
+     * @param color
+     */
+    void annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color);
 
 };
 
