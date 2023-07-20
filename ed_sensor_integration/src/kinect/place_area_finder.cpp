@@ -407,7 +407,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     cv::Scalar occupied_color(0, 0, 255);
     cv::Scalar occluded_color(255, 0, 0);
     cv::Scalar radius_color(100, 0, 100);
-    cv::Scalar placement_color(100, 255, 100);
+    cv::Scalar placement_color(255, 255, 255);
     cv::Scalar point_color(255, 0, 0);
 
     // Object placement margins #TODO hardcoded parameters
@@ -448,6 +448,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
         return false;
     }
 
+    cv::circle(canvas, place_point_canvas, 3, placement_color, -1);
     geo::Vec2d place_point;
     place_point = canvasToWorld(place_point_canvas);
 
