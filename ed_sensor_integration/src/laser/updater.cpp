@@ -38,7 +38,7 @@ double getFittingError(const ed::Entity& e, const geo::LaserRangeFinder& lrf, co
 
     // Render the entity with the given relative pose
     geo::LaserRangeFinder::RenderOptions opt;
-    opt.setMesh(e.shape()->getMesh(), rel_pose);
+    opt.setMesh(e.visual()->getMesh(), rel_pose);
 
     geo::LaserRangeFinder::RenderResult res(test_model_ranges);
     lrf.render(opt, res);
@@ -186,7 +186,7 @@ std::vector<ed::EntityConstPtr> findNearbyEntities(std::vector<EntityUpdate>& cl
         for(ed::WorldModel::const_iterator it = world.begin(); it != world.end(); ++it)
         {
             const ed::EntityConstPtr& e = *it;
-            if (e->shape() || !e->has_pose())
+            if (e->visual() || !e->has_pose())
                 continue;
 
             const geo::Pose3D& entity_pose = e->pose();
@@ -295,7 +295,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
     std::vector<double> model_ranges(num_beams, 0);
     renderWorld(sensor_pose, world, model_ranges);
 
-    // Fit the doors    
+    // Fit the doors
     if (fit_entities_)
     {
         geo::Pose3D sensor_pose_inv = sensor_pose.inverse();
@@ -304,7 +304,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
         {
             const ed::EntityConstPtr& e = *it;
 
-            if (!e->shape() || !e->has_pose())
+            if (!e->visual() || !e->has_pose())
                 continue;
 
             geo::Pose3D e_pose_SENSOR = sensor_pose_inv * e->pose();
@@ -321,7 +321,7 @@ void LaserUpdater::update(const ed::WorldModel& world, std::vector<double>& sens
 
                 // Render the door with the updated pose
                 geo::LaserRangeFinder::RenderOptions opt;
-                opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * new_pose);
+                opt.setMesh(e->visual()->getMesh(), sensor_pose_inv * new_pose);
 
                 geo::LaserRangeFinder::RenderResult res(model_ranges);
                 lrf_model_.render(opt, res);
@@ -456,11 +456,11 @@ void LaserUpdater::renderWorld(const geo::Pose3D& sensor_pose, const ed::WorldMo
     {
         const ed::EntityConstPtr& e = *it;
 
-        if (e->shape() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
+        if (e->visual() && e->has_pose() && !(e->hasType("left_door") || e->hasType("door_left") || e->hasType("right_door") || e->hasType("door_right")))
         {
             // Set render options
             geo::LaserRangeFinder::RenderOptions opt;
-            opt.setMesh(e->shape()->getMesh(), sensor_pose_inv * e->pose());
+            opt.setMesh(e->visual()->getMesh(), sensor_pose_inv * e->pose());
 
             geo::LaserRangeFinder::RenderResult res(model_ranges);
             lrf_model_.render(opt, res);
