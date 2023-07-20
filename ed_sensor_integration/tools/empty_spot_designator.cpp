@@ -169,7 +169,6 @@ int main (int argc, char **argv)
         if (!place_area_finder.findArea(image, sensor_pose, place_pose))
         {
             std::cout << "no place area found" << std::endl;
-            continue;
         }
         std::cout << place_pose << std::endl;
 

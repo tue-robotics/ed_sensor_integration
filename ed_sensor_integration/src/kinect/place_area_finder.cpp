@@ -350,6 +350,7 @@ PlaceAreaFinder::~PlaceAreaFinder()
 
 bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose)
 {
+    bool visualize = true;
     // std::cout << "converting image to cloud" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     imageToCloud(*image, cloud);
@@ -416,14 +417,17 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     float length = object_diameter + error_margin;
     float placement_margin = 2 * 0.02 + length;
 
-    std::cout << "annotating image" << std::endl;
-    annotated_image = image->getRGBImage().clone();
-    pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
-    annotateImage(*image, plane_cloud_index, table_color);
-    pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
-    annotateImage(*image, object_cloud_index, occupied_color);
-    pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
-    annotateImage(*image, below_table_cloud_index, occluded_color);
+    if (visualize)
+    {
+        std::cout << "annotating image" << std::endl;
+        annotated_image = image->getRGBImage().clone();
+        pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
+        annotateImage(*image, plane_cloud_index, table_color);
+        pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
+        annotateImage(*image, object_cloud_index, occupied_color);
+        pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
+        annotateImage(*image, below_table_cloud_index, occluded_color);
+    }
 
     std::cout << "creating costmap" << std::endl;
 
@@ -445,6 +449,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     cv::Point2d place_point_canvas;
     if (!GetPlacementOption(dilated_canvas, table_color, place_point_canvas))
     {
+        std::cout << "No valid place options" << std::endl;
         return false;
     }
 
