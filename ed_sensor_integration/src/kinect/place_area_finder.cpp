@@ -458,7 +458,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
 cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
 {
-    return cv::Point2d(-y / resolution, -x / resolution) + canvas_center;
+    return cv::Point2d(round(-y / resolution), round(-x / resolution)) + canvas_center;
 }
 
 geo::Vec2d PlaceAreaFinder::canvasToWorld(cv::Point2d point)
