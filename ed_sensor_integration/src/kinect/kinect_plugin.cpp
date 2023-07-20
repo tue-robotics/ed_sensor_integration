@@ -69,6 +69,8 @@ void KinectPlugin::initialize(ed::InitData& init)
     srv_place_area_ = nh.advertiseService("place_area", &KinectPlugin::srvPlaceArea, this);
 
     ray_trace_visualization_publisher_ = nh.advertise<visualization_msgs::Marker>("ray_trace_visualization", 10);
+    place_area_publisher_ = nh.advertise<visualization_msgs::Marker>("place_area", 10);
+    place_marker_publisher_ = nh.advertise<visualization_msgs::Marker>("place_pose", 10);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -305,6 +307,35 @@ bool KinectPlugin::srvPlaceArea(__attribute__((unused)) ed_sensor_integration_ms
         return true;
     }
     geo::convert(place_pose, res.pose.pose);
+
+    // Publish marker
+    visualization_msgs::Marker marker_msg;
+    marker_msg.header.frame_id = "base_link";
+    marker_msg.header.stamp = ros::Time::now();
+    marker_msg.action = visualization_msgs::Marker::ADD;
+    marker_msg.color.a = 0.5;
+    marker_msg.lifetime = ros::Duration(10.0);
+    double r = 0.05;
+    marker_msg.scale.x = r; 
+    marker_msg.scale.y = r;
+    marker_msg.scale.z = r;
+
+    static int iter = 0;
+    if (++iter % 2 == 0)
+    {
+        marker_msg.color.b = marker_msg.color.r = 1;
+    }
+    else
+    {
+        marker_msg.color.b = marker_msg.color.g = 1;
+    }
+
+    marker_msg.type = visualization_msgs::Marker::SPHERE;
+
+    marker_msg.pose = res.pose.pose;
+
+    place_marker_publisher_.publish(marker_msg);
+
     return true;
 }
 

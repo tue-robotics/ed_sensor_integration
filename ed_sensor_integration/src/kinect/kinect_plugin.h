@@ -79,7 +79,8 @@ private:
     bool srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res);
 
     ros::ServiceServer srv_place_area_;
-
+    ros::Publisher place_area_publisher_;
+    ros::Publisher place_marker_publisher_;
 
 
 };
