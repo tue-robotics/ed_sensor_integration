@@ -169,6 +169,7 @@ int main (int argc, char **argv)
         if (!place_area_finder.findArea(image, sensor_pose, place_pose))
         {
             std::cout << "no place area found" << std::endl;
+            continue;
         }
         std::cout << place_pose << std::endl;
 
@@ -178,10 +179,12 @@ int main (int argc, char **argv)
         place_area_finder.getCanvas(canvas);
         place_area_finder.getDilatedCanvas(dilated_canvas);
         place_area_finder.getPlacementCanvas(placement_canvas);
+        /*
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         geo::Pose3D sensor_pose_canvas = sensor_pose;
         sensor_pose_canvas.t.z = sensor_pose.t.z - place_pose.t.z;
         drawFieldOfView(canvas, sensor_pose_canvas, image);
+        */
         // Show the different canvasses
         
         // std::cout << "showing costmap" << std::endl;

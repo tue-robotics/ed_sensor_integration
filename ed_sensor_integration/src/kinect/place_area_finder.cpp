@@ -129,7 +129,9 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
  * @param cloud_no_plane A pointcloud containing all points not within the found plane
  * @return height of the segmented plane OR -1.0 if no plane could be found
  */
-bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::ModelCoefficients::Ptr plane_coefficients, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane)
+bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::ModelCoefficients::Ptr plane_coefficients,
+                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &plane_index, 
+                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane, pcl::Indices &planeless_index)
 {
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
     // Create the segmentation object
@@ -163,6 +165,8 @@ bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::M
     extract.setNegative(false);
     extract.filter(*cloud_out);
 
+    plane_index = inliers->indices;
+
     // std::cout << "PointCloud representing the planar component: " << inliers->indices.size() << " data points."
     //   << "Plane with coefficients: " << *coefficients << std::endl;
 
@@ -171,6 +175,23 @@ bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::M
     extract2.setIndices(inliers);
     extract2.setNegative(true);
     extract2.filter(*cloud_no_plane);
+
+    // handcraft the planeless index
+    planeless_index.resize(cloud_in->size()-plane_index.size());
+    int plane_i = 0; //most recent index of plane_index
+    int planeless_i = 0;
+    for (int i = 0; i<int(cloud_in->size()); i++)
+    {
+        if (i==plane_index[plane_i])
+        {
+            plane_i++;
+        }
+        else
+        {
+            planeless_index[planeless_i] = i;
+            planeless_i++;
+        }
+    }
 
     return true;
 }
@@ -303,6 +324,22 @@ void projectToPlane(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, Eigen
     }
 }
 
+/**
+ * @brief returns indexes of cloud C to cloud A given the index of cloud B to A and cloud C to B)
+ * 
+ * @param index1 
+ * @param index2 
+ * @return pcl::Indices 
+ */
+pcl::Indices multiplyIndex(pcl::Indices indexBA, pcl::Indices indexCB)
+{
+    for (uint i=0; i<indexCB.size(); i++)
+    {
+        indexCB[i] = indexBA[indexCB[i]];
+    }
+    return indexCB;
+}
+
 PlaceAreaFinder::PlaceAreaFinder()
 {
 }
@@ -332,9 +369,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Segment the table plane and return a cloud with the plane and a cloud where the plane is removed
     std::cout << "SegmentPlane" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::Indices plane_index;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr planeless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::Indices planeless_index;
     pcl::ModelCoefficients::Ptr plane_coefficients (new pcl::ModelCoefficients ());
-    if (!SegmentPlane(floorless_cloud, plane_coefficients, plane_cloud, planeless_cloud))
+    if (!SegmentPlane(floorless_cloud, plane_coefficients, plane_cloud, plane_index, planeless_cloud, planeless_index))
     {
         std::cout << "Could not find plane" << std::endl;
         return false;
@@ -379,7 +418,12 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
 
     std::cout << "annotating image" << std::endl;
     annotated_image = image->getRGBImage().clone();
-    annotateImage(*image, floorless_index, table_color);
+    pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
+    annotateImage(*image, plane_cloud_index, table_color);
+    pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
+    annotateImage(*image, object_cloud_index, occupied_color);
+    pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
+    annotateImage(*image, below_table_cloud_index, occluded_color);
 
     std::cout << "creating costmap" << std::endl;
 
