@@ -179,6 +179,10 @@ install(
 
 add_executable(ed_empty_spot_designator tools/empty_spot_designator.cpp)
 target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
+
+catkin_install_python(PROGRAMS scripts/talker.py scripts/listener.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
