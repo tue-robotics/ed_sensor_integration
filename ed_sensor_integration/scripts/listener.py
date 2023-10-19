@@ -33,28 +33,66 @@
 #
 # Revision $Id$
 
-## Simple talker demo that listens to std_msgs/Strings published 
+## Simple talker demo that listens to std_msgs/Strings published
 ## to the 'chatter' topic
 
 import rospy
-from std_msgs.msg import String
+import cv2
+import numpy as np
+from ultralytics import YOLO
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
 
-def callback(data):
-    rospy.loginfo(rospy.get_caller_id() + 'I heard %s', data.data)
+class table_segmentor:
+    def __init__(self) -> None:
+        rospy.init_node('listener', anonymous=True)
+        self.publisher = rospy.Publisher('/hero/segmented_image',Image)
+        self.subscriber = rospy.Subscriber('/hero/head_rgbd_sensor/rgb/image_raw',Image , self.callback)
 
-def listener():
+    @staticmethod
+    def detect(model, frame):
+        results = model(frame)
+        result = results[0]
+        segmentation_contours_idx = [np.array(seg, dtype=np.int32) for seg in result.masks.xy]
+        class_ids = np.array(result.boxes.cls.cpu(), dtype="int")
+        return class_ids, segmentation_contours_idx
 
-    # In ROS, nodes are uniquely named. If two nodes with the same
-    # name are launched, the previous one is kicked off. The
-    # anonymous=True flag means that rospy will choose a unique
-    # name for our 'listener' node so that multiple listeners can
-    # run simultaneously.
-    rospy.init_node('listener', anonymous=True)
 
-    rospy.Subscriber('chatter', String, callback)
+    def callback(self, data):
+        rospy.loginfo("got message")
+        bridge = CvBridge()
+        cv_image = bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+        rospy.loginfo("converted message")
+        #Yolov8 model code
 
-    # spin() simply keeps python from exiting until this node is stopped
-    rospy.spin()
+        model_path = "~/MEGA/developers/Donal/yolov8x-seg.pt"
+        device = "cuda"
+        model = YOLO(model_path).to(device)
+        table_class = 60 #table class defined with index 60 (person = 0)
+        classes, segmentations = self.detect(model, cv_image)
+        #extract table segment and add to frame
+        for class_id, seg in zip(classes, segmentations):
+            if class_id == table_class:
+                cv2.polylines(cv_image, [seg], True, (255,0,0), 2)
+        # cv2.imshow("Segmented Image", cv_image)
+        # cv2.waitKey(1)
+        image_message = bridge.cv2_to_imgmsg(cv_image, encoding="passthrough")
+        self.publisher.publish(image_message)
+
+    def listener():
+
+        # In ROS, nodes are uniquely named. If two nodes with the same
+        # name are launched, the previous one is kicked off. The
+        # anonymous=True flag means that rospy will choose a unique
+        # name for our 'listener' node so that multiple listeners can
+        # run simultaneously.
+
+
+        rospy.Subscriber('/hero/head_rgbd_sensor/rgb/image_raw',Image , callback)
+
+        # spin() simply keeps python from exiting until this node is stopped
+        rospy.spin()
 
 if __name__ == '__main__':
-    listener()
+    ts = table_segmentor()
+    rospy.spin()
