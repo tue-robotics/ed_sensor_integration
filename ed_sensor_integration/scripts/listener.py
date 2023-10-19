@@ -45,6 +45,11 @@ from sensor_msgs.msg import Image
 
 class table_segmentor:
     def __init__(self) -> None:
+        model_path = "~/MEGA/developers/Donal/yolov8x-seg.pt"
+        device = "cuda"
+        self.model = YOLO(model_path).to(device)
+        self.table_class = 60 #table class defined with index 60 (person = 0)
+
         rospy.init_node('listener', anonymous=True)
         self.publisher = rospy.Publisher('/hero/segmented_image',Image)
         self.subscriber = rospy.Subscriber('/hero/head_rgbd_sensor/rgb/image_raw',Image , self.callback)
@@ -63,16 +68,11 @@ class table_segmentor:
         bridge = CvBridge()
         cv_image = bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
         rospy.loginfo("converted message")
-        #Yolov8 model code
 
-        model_path = "~/MEGA/developers/Donal/yolov8x-seg.pt"
-        device = "cuda"
-        model = YOLO(model_path).to(device)
-        table_class = 60 #table class defined with index 60 (person = 0)
-        classes, segmentations = self.detect(model, cv_image)
+        classes, segmentations = self.detect(self.model, cv_image)
         #extract table segment and add to frame
         for class_id, seg in zip(classes, segmentations):
-            if class_id == table_class:
+            if class_id == self.table_class:
                 cv2.polylines(cv_image, [seg], True, (255,0,0), 2)
         # cv2.imshow("Segmented Image", cv_image)
         # cv2.waitKey(1)
