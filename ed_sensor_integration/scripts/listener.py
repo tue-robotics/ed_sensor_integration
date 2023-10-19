@@ -45,7 +45,7 @@ from sensor_msgs.msg import Image
 
 class table_segmentor:
     def __init__(self) -> None:
-        model_path = "~/MEGA/developers/Donal/yolov8x-seg.pt"
+        model_path = "~/MEGA/developers/Donal/yolov8m-seg.pt"
         device = "cuda"
         self.model = YOLO(model_path).to(device)
         self.table_class = 60 #table class defined with index 60 (person = 0)
