@@ -51,7 +51,7 @@ class table_segmentor:
         self.table_class = 60 #table class defined with index 60 (person = 0)
 
         rospy.init_node('listener', anonymous=True)
-        self.publisher = rospy.Publisher('/hero/segmented_image',Image,queue_size=None)
+        self.publisher = rospy.Publisher('/hero/segmented_image',Image,queue_size=10)
         self.subscriber = rospy.Subscriber('/hero/head_rgbd_sensor/rgb/image_raw',Image , self.callback)
 
     @staticmethod
