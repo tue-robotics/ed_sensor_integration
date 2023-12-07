@@ -68,7 +68,7 @@ class table_segmentor:
         bridge = CvBridge()
         cv_image = bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
         cv_image = cv2.GaussianBlur(cv_image,(5,5),0)
-        #cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
         rospy.loginfo("converted message")
 
         classes, segmentations = self.detect(self.model, cv_image)
