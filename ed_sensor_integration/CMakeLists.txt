@@ -24,7 +24,11 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  image_transport
+  cv_bridge
 )
+
+
 
 # ------------------------------------------------------------------------------------------------
 #                                        CATKIN EXPORT
@@ -35,6 +39,7 @@ catkin_package(
   LIBRARIES ed_kinect
   CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
   DEPENDS OpenCV PCL
+  
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -46,6 +51,7 @@ include_directories(
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -184,6 +190,14 @@ catkin_install_python(PROGRAMS scripts/talker.py scripts/yolo_table_segmentor.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 # ------------------------------------------------------------------------------------------------
+add_executable(mask_mapper scripts/mask_mapper.cpp)  # Update the source file name accordingly
+target_link_libraries(mask_mapper
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
+install(TARGETS mask_mapper
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
 if (CATKIN_ENABLE_TESTING)
