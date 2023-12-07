@@ -89,7 +89,7 @@ class table_segmentor:
         table_segment = self.extract_table_segment(cv_image, classes, segmentations)
         
         # Publish the table segment as a binary mask
-        table_message = bridge.cv2_to_imgmsg(table_segment, encoding="mono8")
+        table_message = bridge.cv2_to_imgmsg(table_segment, encoding="passthrough")
         self.publisher.publish(table_message)
 
     def listener():
