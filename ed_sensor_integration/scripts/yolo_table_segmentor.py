@@ -52,7 +52,7 @@ class table_segmentor:
 
         rospy.init_node('listener', anonymous=True)
         self.publisher = rospy.Publisher('/hero/segmented_image',Image,queue_size=10)
-        self.subscriber = rospy.Subscriber('/hero/head_rgbd_sensor/rgb/image_raw',Image , self.callback)
+        self.subscriber = rospy.Subscriber('/hero/head_rgbd_sensor/rgbd',Image , self.callback)#'/hero/head_rgbd_sensor/rgb/image_raw',Image , self.callback)
 
     @staticmethod
     def detect(model, frame):
