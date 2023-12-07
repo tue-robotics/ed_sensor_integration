@@ -62,6 +62,12 @@ class table_segmentor:
         class_ids = np.array(result.boxes.cls.cpu(), dtype="int")
         return class_ids, segmentation_contours_idx
 
+    def extract_table_segment(self, image, class_ids, segmentations):
+        table_mask = np.zeros_like(image, dtype=np.uint8)
+        for class_id, seg in zip(class_ids, segmentations):
+            if class_id == self.table_class:
+                cv2.fillPoly(table_mask, [seg], 255)
+        return table_mask
 
     def callback(self, data):
         rospy.loginfo("got message")
@@ -73,13 +79,18 @@ class table_segmentor:
 
         classes, segmentations = self.detect(self.model, cv_image)
         #extract table segment and add to frame
-        for class_id, seg in zip(classes, segmentations):
-            if class_id == self.table_class:
-                cv2.polylines(cv_image, [seg], True, (255,0,0), 2)
+        # for class_id, seg in zip(classes, segmentations):
+        #     if class_id == self.table_class:
+        #         cv2.polylines(cv_image, [seg], True, (255,0,0), 2)
         # cv2.imshow("Segmented Image", cv_image)
         # cv2.waitKey(1)
-        image_message = bridge.cv2_to_imgmsg(cv_image, encoding="passthrough")
-        self.publisher.publish(image_message)
+        # image_message = bridge.cv2_to_imgmsg(cv_image, encoding="passthrough")
+        # self.publisher.publish(image_message)
+        table_segment = self.extract_table_segment(cv_image, classes, segmentations)
+        
+        # Publish the table segment as a binary mask
+        table_message = bridge.cv2_to_imgmsg(table_segment, encoding="mono8")
+        self.publisher.publish(table_message)
 
     def listener():
 
