@@ -8,6 +8,10 @@
 #include <opencv2/core/core.hpp>
 #include <vector>
 
+//
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
+//
 #include <ros/ros.h>
 #include <rgbd/image.h>
 
@@ -45,6 +49,8 @@
 
 double resolution = 0.005;
 cv::Point2d canvas_center;
+cv::Mat mask; // global variable for a\passing the image mask
+std::mutex mutex;
 
 geo::Vector3 simpleRayTrace(geo::Vector3 origin, geo::Vector3 direction)
 {
@@ -119,6 +125,29 @@ void drawFieldOfView(cv::Mat& canvas, geo::Pose3D sensor_pose, const rgbd::Image
     drawFoVMacro(c4, canvas, sensor_pose);
 }
 
+void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+  std::cout << "Mask received!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+  try
+  {
+    if(mutex.try_lock())
+    {
+        mask = cv_bridge::toCvCopy(msg, "8UC3")->image;
+        std::cout << "Mask received" << std::endl;
+        mutex.unlock();
+    }
+    else
+    {
+        std::cout << "Mutex not locked!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    }
+    //cv::waitKey(30);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
+}
+
 /**
  * @brief usage, print how the executable should be used and explain the input
  */
@@ -153,7 +182,13 @@ int main (int argc, char **argv)
     pcl::PCDWriter writer;
 
     PlaceAreaFinder place_area_finder;
+    //
+    std::string mask_topic = "/hero/segmented_image";
+    ros::NodeHandle nh;
+    image_transport::ImageTransport it(nh);
+    image_transport::Subscriber sub = it.subscribe(mask_topic, 1, imageCallback);
 
+    //
     while(ros::ok())
     {
         rgbd::ImageConstPtr image;
@@ -195,6 +230,12 @@ int main (int argc, char **argv)
         // std::cout << "showing placement costmap" << std::endl;
         cv::imshow("Placement options costmap topview", placement_canvas);
 
+        if (mutex.try_lock()){
+
+            if (mask.rows > 0)
+            cv::imshow("Mask", mask);
+            mutex.unlock();
+        }
         if (true)
         {
             cv::Mat annotated_image;
@@ -211,7 +252,7 @@ int main (int argc, char **argv)
         {
             break;
         }
-
+        ros::spinOnce();
     }
     cv::destroyAllWindows();
     return 0;

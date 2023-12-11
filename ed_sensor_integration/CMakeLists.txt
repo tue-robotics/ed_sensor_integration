@@ -24,6 +24,8 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  image_transport
+  cv_bridge
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -33,7 +35,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
-  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs image_transport cv_bridge
   DEPENDS OpenCV PCL
 )
 
@@ -179,6 +181,9 @@ install(
 
 add_executable(ed_empty_spot_designator tools/empty_spot_designator.cpp)
 target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
+
+add_executable(mask_mapper scripts/mask_mapper.cpp)
+target_link_libraries(mask_mapper ed_kinect ${catkin_LIBRARIES})
 
 catkin_install_python(PROGRAMS scripts/talker.py scripts/yolo_table_segmentor.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
