@@ -34,7 +34,7 @@ rosrun ed_sensor_integration ed_fitter_data <stamp>.json <worldmodel_name> <enti
 * `ed_segmenter`: Iterates over snapshots in a directory, performs a Kinect update and displays the result. To run:
 
 ```bash
-rosrun ed_sensor_integration ed_segmenter <stamp>.json
+rosrun ed_sensor_integration ed_segmenter <stamp>.json [worldmodel name] [entity to segment on]
 ```
 
 This includes the entire 'update' sequence, including (but not limited to):
