@@ -7,6 +7,9 @@
 
 #include <ros/ros.h>
 
+//donal
+#include <map>
+//
 //pcl library # TODO remove the unused ones #TODO find out which ones are unused
 #include <pcl/point_representation.h>
 #include <pcl/common/common.h>
@@ -436,6 +439,12 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     createCostmap(object_cloud, occupied_color);
     createCostmap(occluded_cloud, occluded_color);
     createCostmap(not_table_cloud, occupied_color);
+    
+    //donal changes-----------------------------------------------------------------------------------------------------------------------------
+    float mode_z_value =findModeZValue(plane_cloud);
+    std::cout << "Mode Z Value: " << mode_z_value << std::endl;
+    drawContour(plane_cloud,mode_z_value);
+    //donal changes--------------------------------------------------------------------------------------------------------------------------    
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
@@ -473,7 +482,61 @@ geo::Vec2d PlaceAreaFinder::canvasToWorld(cv::Point2d point)
     double x = (point.y-canvas_center.y)*-resolution;
     return geo::Vec2d(x, y);
 }
+ //donal changes-------------------------------------------------------------------------------------------------------------------
+float PlaceAreaFinder::findModeZValue(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+{
+    float mode_z_value = std::numeric_limits<float>::quiet_NaN();  // Using NaN as a default value
+    // Create a map to store Z values and their occurrences
+    std::map<float, int> z_count;
 
+    // Iterate through the points and count occurrences of each Z value
+    for (const auto &point : cloud->points)
+    {
+        float z_value = point.z;
+        z_count[z_value]++;
+    }
+
+    // Find the Z value with the maximum count (mode)
+    int max_count = 0;
+    for (const auto &entry : z_count)
+    {
+        if (entry.second > max_count)
+        {
+            max_count = entry.second;
+            mode_z_value = entry.first;
+        }
+    }
+    return mode_z_value;
+}
+
+
+void PlaceAreaFinder::drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float targetDepth)
+{
+    // Create an OpenCV Mat to store the image
+    cv::Mat image = cv::Mat::zeros(500, 500, CV_8UC3);
+
+    // Convert 3D points to 2D points based on their depth
+    std::vector<cv::Point> contourPoints;
+    for (const pcl::PointXYZRGB& point : cloud->points) {
+        if (std::fabs(point.z - targetDepth) < 0.005) {
+            // Scale the x and y coordinates for visualization
+            int x = static_cast<int>(point.x * 50 + image.cols / 2);
+            int y = static_cast<int>(point.y * 50 + image.rows / 2);
+            contourPoints.emplace_back(x, y);
+        }
+    }
+
+    // Draw the contour
+    std::vector<std::vector<cv::Point>> contours;
+    contours.push_back(contourPoints);
+    cv::drawContours(image, contours, 0, cv::Scalar(255, 255, 255), 2);
+
+    // Display the image
+    cv::imshow("Contour Image", image);
+
+}
+
+//donal changes
 void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
 
 {

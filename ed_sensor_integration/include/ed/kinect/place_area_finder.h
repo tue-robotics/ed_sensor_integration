@@ -94,6 +94,11 @@ private:
      */
     geo::Vec2d canvasToWorld(cv::Point2d point);
 
+    //--------------------------------------------------------------------------------------------------------------------------------------
+    float findModeZValue(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
+    void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float targetDepth);
+    //--------------------------------------------------------------------------------------------------------------------------------------
+
     /**
      * @brief Draw the points in a pointcloud on the canvas. will ignore the z direction of the points
      *

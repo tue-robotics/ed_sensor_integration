@@ -182,10 +182,7 @@ install(
 add_executable(ed_empty_spot_designator tools/empty_spot_designator.cpp)
 target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
 
-add_executable(mask_mapper scripts/mask_mapper.cpp)
-target_link_libraries(mask_mapper ed_kinect ${catkin_LIBRARIES})
-
-catkin_install_python(PROGRAMS scripts/talker.py scripts/yolo_table_segmentor.py
+catkin_install_python(PROGRAMS yolo_python/yolo_table_segmentor.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 # ------------------------------------------------------------------------------------------------
