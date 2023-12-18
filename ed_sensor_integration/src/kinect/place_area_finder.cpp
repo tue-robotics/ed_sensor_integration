@@ -7,10 +7,10 @@
 
 #include <ros/ros.h>
 
-//donal
+// donal
 #include <map>
 //
-//pcl library # TODO remove the unused ones #TODO find out which ones are unused
+// pcl library # TODO remove the unused ones #TODO find out which ones are unused
 #include <pcl/point_representation.h>
 #include <pcl/common/common.h>
 #include <pcl/io/pcd_io.h>
@@ -38,21 +38,20 @@
 
 #include "ed_sensor_integration/sac_model_horizontal_plane.h"
 
-
 /**
  * @brief transform an rgbd image to a pointcloud
- * 
+ *
  * @param image rgbd image
  * @param[out] cloud pcl pointcloud, points are expressed in the frame of the camera according to pcl conventions
  * @return double to be removed
  */
-double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+double imageToCloud(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
 {
     // Fill in the cloud data
     cloud->width = image.getDepthImage().cols;
     cloud->height = image.getDepthImage().rows;
     cloud->is_dense = false;
-    cloud->resize (cloud->width * cloud->height);
+    cloud->resize(cloud->width * cloud->height);
 
     double fx = image.getCameraModel().fx();
     double fy = image.getCameraModel().fy();
@@ -60,32 +59,31 @@ double imageToCloud(const rgbd::Image& image, pcl::PointCloud<pcl::PointXYZRGB>:
     double half_height = 0.5 * cloud->height;
     double half_width = 0.5 * cloud->width;
 
-    for (uint i=0; i < cloud->height; ++i)
+    for (uint i = 0; i < cloud->height; ++i)
     {
-        for (uint j=0; j < cloud->width; ++j)
+        for (uint j = 0; j < cloud->width; ++j)
         {
 
-            cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i,j);
-            double d = image.getDepthImage().at<float>(i,j);
+            cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i, j);
+            double d = image.getDepthImage().at<float>(i, j);
 
-            cloud->at(j,i).x = (-half_width+j) * d / fx;
-            cloud->at(j,i).y = (-half_height+i) * d / fy;
-            cloud->at(j,i).z = d;
-            cloud->at(j,i).r = bgr[2];
-            cloud->at(j,i).g = bgr[1];
-            cloud->at(j,i).b = bgr[0];
-
+            cloud->at(j, i).x = (-half_width + j) * d / fx;
+            cloud->at(j, i).y = (-half_height + i) * d / fy;
+            cloud->at(j, i).z = d;
+            cloud->at(j, i).r = bgr[2];
+            cloud->at(j, i).g = bgr[1];
+            cloud->at(j, i).b = bgr[0];
         }
     }
 
-return image.getCameraModel().fx();
+    return image.getCameraModel().fx();
 }
 
 /**
  * @brief transform a geolib pose into a transformation matrix from the Eigen library
- * 
+ *
  * @param pose geolib pose
- * @return Eigen::Matrix4f 
+ * @return Eigen::Matrix4f
  */
 Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 {
@@ -107,18 +105,18 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
 
     Eigen::Matrix4f Transform = Eigen::Matrix4f::Identity();
 
-    Transform(0,0) = xx;
-    Transform(0,1) = xy;
-    Transform(0,2) = xz;
-    Transform(0,3) = x;
-    Transform(1,0) = yx;
-    Transform(1,1) = yy;
-    Transform(1,2) = yz;
-    Transform(1,3) = y;
-    Transform(2,0) = zx;
-    Transform(2,1) = zy;
-    Transform(2,2) = zz;
-    Transform(2,3) = z;
+    Transform(0, 0) = xx;
+    Transform(0, 1) = xy;
+    Transform(0, 2) = xz;
+    Transform(0, 3) = x;
+    Transform(1, 0) = yx;
+    Transform(1, 1) = yy;
+    Transform(1, 2) = yz;
+    Transform(1, 3) = y;
+    Transform(2, 0) = zx;
+    Transform(2, 1) = zy;
+    Transform(2, 2) = zz;
+    Transform(2, 3) = z;
 
     // std::cout << Transform << std::endl;
     return Transform;
@@ -132,22 +130,22 @@ Eigen::Matrix4f geolibToEigen(geo::Pose3D pose)
  * @param cloud_no_plane A pointcloud containing all points not within the found plane
  * @return height of the segmented plane OR -1.0 if no plane could be found
  */
-bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::ModelCoefficients::Ptr plane_coefficients,
-                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &plane_index, 
-                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane, pcl::Indices &planeless_index)
+bool SegmentPlane(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::ModelCoefficients::Ptr plane_coefficients,
+                  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &plane_index,
+                  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_no_plane, pcl::Indices &planeless_index)
 {
-    pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
     // Create the segmentation object
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
     // Optional
-    seg.setOptimizeCoefficients (true);
+    seg.setOptimizeCoefficients(true);
     // Mandatory
-    seg.setModelType (pcl::SACMODEL_PARALLEL_PLANE);
-    seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations (1000);
-    seg.setDistanceThreshold (0.01);
-    seg.setAxis (Eigen::Vector3f(1,0,0));
-    seg.setEpsAngle(5*0.0174532925); //*0.0174532925 to radians
+    seg.setModelType(pcl::SACMODEL_PARALLEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setMaxIterations(1000);
+    seg.setDistanceThreshold(0.01);
+    seg.setAxis(Eigen::Vector3f(1, 0, 0));
+    seg.setEpsAngle(5 * 0.0174532925); //*0.0174532925 to radians
 
     // Create the filtering object
     pcl::ExtractIndices<pcl::PointXYZRGB> extract;
@@ -157,7 +155,8 @@ bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::M
     seg.setInputCloud(cloud_in);
     seg.segment(*inliers, *plane_coefficients);
 
-    if (inliers->indices.size() == 0) {
+    if (inliers->indices.size() == 0)
+    {
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
         return false;
     }
@@ -180,12 +179,12 @@ bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::M
     extract2.filter(*cloud_no_plane);
 
     // handcraft the planeless index
-    planeless_index.resize(cloud_in->size()-plane_index.size());
-    int plane_i = 0; //most recent index of plane_index
+    planeless_index.resize(cloud_in->size() - plane_index.size());
+    int plane_i = 0; // most recent index of plane_index
     int planeless_i = 0;
-    for (int i = 0; i<int(cloud_in->size()); i++)
+    for (int i = 0; i < int(cloud_in->size()); i++)
     {
-        if (i==plane_index[plane_i])
+        if (i == plane_index[plane_i])
         {
             plane_i++;
         }
@@ -199,28 +198,27 @@ bool SegmentPlane (const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::M
     return true;
 }
 
-
 /**
  * @brief extract all pixels of a certain color from a canvas
- * 
+ *
  * @param canvas original image
- * @param[out] placement_canvas image to draw the extracted pixels on must be the same size as canvas 
+ * @param[out] placement_canvas image to draw the extracted pixels on must be the same size as canvas
  * @param targetColor color to be extracted
  */
-void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Scalar targetColor)
+void ExtractPlacementOptions(cv::Mat &canvas, cv::Mat &placement_canvas, cv::Scalar targetColor)
 {
     cv::Point2d canvas_center(canvas.rows / 2, canvas.cols);
 
     std::vector<cv::Point> identicalPoints;
 
-    for(int row = canvas.rows; row > 0; --row)
+    for (int row = canvas.rows; row > 0; --row)
     {
-        for(int col = canvas.cols; col > 0; --col)
+        for (int col = canvas.cols; col > 0; --col)
         {
             cv::Vec3b currPixel = canvas.at<cv::Vec3b>(row, col);
-            if(currPixel.val[0] == targetColor.val[0] &&
-               currPixel.val[1] == targetColor.val[1] &&
-               currPixel.val[2] == targetColor.val[2])
+            if (currPixel.val[0] == targetColor.val[0] &&
+                currPixel.val[1] == targetColor.val[1] &&
+                currPixel.val[2] == targetColor.val[2])
             {
                 cv::Point2d p = cv::Point(col, row);
                 if (p.x >= 0 && p.y >= 0 && p.x < placement_canvas.cols && p.y < placement_canvas.rows)
@@ -232,22 +230,22 @@ void ExtractPlacementOptions(cv::Mat& canvas, cv::Mat& placement_canvas, cv::Sca
 
 /**
  * @brief Get the coordinates of a point in an image which matches the target color
- * 
+ *
  * @param canvas image to check
  * @param targetColor color to be found
  * @param point coordinates of one point which has the targetColor
  * @return whether or not a pixel was found
  */
-bool GetPlacementOption(cv::Mat& canvas, cv::Scalar targetColor, cv::Point2d& point)
+bool GetPlacementOption(cv::Mat &canvas, cv::Scalar targetColor, cv::Point2d &point)
 {
-    for(int row = 0; row <canvas.rows; ++row)
+    for (int row = 0; row < canvas.rows; ++row)
     {
-        for(int col = canvas.cols; col > 0; --col)
+        for (int col = canvas.cols; col > 0; --col)
         {
             cv::Vec3b currPixel = canvas.at<cv::Vec3b>(row, col);
-            if(currPixel.val[0] == targetColor.val[0] &&
-               currPixel.val[1] == targetColor.val[1] &&
-               currPixel.val[2] == targetColor.val[2])
+            if (currPixel.val[0] == targetColor.val[0] &&
+                currPixel.val[1] == targetColor.val[1] &&
+                currPixel.val[2] == targetColor.val[2])
             {
                 point = cv::Point(col, row);
                 return true;
@@ -259,10 +257,10 @@ bool GetPlacementOption(cv::Mat& canvas, cv::Scalar targetColor, cv::Point2d& po
 
 /**
  * @brief remove the floor from a pointcloud cloud_in and return the cloud_out with index. It is assumed the floor is aligned with the plane z=0
- * 
- * @param cloud_in 
- * @param cloud_out 
- * @param index 
+ *
+ * @param cloud_in
+ * @param cloud_out
+ * @param index
  */
 void removeFloor(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_out, pcl::Indices &index)
 {
@@ -298,7 +296,7 @@ void filterHeight(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, float h
 
 /**
  * @brief Project a plane onto a a plane along the beams of the camera
- * 
+ *
  * @param cloud_in cloud with points to be projected
  * @param transform transform between the camera and the origin of the cloud in
  * @param plane_height height of the plane to be projected onto.
@@ -315,11 +313,11 @@ void projectToPlane(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, Eigen
     float z = transform(2, 3);
     for (uint nIndex = 0; nIndex < cloud_in->points.size(); nIndex++)
     {
-        float lower = cloud_in->points[nIndex].z - z; // height between camera and point. 
+        float lower = cloud_in->points[nIndex].z - z;            // height between camera and point.
         float upper = plane_height - cloud_in->points[nIndex].z; // height between the point and the table
-        float lambda = upper / lower; // ratio between camera-point distance and point-projection distance
-        float dx = cloud_in->points[nIndex].x - x; // difference between point x and camera x
-        float dy = cloud_in->points[nIndex].y - y; // difference between point y and camera y
+        float lambda = upper / lower;                            // ratio between camera-point distance and point-projection distance
+        float dx = cloud_in->points[nIndex].x - x;               // difference between point x and camera x
+        float dy = cloud_in->points[nIndex].y - y;               // difference between point y and camera y
 
         cloud_out->points[nIndex].z = plane_height;
         cloud_out->points[nIndex].x = cloud_in->points[nIndex].x + lambda * dx;
@@ -329,14 +327,14 @@ void projectToPlane(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_in, Eigen
 
 /**
  * @brief returns indexes of cloud C to cloud A given the index of cloud B to A and cloud C to B)
- * 
- * @param index1 
- * @param index2 
- * @return pcl::Indices 
+ *
+ * @param index1
+ * @param index2
+ * @return pcl::Indices
  */
 pcl::Indices multiplyIndex(pcl::Indices indexBA, pcl::Indices indexCB)
 {
-    for (uint i=0; i<indexCB.size(); i++)
+    for (uint i = 0; i < indexCB.size(); i++)
     {
         indexCB[i] = indexBA[indexCB[i]];
     }
@@ -351,7 +349,7 @@ PlaceAreaFinder::~PlaceAreaFinder()
 {
 }
 
-bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose)
+bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sensor_pose, geo::Pose3D &place_pose)
 {
     bool visualize = true;
     // std::cout << "converting image to cloud" << std::endl;
@@ -376,7 +374,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     pcl::Indices plane_index;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr planeless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::Indices planeless_index;
-    pcl::ModelCoefficients::Ptr plane_coefficients (new pcl::ModelCoefficients ());
+    pcl::ModelCoefficients::Ptr plane_coefficients(new pcl::ModelCoefficients());
     if (!SegmentPlane(floorless_cloud, plane_coefficients, plane_cloud, plane_index, planeless_cloud, planeless_index))
     {
         std::cout << "Could not find plane" << std::endl;
@@ -388,7 +386,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Filter out objects above the table plane and put them in seperate cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::Indices object_index;
-    filterHeight(planeless_cloud, height, height+0.30, object_cloud, object_index);
+    filterHeight(planeless_cloud, height, height + 0.30, object_cloud, object_index);
 
     // Create pointcloud with occluded space based on the object cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr occluded_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -397,11 +395,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     // Filter out objects below the table plane and put them in seperate cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr below_table_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::Indices below_index;
-    filterHeight(planeless_cloud, 0.0, height-0.02, below_table_cloud, below_index);
+    filterHeight(planeless_cloud, 0.0, height - 0.02, below_table_cloud, below_index);
 
     // Create pointcloud with unoccluded space based on the bewow table cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr not_table_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    projectToPlane(below_table_cloud, transform, height, not_table_cloud);    
+    projectToPlane(below_table_cloud, transform, height, not_table_cloud);
 
     // std::cout << "creating costmap" << std::endl;
     canvas = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -439,12 +437,13 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     createCostmap(object_cloud, occupied_color);
     createCostmap(occluded_cloud, occluded_color);
     createCostmap(not_table_cloud, occupied_color);
-    
-    //donal changes-----------------------------------------------------------------------------------------------------------------------------
-    float mode_z_value =findModeZValue(plane_cloud);
-    std::cout << "Mode Z Value: " << mode_z_value << std::endl;
-    drawContour(plane_cloud,mode_z_value);
-    //donal changes--------------------------------------------------------------------------------------------------------------------------    
+
+    // donal changes-----------------------------------------------------------------------------------------------------------------------------
+    cv::Scalar donal_colour(255, 255, 0);
+    drawContour(plane_cloud, donal_colour);
+    mapCanvasToWorldAndPlaceInAnnotatedImage(*image,plane_cloud, donal_colour);
+    // drawfilledContour(plane_cloud,table_color);
+    // donal changes--------------------------------------------------------------------------------------------------------------------------
 
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
@@ -467,7 +466,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sen
     place_point = canvasToWorld(place_point_canvas);
 
     // fill result
-    place_pose = geo::Pose3D(place_point.x, place_point.y, height+0.02);
+    place_pose = geo::Pose3D(place_point.x, place_point.y, height + 0.02);
     return true;
 }
 
@@ -478,71 +477,247 @@ cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
 
 geo::Vec2d PlaceAreaFinder::canvasToWorld(cv::Point2d point)
 {
-    double y = (point.x-canvas_center.x)*-resolution;
-    double x = (point.y-canvas_center.y)*-resolution;
+    double y = (point.x - canvas_center.x) * -resolution;
+    double x = (point.y - canvas_center.y) * -resolution;
     return geo::Vec2d(x, y);
 }
- //donal changes-------------------------------------------------------------------------------------------------------------------
-float PlaceAreaFinder::findModeZValue(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+// donal changes-------------------------------------------------------------------------------------------------------------------
+void PlaceAreaFinder::drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
 {
-    float mode_z_value = std::numeric_limits<float>::quiet_NaN();  // Using NaN as a default value
-    // Create a map to store Z values and their occurrences
-    std::map<float, int> z_count;
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-    // Iterate through the points and count occurrences of each Z value
-    for (const auto &point : cloud->points)
-    {
-        float z_value = point.z;
-        z_count[z_value]++;
-    }
+    // Create a binary mask
+    cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
 
-    // Find the Z value with the maximum count (mode)
-    int max_count = 0;
-    for (const auto &entry : z_count)
+    std::vector<cv::Point> points; // Vector to store points for convex hull
+
+    for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
     {
-        if (entry.second > max_count)
+        double x = cloud->points[nIndex].x;
+        double y = cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
         {
-            max_count = entry.second;
-            mode_z_value = entry.first;
+            // Update the canvas with the color
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+            // Set corresponding pixel in the mask to 255 (white)
+            mask.at<uchar>(p) = 255;
+
+            // Store the point for convex hull
+            points.push_back(p);
         }
     }
-    return mode_z_value;
+
+    // Check if there are enough points to compute convex hull
+    if (points.size() >= 3)
+    {
+        // Find convex hull of the points
+        std::vector<cv::Point> hull;
+        cv::convexHull(points, hull);
+
+        // Draw the convex hull on the canvas
+        std::vector<std::vector<cv::Point>> contours = {hull};
+        cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);
+    }
+    else
+    {
+        // Handle the case when there are not enough points for convex hull
+        std::cerr << "Not enough points for convex hull." << std::endl;
+    }
 }
 
-
-void PlaceAreaFinder::drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float targetDepth)
+void PlaceAreaFinder::drawfilledContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
 {
-    // Create an OpenCV Mat to store the image
-    cv::Mat image = cv::Mat::zeros(500, 500, CV_8UC3);
+    const double fixedOpacity = 0.2; // Set the desired fixed opacity
 
-    // Convert 3D points to 2D points based on their depth
-    std::vector<cv::Point> contourPoints;
-    for (const pcl::PointXYZRGB& point : cloud->points) {
-        if (std::fabs(point.z - targetDepth) < 0.005) {
-            // Scale the x and y coordinates for visualization
-            int x = static_cast<int>(point.x * 50 + image.cols / 2);
-            int y = static_cast<int>(point.y * 50 + image.rows / 2);
-            contourPoints.emplace_back(x, y);
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    // Create a binary mask
+    cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
+
+    std::vector<cv::Point> points; // Vector to store points for convex hull
+
+    for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
+    {
+        double x = cloud->points[nIndex].x;
+        double y = cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+        {
+            // Update the canvas with the color
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+            // Set corresponding pixel in the mask to 255 (white)
+            mask.at<uchar>(p) = 255;
+
+            // Store the point for convex hull
+            points.push_back(p);
         }
     }
 
-    // Draw the contour
-    std::vector<std::vector<cv::Point>> contours;
-    contours.push_back(contourPoints);
-    cv::drawContours(image, contours, 0, cv::Scalar(255, 255, 255), 2);
+    // Check if there are enough points to compute convex hull
+    if (points.size() >= 3)
+    {
+        // Find convex hull of the points
+        std::vector<cv::Point> hull;
+        cv::convexHull(points, hull);
 
-    // Display the image
-    cv::imshow("Contour Image", image);
-
+        // Fill the convex hull with fixed opacity
+        cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+    }
+    else
+    {
+        // Handle the case when there are not enough points for convex hull
+        std::cerr << "Not enough points for convex hull." << std::endl;
+    }
 }
 
-//donal changes
+void PlaceAreaFinder::mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
+{
+    const double fixedOpacity = 0.2; // Set the desired fixed opacity
+
+    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+    // Access width and height directly from the depth image
+    int imageWidth = image.getDepthImage().cols;
+    int imageHeight = image.getDepthImage().rows;
+
+    // Create a binary mask
+    cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
+
+    std::vector<cv::Point> points; // Vector to store points for convex hull
+
+    for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
+    {
+        double x = cloud->points[nIndex].x;
+        double y = cloud->points[nIndex].y;
+
+        cv::Point2d p = worldToCanvas(x, y);
+
+        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+        {
+            // Update the canvas with the color
+            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+            // Set corresponding pixel in the mask to 255 (white)
+            mask.at<uchar>(p) = 255;
+
+            // Store the point for convex hull
+            points.push_back(p);
+        }
+    }
+
+    // Check if there are enough points to compute convex hull
+    if (points.size() >= 3)
+    {
+        // Find convex hull of the points
+        std::vector<cv::Point> hull;
+        cv::convexHull(points, hull);
+
+        // Fill the convex hull with fixed opacity
+        cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+
+        // Map the convex hull points to world coordinates and place in annotated image
+        for (const auto &point : hull)
+        {
+            geo::Vec2d worldPoint = canvasToWorld(point);
+
+            int row = static_cast<int>(worldPoint.y);
+            int col = static_cast<int>(worldPoint.x);
+
+            // Check if the point is within the bounds of the annotated image
+            if (row >= 0 && col >= 0 && row < imageHeight && col < imageWidth)
+            {
+                int index = row * imageWidth + col;
+                annotateImage(image, pcl::Indices(1, index), color);
+            }
+        }
+    }
+    else
+    {
+        // Handle the case when there are not enough points for convex hull
+        std::cerr << "Not enough points for convex hull." << std::endl;
+    }
+}
+
+
+// void PlaceAreaFinder::mapCanvasToWorldAndVisualize(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
+// {
+//     const double fixedOpacity = 0.2; // Set the desired fixed opacity
+
+//     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+
+//     // Create a binary mask
+//     cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
+
+//     std::vector<cv::Point> points; // Vector to store points for convex hull
+
+//     for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
+//     {
+//         double x = cloud->points[nIndex].x;
+//         double y = cloud->points[nIndex].y;
+
+//         cv::Point2d p = worldToCanvas(x, y);
+
+//         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+//         {
+//             // Update the canvas with the color
+//             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+//             // Set corresponding pixel in the mask to 255 (white)
+//             mask.at<uchar>(p) = 255;
+
+//             // Store the point for convex hull
+//             points.push_back(p);
+//         }
+//     }
+
+//     // Check if there are enough points to compute convex hull
+//     if (points.size() >= 3)
+//     {
+//         // Find convex hull of the points
+//         std::vector<cv::Point> hull;
+//         cv::convexHull(points, hull);
+
+//         // Fill the convex hull with fixed opacity
+//         cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+
+//         // Create a new canvas for visualization
+//         cv::Mat visualizationCanvas = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC3);
+
+//         // Map the convex hull points to world coordinates and visualize
+//         for (const auto &point : hull)
+//         {
+//             geo::Vec2d worldPoint = canvasToWorld(point);
+
+//             // Draw a point on the visualization canvas
+//             cv::circle(visualizationCanvas, worldToCanvas(worldPoint.x, worldPoint.y), 5, cv::Scalar(0, 255, 0), -1);
+//         }
+
+//         // Display the visualization canvas (you can customize this part based on your visualization tool or library)
+//         cv::imshow("Mapped Points in World Coordinates", visualizationCanvas);
+//     }
+//     else
+//     {
+//         // Handle the case when there are not enough points for convex hull
+//         std::cerr << "Not enough points for convex hull." << std::endl;
+//     }
+// }
+
+
+// donal changes----------------------------------------------------------------------------------------------------------------------------------
+
 void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
 
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-    for (uint nIndex = 0; nIndex < cloud->points.size (); nIndex++)
+    for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
     {
         double x = cloud->points[nIndex].x;
         double y = cloud->points[nIndex].y;
@@ -550,51 +725,51 @@ void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud
         cv::Point2d p = worldToCanvas(x, y);
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }    
+    }
 }
 
-void PlaceAreaFinder::createRadiusCostmap(cv::Mat& canvas, cv::Scalar color, float placement_margin)
+void PlaceAreaFinder::createRadiusCostmap(cv::Mat &canvas, cv::Scalar color, float placement_margin)
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
-    float upper_radius = 0.75 + placement_margin/2;
-    float lower_radius = 0.60 - placement_margin/2;
-        for (float phi = 0; phi < 360; phi++)
+    float upper_radius = 0.75 + placement_margin / 2;
+    float lower_radius = 0.60 - placement_margin / 2;
+    for (float phi = 0; phi < 360; phi++)
+    {
+        for (int i = 0; i < 100; i++)
         {
-            for (int i = 0; i < 100; i++)
-            {
-            double y = upper_radius * sin(phi/(180/M_PI)) + 0.03 * i * sin(phi/(180/M_PI));
-            double x = upper_radius * cos(phi/(180/M_PI)) + 0.03 * i * cos(phi/(180/M_PI));
+            double y = upper_radius * sin(phi / (180 / M_PI)) + 0.03 * i * sin(phi / (180 / M_PI));
+            double x = upper_radius * cos(phi / (180 / M_PI)) + 0.03 * i * cos(phi / (180 / M_PI));
 
             cv::Point2d p = worldToCanvas(x, y);
             if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-            }
-
-            for (int i = 0; i < 100; i++)
-            {
-            double y = lower_radius * sin(phi/(180/M_PI)) - lower_radius/100 * i * sin(phi/(180/M_PI));
-            double x = lower_radius * cos(phi/(180/M_PI)) - lower_radius/100 * i * cos(phi/(180/M_PI));
-
-            cv::Point2d p = worldToCanvas(x, y);
-            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-            }
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
         }
+
+        for (int i = 0; i < 100; i++)
+        {
+            double y = lower_radius * sin(phi / (180 / M_PI)) - lower_radius / 100 * i * sin(phi / (180 / M_PI));
+            double x = lower_radius * cos(phi / (180 / M_PI)) - lower_radius / 100 * i * cos(phi / (180 / M_PI));
+
+            cv::Point2d p = worldToCanvas(x, y);
+            if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+                canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
+    }
 }
 
-void PlaceAreaFinder::dilateCostmap(cv::Mat& canvas, cv::Mat& dilated_canvas, float placement_margin)
+void PlaceAreaFinder::dilateCostmap(cv::Mat &canvas, cv::Mat &dilated_canvas, float placement_margin)
 {
     float Pixelsize = placement_margin / resolution;
-    cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                                             cv::Size( Pixelsize, Pixelsize),
-                                             cv::Point(-1, -1) );
-    cv::dilate(canvas, dilated_canvas, element );
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+                                                cv::Size(Pixelsize, Pixelsize),
+                                                cv::Point(-1, -1));
+    cv::dilate(canvas, dilated_canvas, element);
 }
 
-void PlaceAreaFinder::annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color)
+void PlaceAreaFinder::annotateImage(const rgbd::Image &image, const pcl::Indices index, cv::Scalar color)
 {
     int width = image.getDepthImage().cols;
-    
+
     for (uint i = 0; i < index.size(); i++)
     {
         int col = index[i] % width;
@@ -603,5 +778,5 @@ void PlaceAreaFinder::annotateImage(const rgbd::Image& image, const pcl::Indices
         cv::Point2d p = cv::Point2d(col, row);
         if (p.x >= 0 && p.y >= 0 && p.x < annotated_image.cols && p.y < annotated_image.rows)
             annotated_image.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-    }    
+    }
 }

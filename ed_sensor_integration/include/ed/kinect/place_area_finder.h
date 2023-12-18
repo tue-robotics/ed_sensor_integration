@@ -95,8 +95,11 @@ private:
     geo::Vec2d canvasToWorld(cv::Point2d point);
 
     //--------------------------------------------------------------------------------------------------------------------------------------
-    float findModeZValue(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
-    void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, float targetDepth);
+    void drawfilledContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+    void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+    //void mapCanvasToWorldAndVisualize(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+    void mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+
     //--------------------------------------------------------------------------------------------------------------------------------------
 
     /**
