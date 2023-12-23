@@ -36,7 +36,7 @@ public:
      * @param[out] place_pose expressed in the same frame as sensor pose. One of the possible poses where an object may be placed, currently returns the pose furthest on the table
      * @return whether or not a suitable place was found
      */
-    bool findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose);
+    bool findArea(const rgbd::ImageConstPtr& image, geo::Pose3D sensor_pose, geo::Pose3D& place_pose,const cv::Mat &mask);
 
     /**
      * @brief Get an image of the analysed space, used for introspection
@@ -98,7 +98,7 @@ private:
     void drawfilledContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
     void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
     //void mapCanvasToWorldAndVisualize(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
-    void mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+    // void mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
 
     //--------------------------------------------------------------------------------------------------------------------------------------
 
@@ -134,7 +134,7 @@ private:
      * @param indeces 
      * @param color
      */
-    void annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color);
+    void annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color,const cv::Mat &mask);
 
 };
 

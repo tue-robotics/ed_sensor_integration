@@ -195,15 +195,22 @@ int main (int argc, char **argv)
         geo::Pose3D sensor_pose;
         geo::Pose3D place_pose;
 
+        int mask_type = mask.type();
+        std::cout << "mask type is " << mask_type << std::endl;
+
         if (!image_buffer.waitForRecentImage(image, sensor_pose, 2.0))
         {
             std::cerr << "No image received, will try again." << std::endl;
             continue;
         }
         
-        if (!place_area_finder.findArea(image, sensor_pose, place_pose))
-        {
-            std::cout << "no place area found" << std::endl;
+        if(mutex.try_lock()){
+
+            if (!place_area_finder.findArea(image, sensor_pose, place_pose,mask))
+            {
+                std::cout << "no place area found" << std::endl;
+            }
+            mutex.unlock();
         }
         std::cout << place_pose << std::endl;
 
@@ -232,11 +239,12 @@ int main (int argc, char **argv)
 
         if (mutex.try_lock()){
 
-            if (mask.rows > 0)
+            if (!mask.empty()) {
             cv::imshow("Mask", mask);
+            }
             mutex.unlock();
         }
-        if (true)
+        if (!mask.empty())
         {
             cv::Mat annotated_image;
             place_area_finder.getAnnotatedImage(annotated_image);

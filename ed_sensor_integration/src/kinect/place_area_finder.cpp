@@ -341,6 +341,7 @@ pcl::Indices multiplyIndex(pcl::Indices indexBA, pcl::Indices indexCB)
     return indexCB;
 }
 
+
 PlaceAreaFinder::PlaceAreaFinder()
 {
 }
@@ -349,7 +350,7 @@ PlaceAreaFinder::~PlaceAreaFinder()
 {
 }
 
-bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sensor_pose, geo::Pose3D &place_pose)
+bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sensor_pose, geo::Pose3D &place_pose,const cv::Mat &mask)
 {
     bool visualize = true;
     // std::cout << "converting image to cloud" << std::endl;
@@ -363,7 +364,6 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // keep track of the indices in the original image
     std::vector<int> indices;
     pcl::Indices floorless_index;
-
     // Filter out floor
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr floorless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     removeFloor(cloud, floorless_cloud, floorless_index);
@@ -418,16 +418,16 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     float length = object_diameter + error_margin;
     float placement_margin = 2 * 0.02 + length;
 
-    if (visualize)
+    if (visualize && !mask.empty())
     {
         std::cout << "annotating image" << std::endl;
         annotated_image = image->getRGBImage().clone();
         pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
-        annotateImage(*image, plane_cloud_index, table_color);
+        annotateImage(*image, plane_cloud_index, table_color,mask);
         pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
-        annotateImage(*image, object_cloud_index, occupied_color);
+        annotateImage(*image, object_cloud_index, occupied_color,mask);
         pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
-        annotateImage(*image, below_table_cloud_index, occluded_color);
+        annotateImage(*image, below_table_cloud_index, occluded_color,mask);
     }
 
     std::cout << "creating costmap" << std::endl;
@@ -441,7 +441,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // donal changes-----------------------------------------------------------------------------------------------------------------------------
     cv::Scalar donal_colour(255, 255, 0);
     drawContour(plane_cloud, donal_colour);
-    mapCanvasToWorldAndPlaceInAnnotatedImage(*image,plane_cloud, donal_colour);
+    // mapCanvasToWorldAndPlaceInAnnotatedImage(*image,plane_cloud, donal_colour);
     // drawfilledContour(plane_cloud,table_color);
     // donal changes--------------------------------------------------------------------------------------------------------------------------
 
@@ -577,73 +577,139 @@ void PlaceAreaFinder::drawfilledContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c
     }
 }
 
-void PlaceAreaFinder::mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
-{
-    const double fixedOpacity = 0.2; // Set the desired fixed opacity
+// void PlaceAreaFinder::mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
+// {
+//     const double fixedOpacity = 0.2; // Set the desired fixed opacity
 
-    canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
+//     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-    // Access width and height directly from the depth image
-    int imageWidth = image.getDepthImage().cols;
-    int imageHeight = image.getDepthImage().rows;
+//     // Access width and height directly from the depth image
+//     int imageWidth = image.getDepthImage().cols;
+//     int imageHeight = image.getDepthImage().rows;
 
-    // Create a binary mask
-    cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
+//     // Create a binary mask
+//     cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
 
-    std::vector<cv::Point> points; // Vector to store points for convex hull
+//     std::vector<cv::Point> points; // Vector to store points for convex hull
 
-    for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
-    {
-        double x = cloud->points[nIndex].x;
-        double y = cloud->points[nIndex].y;
+//     for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
+//     {
+//         double x = cloud->points[nIndex].x;
+//         double y = cloud->points[nIndex].y;
 
-        cv::Point2d p = worldToCanvas(x, y);
+//         cv::Point2d p = worldToCanvas(x, y);
 
-        if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
-        {
-            // Update the canvas with the color
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+//         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+//         {
+//             // Update the canvas with the color
+//             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
 
-            // Set corresponding pixel in the mask to 255 (white)
-            mask.at<uchar>(p) = 255;
+//             // Set corresponding pixel in the mask to 255 (white)
+//             mask.at<uchar>(p) = 255;
 
-            // Store the point for convex hull
-            points.push_back(p);
-        }
-    }
+//             // Store the point for convex hull
+//             points.push_back(p);
+//         }
+//     }
 
-    // Check if there are enough points to compute convex hull
-    if (points.size() >= 3)
-    {
-        // Find convex hull of the points
-        std::vector<cv::Point> hull;
-        cv::convexHull(points, hull);
+//     // Check if there are enough points to compute convex hull
+//     if (points.size() >= 3)
+//     {
+//         // Find convex hull of the points
+//         std::vector<cv::Point> hull;
+//         cv::convexHull(points, hull);
 
-        // Fill the convex hull with fixed opacity
-        cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+//         // Fill the convex hull with fixed opacity
+//         cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+// void PlaceAreaFinder::mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
+// {
+//     const double fixedOpacity = 0.2; // Set the desired fixed opacity
 
-        // Map the convex hull points to world coordinates and place in annotated image
-        for (const auto &point : hull)
-        {
-            geo::Vec2d worldPoint = canvasToWorld(point);
+//     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
-            int row = static_cast<int>(worldPoint.y);
-            int col = static_cast<int>(worldPoint.x);
+//     // Access width and height directly from the depth image
+//     int imageWidth = image.getDepthImage().cols;
+//     int imageHeight = image.getDepthImage().rows;
 
-            // Check if the point is within the bounds of the annotated image
-            if (row >= 0 && col >= 0 && row < imageHeight && col < imageWidth)
-            {
-                int index = row * imageWidth + col;
-                annotateImage(image, pcl::Indices(1, index), color);
-            }
-        }
-    }
-    else
-    {
-        // Handle the case when there are not enough points for convex hull
-        std::cerr << "Not enough points for convex hull." << std::endl;
-    }
-}
+//     // Create a binary mask
+//     cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
+
+//     std::vector<cv::Point> points; // Vector to store points for convex hull
+
+//     for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
+//     {
+//         double x = cloud->points[nIndex].x;
+//         double y = cloud->points[nIndex].y;
+
+//         cv::Point2d p = worldToCanvas(x, y);
+
+//         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
+//         {
+//             // Update the canvas with the color
+//             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+
+//             // Set corresponding pixel in the mask to 255 (white)
+//             mask.at<uchar>(p) = 255;
+
+//             // Store the point for convex hull
+//             points.push_back(p);
+//         }
+//     }
+
+//     // Check if there are enough points to compute convex hull
+//     if (points.size() >= 3)
+//     {
+//         // Find convex hull of the points
+//         std::vector<cv::Point> hull;
+//         cv::convexHull(points, hull);
+
+//         // Fill the convex hull with fixed opacity
+//         cv::fillPoly(canvas, std::vector<std::vector<cv::Point>>{hull}, cv::Scalar(color[0], color[1], color[2], fixedOpacity * 255));
+
+//         // Map the convex hull points to world coordinates and place in annotated image
+//         for (const auto &point : hull)
+//         {
+//             geo::Vec2d worldPoint = canvasToWorld(point);
+
+//             int row = static_cast<int>(worldPoint.y);
+//             int col = static_cast<int>(worldPoint.x);
+
+//             // Check if the point is within the bounds of the annotated image
+//             if (row >= 0 && col >= 0 && row < imageHeight && col < imageWidth)
+//             {
+//                 int index = row * imageWidth + col;
+//                 annotateImage(image, pcl::Indices(1, index), color,mask);
+//             }
+//         }
+//     }
+//     else
+//     {
+//         // Handle the case when there are not enough points for convex hull
+//         std::cerr << "Not enough points for convex hull." << std::endl;
+//     }
+// }
+//         // Map the convex hull points to world coordinates and place in annotated image
+//         for (const auto &point : hull)
+//         {
+//             geo::Vec2d worldPoint = canvasToWorld(point);
+
+//             int row = static_cast<int>(worldPoint.y);
+//             int col = static_cast<int>(worldPoint.x);
+
+//             // Check if the point is within the bounds of the annotated image
+//             if (row >= 0 && col >= 0 && row < imageHeight && col < imageWidth)
+//             {
+//                 int index = row * imageWidth + col;
+//                 annotateImage(image, pcl::Indices(1, index), color,mask);
+//             }
+//         }
+//     }
+//     else
+//     {
+//         // Handle the case when there are not enough points for convex hull
+//         std::cerr << "Not enough points for convex hull." << std::endl;
+//     }
+// }
 
 
 // void PlaceAreaFinder::mapCanvasToWorldAndVisualize(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
@@ -711,9 +777,7 @@ void PlaceAreaFinder::mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image
 
 
 // donal changes----------------------------------------------------------------------------------------------------------------------------------
-
 void PlaceAreaFinder::createCostmap(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color)
-
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
@@ -766,9 +830,25 @@ void PlaceAreaFinder::dilateCostmap(cv::Mat &canvas, cv::Mat &dilated_canvas, fl
     cv::dilate(canvas, dilated_canvas, element);
 }
 
-void PlaceAreaFinder::annotateImage(const rgbd::Image &image, const pcl::Indices index, cv::Scalar color)
+// void PlaceAreaFinder::annotateImage(const rgbd::Image &image, const pcl::Indices index, cv::Scalar color)
+// {
+//     int width = image.getDepthImage().cols;
+
+//     for (uint i = 0; i < index.size(); i++)
+//     {
+//         int col = index[i] % width;
+//         int row = index[i] / width;
+
+//         cv::Point2d p = cv::Point2d(col, row);
+//         if (p.x >= 0 && p.y >= 0 && p.x < annotated_image.cols && p.y < annotated_image.rows)
+//             annotated_image.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+//     }
+// }
+void PlaceAreaFinder::annotateImage(const rgbd::Image &image, const pcl::Indices index, cv::Scalar color, const cv::Mat &mask)
 {
     int width = image.getDepthImage().cols;
+
+    cv::Mat seg_mask = mask;
 
     for (uint i = 0; i < index.size(); i++)
     {
@@ -776,7 +856,11 @@ void PlaceAreaFinder::annotateImage(const rgbd::Image &image, const pcl::Indices
         int row = index[i] / width;
 
         cv::Point2d p = cv::Point2d(col, row);
-        if (p.x >= 0 && p.y >= 0 && p.x < annotated_image.cols && p.y < annotated_image.rows)
+
+        // Check if the point is within the segmentation mask
+        if (p.x >= 0 && p.y >= 0 && p.x < annotated_image.cols && p.y < annotated_image.rows && seg_mask.at<uchar>(p.x,p.y) > 0)
+        {
             annotated_image.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
+        }
     }
 }
