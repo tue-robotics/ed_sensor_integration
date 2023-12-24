@@ -67,6 +67,40 @@ double imageToCloud(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>:
         for (uint j = 0; j < cloud->width; ++j)
         {
             cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i, j);
+            double d = image.getDepthImage().at<float>(i, j);
+
+            cloud->at(j, i).x = (-half_width + j) * d / fx;
+            cloud->at(j, i).y = (-half_height + i) * d / fy;
+            cloud->at(j, i).z = d;
+            cloud->at(j, i).r = bgr[2];
+            cloud->at(j, i).g = bgr[1];
+            cloud->at(j, i).b = bgr[0];
+            
+        }
+    }
+
+    return image.getCameraModel().fx();
+}
+
+double imageToMaskFilteredCloud(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+{
+    // Fill in the cloud data
+    cloud->width = image.getDepthImage().cols;
+    cloud->height = image.getDepthImage().rows;
+    cloud->is_dense = false;
+    cloud->resize(cloud->width * cloud->height);
+
+    double fx = image.getCameraModel().fx();
+    double fy = image.getCameraModel().fy();
+
+    double half_height = 0.5 * cloud->height;
+    double half_width = 0.5 * cloud->width;
+
+    for (uint i = 0; i < cloud->height; ++i)
+    {
+        for (uint j = 0; j < cloud->width; ++j)
+        {
+            cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i, j);
             if (bgr[0]==255 || bgr[1]==255 || bgr[2]==225)
             {
             double d = image.getDepthImage().at<float>(i, j);
@@ -362,6 +396,8 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // std::cout << "converting image to cloud" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     imageToCloud(*image, cloud);
+    // convert image to cloud and filter using cnn segmentation mask
+    //imageToMaskFilteredCloud(*image,cloud)
 
 
     // transform to base link frame
@@ -450,14 +486,18 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     createCostmap(not_table_cloud, occupied_color);
 
     // donal changes-----------------------------------------------------------------------------------------------------------------------------
-    cv::Scalar donal_colour(255, 255, 0);
-    cv::Scalar test_colour(255, 255, 255);
+    cv::Scalar cyan(255, 255, 0);
+    cv::Scalar white(255, 255, 255);
+    cv::Scalar yellow(0, 255, 255);
     // drawContour(plane_cloud, table_color);
 
-    drawContourAndTransformToWorld(plane_cloud,donal_colour,height);
+    drawContourAndTransformToWorld(plane_cloud,cyan,height);
 
+    //createCostmap(plane_cloud,white);
 
-    createCostmap(plane_cloud,test_colour);
+    extractMaskPoints(plane_cloud);
+
+    createCostmap(plane_cloud,yellow);
     
 
     // mapCanvasToWorldAndPlaceInAnnotatedImage(*image,plane_cloud, donal_colour);
@@ -580,7 +620,23 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
     }
 }
 
+void PlaceAreaFinder::extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr inputCloud) {
+    pcl::PointIndices::Ptr FilteredByMaskIndices(new pcl::PointIndices);
 
+    for (size_t i = 0; i < inputCloud->points.size(); ++i) {
+        // Check for mask color (this case mask is blue)
+        uint8_t b = inputCloud->points[i].b;
+        if (b == 255) {
+            FilteredByMaskIndices->indices.push_back(static_cast<int>(i));
+        }
+    }
+
+    pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+    extract.setInputCloud(inputCloud);
+    extract.setIndices(FilteredByMaskIndices);
+    extract.setNegative(true); // Keep points not in the indices list
+    extract.filter(*inputCloud);
+}
 
 
 

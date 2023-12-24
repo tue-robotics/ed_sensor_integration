@@ -99,6 +99,7 @@ private:
     void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
     void drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color,float height);
     rgbd::ImageConstPtr createModifiedImage(const rgbd::ImageConstPtr& originalImagePtr, const cv::Mat& newRGBValues);
+    void extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr inputCloud);
     //--------------------------------------------------------------------------------------------------------------------------------------
 
     /**
