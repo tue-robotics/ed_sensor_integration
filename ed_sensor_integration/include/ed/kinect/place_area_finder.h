@@ -95,11 +95,10 @@ private:
     geo::Vec2d canvasToWorld(cv::Point2d point);
 
     //--------------------------------------------------------------------------------------------------------------------------------------
-    void drawfilledContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
+    cv::Point2d canvasToWorld2(double u, double v);
     void drawContour(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
-    //void mapCanvasToWorldAndVisualize(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
-    // void mapCanvasToWorldAndPlaceInAnnotatedImage(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color);
-
+    void drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color,float height);
+    rgbd::ImageConstPtr createModifiedImage(const rgbd::ImageConstPtr& originalImagePtr, const cv::Mat& newRGBValues);
     //--------------------------------------------------------------------------------------------------------------------------------------
 
     /**
@@ -134,7 +133,7 @@ private:
      * @param indeces 
      * @param color
      */
-    void annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color,const cv::Mat &mask);
+    void annotateImage(const rgbd::Image& image, const pcl::Indices index, cv::Scalar color);
 
 };
 

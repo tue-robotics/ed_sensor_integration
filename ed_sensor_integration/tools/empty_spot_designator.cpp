@@ -157,6 +157,40 @@ void usage()
               << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl;
 }
 
+void drawMaskContour(cv::Mat& image, const cv::Mat& mask)
+{
+    // Convert the mask to grayscale if it's not already
+    cv::Mat grayMask;
+    if (mask.channels() > 1)
+    {
+        cv::cvtColor(mask, grayMask, cv::COLOR_BGR2GRAY);
+    }
+    else
+    {
+        grayMask = mask.clone(); // If it's already single-channel, create a copy
+    }
+
+    // Find contours in the binary mask
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(grayMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    // Draw the contours on the image in white
+    cv::Scalar contourColor(255, 255, 255); // White color
+    cv::drawContours(image, contours, -1, contourColor, 2); // -1 means draw all contours, 2 is the thickness
+}
+
+rgbd::ImageConstPtr createModifiedImage(const rgbd::ImageConstPtr& originalImagePtr, const cv::Mat& newRGBValues) {
+    // Create a copy of the original image
+    rgbd::Image modifiedImage = originalImagePtr->clone();
+
+    // Set the new RGB values
+    modifiedImage.setRGBImage(newRGBValues);
+
+    // Create a shared pointer to the modified image
+    rgbd::ImageConstPtr modifiedImagePtr = std::make_shared<const rgbd::Image>(modifiedImage);
+
+    return modifiedImagePtr;
+}
 
 /**
  * @brief main executable to visualise the empty spot finder of live images.
@@ -195,31 +229,53 @@ int main (int argc, char **argv)
         geo::Pose3D sensor_pose;
         geo::Pose3D place_pose;
 
-        int mask_type = mask.type();
-        std::cout << "mask type is " << mask_type << std::endl;
+
 
         if (!image_buffer.waitForRecentImage(image, sensor_pose, 2.0))
         {
             std::cerr << "No image received, will try again." << std::endl;
             continue;
         }
-        
-        if(mutex.try_lock()){
 
-            if (!place_area_finder.findArea(image, sensor_pose, place_pose,mask))
-            {
-                std::cout << "no place area found" << std::endl;
+        std::cout << "Trying to replace RGB with mask" << std::endl;
+        if(!mask.empty())
+        {
+            if(mutex.try_lock()){
+                rgbd::ImageConstPtr new_image_ptr = createModifiedImage(image, mask.clone());
+                cv::Mat rgbcanvas = new_image_ptr->getRGBImage();
+                cv::imshow("RGB remapped to mask", rgbcanvas);
+                mutex.unlock();
             }
-            mutex.unlock();
+            // createModifiedImage()
+            // rgbd::Image new_image = *image;
+            // if(mutex.try_lock()){
+            //     new_image.setRGBImage(mask);
+            //     mutex.unlock();
+            // }
+            
+            
+            // rgbd::ImageConstPtr new_image_ptr(&new_image);
+            // std::cout << "Replaced RGB with mask!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+        
+            // if(mutex.try_lock()){
+            //     if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask))
+            //     {
+            //     std::cout << "no place area found" << std::endl;
+            //     }
+            //     mutex.unlock();
+            // }
+            
         }
+            
+        
         std::cout << place_pose << std::endl;
 
         cv::Mat canvas;
         cv::Mat dilated_canvas;
         cv::Mat placement_canvas;
-        place_area_finder.getCanvas(canvas);
-        place_area_finder.getDilatedCanvas(dilated_canvas);
-        place_area_finder.getPlacementCanvas(placement_canvas);
+        // place_area_finder.getCanvas(canvas);
+        // place_area_finder.getDilatedCanvas(dilated_canvas);
+        // place_area_finder.getPlacementCanvas(placement_canvas);
         /*
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         geo::Pose3D sensor_pose_canvas = sensor_pose;
@@ -229,14 +285,18 @@ int main (int argc, char **argv)
         // Show the different canvasses
         
         // std::cout << "showing costmap" << std::endl;
+        if(!canvas.empty()){
         cv::imshow("Costmap topview", canvas);
+        }
                 
         // std::cout << "showing dilated costmap" << std::endl;
+        if(!dilated_canvas.empty()){
         cv::imshow("Dilated costmap topview", dilated_canvas);
-
+        }
         // std::cout << "showing placement costmap" << std::endl;
+        if(!placement_canvas.empty()){
         cv::imshow("Placement options costmap topview", placement_canvas);
-
+        }
         if (mutex.try_lock()){
 
             if (!mask.empty()) {
@@ -244,15 +304,18 @@ int main (int argc, char **argv)
             }
             mutex.unlock();
         }
-        if (!mask.empty())
-        {
-            cv::Mat annotated_image;
-            place_area_finder.getAnnotatedImage(annotated_image);
-            cv::imshow("Annotated_image", annotated_image);
-        }
+        // if (!mask.empty())
+        // {
+        //     cv::Mat annotated_image;
+        //     cv::Mat annotated_image_with_mask;
+        //     place_area_finder.getAnnotatedImage(annotated_image);
+        //     annotated_image_with_mask = annotated_image.clone();
+        //     drawMaskContour(annotated_image_with_mask, mask);
+        //     cv::imshow("Annotated_image", annotated_image_with_mask);
+        // }
         // Show RGB snapshot
-        cv::Mat rgbcanvas = image->getRGBImage();
-        cv::imshow("RGB", rgbcanvas);
+        // cv::Mat rgbcanvas = image->getRGBImage();
+        // cv::imshow("RGB", rgbcanvas);
 
         char key = cv::waitKey(30);
 
