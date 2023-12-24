@@ -230,7 +230,6 @@ int main (int argc, char **argv)
         geo::Pose3D place_pose;
 
 
-
         if (!image_buffer.waitForRecentImage(image, sensor_pose, 2.0))
         {
             std::cerr << "No image received, will try again." << std::endl;
@@ -244,26 +243,14 @@ int main (int argc, char **argv)
                 rgbd::ImageConstPtr new_image_ptr = createModifiedImage(image, mask.clone());
                 cv::Mat rgbcanvas = new_image_ptr->getRGBImage();
                 cv::imshow("RGB remapped to mask", rgbcanvas);
+                std::cout << "Replaced RGB with mask!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+
+                if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask))
+                {
+                    std::cout << "no place area found" << std::endl;
+                }
                 mutex.unlock();
             }
-            // createModifiedImage()
-            // rgbd::Image new_image = *image;
-            // if(mutex.try_lock()){
-            //     new_image.setRGBImage(mask);
-            //     mutex.unlock();
-            // }
-            
-            
-            // rgbd::ImageConstPtr new_image_ptr(&new_image);
-            // std::cout << "Replaced RGB with mask!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        
-            // if(mutex.try_lock()){
-            //     if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask))
-            //     {
-            //     std::cout << "no place area found" << std::endl;
-            //     }
-            //     mutex.unlock();
-            // }
             
         }
             
@@ -273,9 +260,9 @@ int main (int argc, char **argv)
         cv::Mat canvas;
         cv::Mat dilated_canvas;
         cv::Mat placement_canvas;
-        // place_area_finder.getCanvas(canvas);
-        // place_area_finder.getDilatedCanvas(dilated_canvas);
-        // place_area_finder.getPlacementCanvas(placement_canvas);
+        place_area_finder.getCanvas(canvas);
+        place_area_finder.getDilatedCanvas(dilated_canvas);
+        place_area_finder.getPlacementCanvas(placement_canvas);
         /*
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         geo::Pose3D sensor_pose_canvas = sensor_pose;
@@ -304,18 +291,18 @@ int main (int argc, char **argv)
             }
             mutex.unlock();
         }
-        // if (!mask.empty())
-        // {
-        //     cv::Mat annotated_image;
-        //     cv::Mat annotated_image_with_mask;
-        //     place_area_finder.getAnnotatedImage(annotated_image);
-        //     annotated_image_with_mask = annotated_image.clone();
-        //     drawMaskContour(annotated_image_with_mask, mask);
-        //     cv::imshow("Annotated_image", annotated_image_with_mask);
-        // }
+        if (!mask.empty())
+        {
+            cv::Mat annotated_image;
+            cv::Mat annotated_image_with_mask;
+            place_area_finder.getAnnotatedImage(annotated_image);
+            annotated_image_with_mask = annotated_image.clone();
+            drawMaskContour(annotated_image_with_mask, mask);
+            cv::imshow("Annotated_image", annotated_image_with_mask);
+        }
         // Show RGB snapshot
-        // cv::Mat rgbcanvas = image->getRGBImage();
-        // cv::imshow("RGB", rgbcanvas);
+        cv::Mat rgbcanvas = image->getRGBImage();
+        cv::imshow("Original RGB", rgbcanvas);
 
         char key = cv::waitKey(30);
 

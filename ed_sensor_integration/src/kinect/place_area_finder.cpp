@@ -67,7 +67,7 @@ double imageToCloud(const rgbd::Image &image, pcl::PointCloud<pcl::PointXYZRGB>:
         for (uint j = 0; j < cloud->width; ++j)
         {
             cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i, j);
-            if (bgr[0]==255)
+            if (bgr[0]==255 || bgr[1]==255 || bgr[2]==225)
             {
             double d = image.getDepthImage().at<float>(i, j);
 
@@ -386,7 +386,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr planeless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::Indices planeless_index;
     pcl::ModelCoefficients::Ptr plane_coefficients(new pcl::ModelCoefficients());
-    if (!SegmentPlane(cloud, plane_coefficients, plane_cloud, plane_index, planeless_cloud, planeless_index))
+    if (!SegmentPlane(floorless_cloud, plane_coefficients, plane_cloud, plane_index, planeless_cloud, planeless_index))
     {
         std::cout << "Could not find plane" << std::endl;
         return false;
@@ -561,17 +561,17 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
             pclPoint.z = height;
 
             // Set the RGB color for visualization
-            pclPoint.r = color[2];
-            pclPoint.g = color[1];
-            pclPoint.b = color[0];
+            pclPoint.r = 0;
+            pclPoint.g = 225;
+            pclPoint.b = 0;
 
             worldPoints.push_back(pclPoint);
         }
 
         // Draw the convex hull on the canvas
-        std::vector<std::vector<cv::Point>> contours = { hull };
-        cv::drawContours(canvas, contours, -1, color, cv::FILLED); // Use CV_FILLED to fill the contour
-        cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);
+        // std::vector<std::vector<cv::Point>> contours = { hull };
+        // cv::drawContours(canvas, contours, -1, color, cv::FILLED); // Use CV_FILLED to fill the contour
+        // cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);
     }
     else
     {
