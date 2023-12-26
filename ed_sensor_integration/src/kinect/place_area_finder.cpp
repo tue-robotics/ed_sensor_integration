@@ -390,7 +390,7 @@ PlaceAreaFinder::~PlaceAreaFinder()
 {
 }
 
-bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sensor_pose, geo::Pose3D &place_pose,const cv::Mat &mask)
+bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sensor_pose, geo::Pose3D &place_pose,const cv::Mat &mask,bool donal)
 {
     bool visualize = true;
     // std::cout << "converting image to cloud" << std::endl;
@@ -412,8 +412,6 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // Filter out floor
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr floorless_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     removeFloor(cloud, floorless_cloud, floorless_index);
-
-    
 
     // Segment the table plane and return a cloud with the plane and a cloud where the plane is removed
     std::cout << "SegmentPlane" << std::endl;
@@ -465,7 +463,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     float length = object_diameter + error_margin;
     float placement_margin = 2 * 0.02 + length;
 
-    if (visualize && !mask.empty())
+    if ((visualize && !mask.empty())| !donal)
     {
         std::cout << "annotating image" << std::endl;
         annotated_image = image->getRGBImage().clone();
@@ -486,22 +484,14 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     createCostmap(not_table_cloud, occupied_color);
 
     // donal changes-----------------------------------------------------------------------------------------------------------------------------
+    if (donal){
     cv::Scalar cyan(255, 255, 0);
     cv::Scalar white(255, 255, 255);
     cv::Scalar yellow(0, 255, 255);
-    // drawContour(plane_cloud, table_color);
-
     drawContourAndTransformToWorld(plane_cloud,cyan,height);
-
-    //createCostmap(plane_cloud,white);
-
     extractMaskPoints(plane_cloud);
-
     createCostmap(plane_cloud,yellow);
-    
-
-    // mapCanvasToWorldAndPlaceInAnnotatedImage(*image,plane_cloud, donal_colour);
-    // drawfilledContour(plane_cloud,table_color);
+    }
     // donal changes--------------------------------------------------------------------------------------------------------------------------
 
     // HERO preferred radius
@@ -536,7 +526,6 @@ cv::Point2d PlaceAreaFinder::worldToCanvas(double x, double y)
 
 cv::Point2d PlaceAreaFinder::canvasToWorld2(double u, double v)
 {
-    // Assuming canvas_center is defined in your class
     double x = -(v - canvas_center.y) * resolution;
     double y = -(u - canvas_center.x) * resolution;
 
@@ -557,7 +546,7 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
     // Create a binary mask
     cv::Mat mask = cv::Mat::zeros(canvas.rows, canvas.cols, CV_8UC1);
 
-    std::vector<cv::Point> points; // Vector to store points for convex hull
+    std::vector<cv::Point> points;
 
     for (uint nIndex = 0; nIndex < cloud->points.size(); nIndex++)
     {
@@ -568,13 +557,8 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
 
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
         {
-            // Update the canvas with the color
             canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
-
-            // Set corresponding pixel in the mask to 255 (white)
             mask.at<uchar>(p) = 255;
-
-            // Store the point for convex hull
             points.push_back(p);
         }
     }
@@ -585,8 +569,6 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
         // Find convex hull of the points
         std::vector<cv::Point> hull;
         cv::convexHull(points, hull);
-
-        // Fill the convex hull on the canvas
         cv::fillConvexPoly(mask, hull, cv::Scalar(255, 255, 255));
 
         // Transform the hull points to the world frame
@@ -609,13 +591,12 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
         }
 
         // Draw the convex hull on the canvas
-        // std::vector<std::vector<cv::Point>> contours = { hull };
-        // cv::drawContours(canvas, contours, -1, color, cv::FILLED); // Use CV_FILLED to fill the contour
-        // cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);
+        std::vector<std::vector<cv::Point>> contours = { hull };
+        cv::drawContours(canvas, contours, -1, color, cv::FILLED); // Use CV_FILLED to fill the contour
+        cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);// Draws white border contour
     }
     else
     {
-        // Handle the case when there are not enough points for convex hull
         std::cerr << "Not enough points for convex hull." << std::endl;
     }
 }
@@ -637,8 +618,6 @@ void PlaceAreaFinder::extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr i
     extract.setNegative(true); // Keep points not in the indices list
     extract.filter(*inputCloud);
 }
-
-
 
 
 // donal changes----------------------------------------------------------------------------------------------------------------------------------

@@ -290,6 +290,7 @@ bool KinectPlugin::srvPlaceArea(__attribute__((unused)) ed_sensor_integration_ms
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Get new image
     cv::Mat mask;
+    bool donal = true;
     rgbd::ImageConstPtr image;
     geo::Pose3D sensor_pose; // in base link frame
 
@@ -301,7 +302,7 @@ bool KinectPlugin::srvPlaceArea(__attribute__((unused)) ed_sensor_integration_ms
 
     // Determine place area
     geo::Pose3D place_pose; // w.r.t base link
-    if (!place_area_finder_.findArea(image, sensor_pose, place_pose,mask))
+    if (!place_area_finder_.findArea(image, sensor_pose, place_pose,mask,donal))
     {
         res.error_msg = "No valid place area found";
         return true;

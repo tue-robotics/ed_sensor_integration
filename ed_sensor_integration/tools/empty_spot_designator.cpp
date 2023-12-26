@@ -153,8 +153,9 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
  */
 void usage()
 {
-    std::cout << "Usage: ed_empty_spot_designator RGBD_TOPIC" << std::endl
-              << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl;
+    std::cout << "Usage: ed_empty_spot_designator RGBD_TOPIC BOOL" << std::endl
+              << "RGBD_TOPIC topic on which the rgbd image is published, example /hero/head_rgbd_sensor/rgbd" << std::endl
+              << "Set second argument to donal or max to run that version of the code" << std::endl;
 }
 
 void drawMaskContour(cv::Mat& image, const cv::Mat& mask)
@@ -180,13 +181,8 @@ void drawMaskContour(cv::Mat& image, const cv::Mat& mask)
 }
 
 rgbd::ImageConstPtr createModifiedImage(const rgbd::ImageConstPtr& originalImagePtr, const cv::Mat& newRGBValues) {
-    // Create a copy of the original image
     rgbd::Image modifiedImage = originalImagePtr->clone();
-
-    // Set the new RGB values
     modifiedImage.setRGBImage(newRGBValues);
-
-    // Create a shared pointer to the modified image
     rgbd::ImageConstPtr modifiedImagePtr = std::make_shared<const rgbd::Image>(modifiedImage);
 
     return modifiedImagePtr;
@@ -199,7 +195,7 @@ rgbd::ImageConstPtr createModifiedImage(const rgbd::ImageConstPtr& originalImage
  */
 int main (int argc, char **argv)
 {
-    if (argc != 2)
+    if (argc != 3)
     {
         usage();
         return 0;
@@ -209,6 +205,15 @@ int main (int argc, char **argv)
 
     std::string topic = argv[1];
     std::cout << "Using topic: " << topic << std::endl;
+
+    std::string arg = argv[2];
+    bool donal = (arg == "donal");
+    if (donal){
+        std::cout <<"Running Donal's version!"<<std::endl;
+    }
+    else{
+        std::cout<<"Running Max's version!"<<std::endl;
+    }
 
     rgbd::ImageBuffer image_buffer;
     image_buffer.initialize(topic, "base_link");
@@ -237,7 +242,7 @@ int main (int argc, char **argv)
         }
 
         std::cout << "Trying to replace RGB with mask" << std::endl;
-        if(!mask.empty())
+        if(!mask.empty() && donal)
         {
             if(mutex.try_lock()){
                 rgbd::ImageConstPtr new_image_ptr = createModifiedImage(image, mask.clone());
@@ -245,13 +250,19 @@ int main (int argc, char **argv)
                 cv::imshow("RGB remapped to mask", rgbcanvas);
                 std::cout << "Replaced RGB with mask!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
 
-                if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask))
+                if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask,donal))
                 {
                     std::cout << "no place area found" << std::endl;
                 }
                 mutex.unlock();
             }
             
+        }
+        else{
+            if (!place_area_finder.findArea(image, sensor_pose, place_pose,mask,donal))
+                {
+                    std::cout << "no place area found" << std::endl;
+                }
         }
             
         
