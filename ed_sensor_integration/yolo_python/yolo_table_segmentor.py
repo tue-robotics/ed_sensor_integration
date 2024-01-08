@@ -27,9 +27,10 @@ class table_segmentor:
 
     def extract_table_segment(self, image, class_ids, segmentations):
         table_mask = np.zeros_like(image, dtype=np.uint8)
+        purple_colour = (255, 0, 255)
         for class_id, seg in zip(class_ids, segmentations):
             if class_id == self.table_class:
-                cv2.fillPoly(table_mask, [seg], 255)
+                cv2.fillPoly(table_mask, [seg], purple_colour)
         return table_mask
 
     def callback(self, data):

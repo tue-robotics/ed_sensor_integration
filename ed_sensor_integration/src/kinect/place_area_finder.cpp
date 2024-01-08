@@ -21,6 +21,7 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 #include <pcl/features/normal_3d.h>
 
@@ -101,7 +102,7 @@ double imageToMaskFilteredCloud(const rgbd::Image &image, pcl::PointCloud<pcl::P
         for (uint j = 0; j < cloud->width; ++j)
         {
             cv::Vec3b bgr = image.getRGBImage().at<cv::Vec3b>(i, j);
-            if (bgr[0]==255 || bgr[1]==255 || bgr[2]==225)
+            if (bgr[0]==255 && bgr[2]==225)
             {
             double d = image.getDepthImage().at<float>(i, j);
 
@@ -381,7 +382,6 @@ pcl::Indices multiplyIndex(pcl::Indices indexBA, pcl::Indices indexCB)
 }
 
 
-
 PlaceAreaFinder::PlaceAreaFinder()
 {
 }
@@ -396,9 +396,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // std::cout << "converting image to cloud" << std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     imageToCloud(*image, cloud);
+    
     // convert image to cloud and filter using cnn segmentation mask
-    //imageToMaskFilteredCloud(*image,cloud)
-
+    // if(donal){
+    // imageToMaskFilteredCloud(*image,cloud);
+    // }
 
     // transform to base link frame
     Eigen::Matrix4f transform = geolibToEigen(sensor_pose);
@@ -458,7 +460,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     cv::Scalar point_color(255, 0, 0);
 
     // Object placement margins #TODO hardcoded parameters
-    float object_diameter = 0.10;
+    float object_diameter = 0.10;// removeOutliers(plane_cloud,filtered_plane_cloud);
     float error_margin = 0.02;
     float length = object_diameter + error_margin;
     float placement_margin = 2 * 0.02 + length;
@@ -488,9 +490,12 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     cv::Scalar cyan(255, 255, 0);
     cv::Scalar white(255, 255, 255);
     cv::Scalar yellow(0, 255, 255);
-    drawContourAndTransformToWorld(plane_cloud,cyan,height);
+    cv::Scalar purple(255, 0, 255);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr filtered_plane_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr convex_hull_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     extractMaskPoints(plane_cloud);
     createCostmap(plane_cloud,yellow);
+    CreateAndVisConvexHull(plane_cloud,height,convex_hull_cloud);
     }
     // donal changes--------------------------------------------------------------------------------------------------------------------------
 
@@ -539,7 +544,7 @@ geo::Vec2d PlaceAreaFinder::canvasToWorld(cv::Point2d point)
     return geo::Vec2d(x, y);
 }
 // donal changes-------------------------------------------------------------------------------------------------------------------
-void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color,float height)
+void PlaceAreaFinder::CreateAndVisConvexHull(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,float height,pcl::PointCloud<pcl::PointXYZRGB>::Ptr& world_points)
 {
     canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
 
@@ -557,7 +562,6 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
 
         if (p.x >= 0 && p.y >= 0 && p.x < canvas.cols && p.y < canvas.rows)
         {
-            canvas.at<cv::Vec3b>(p) = cv::Vec3b(color[0], color[1], color[2]);
             mask.at<uchar>(p) = 255;
             points.push_back(p);
         }
@@ -572,7 +576,6 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
         cv::fillConvexPoly(mask, hull, cv::Scalar(255, 255, 255));
 
         // Transform the hull points to the world frame
-        std::vector<pcl::PointXYZRGB> worldPoints;
         for (const auto& point : hull)
         {
             cv::Point2d worldPoint = canvasToWorld2(point.x, point.y);
@@ -584,15 +587,15 @@ void PlaceAreaFinder::drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointX
 
             // Set the RGB color for visualization
             pclPoint.r = 0;
-            pclPoint.g = 225;
-            pclPoint.b = 0;
+            pclPoint.g = 0;
+            pclPoint.b = 255;
 
-            worldPoints.push_back(pclPoint);
+            world_points->push_back(pclPoint);
         }
 
         // Draw the convex hull on the canvas
         std::vector<std::vector<cv::Point>> contours = { hull };
-        cv::drawContours(canvas, contours, -1, color, cv::FILLED); // Use CV_FILLED to fill the contour
+        cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 0), cv::FILLED); // Use CV_FILLED to fill the contour
         cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);// Draws white border contour
     }
     else
@@ -607,7 +610,8 @@ void PlaceAreaFinder::extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr i
     for (size_t i = 0; i < inputCloud->points.size(); ++i) {
         // Check for mask color (this case mask is blue)
         uint8_t b = inputCloud->points[i].b;
-        if (b == 255) {
+        uint8_t r = inputCloud->points[i].r;
+        if (b == 255 && r == 255) {
             FilteredByMaskIndices->indices.push_back(static_cast<int>(i));
         }
     }
@@ -615,7 +619,7 @@ void PlaceAreaFinder::extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr i
     pcl::ExtractIndices<pcl::PointXYZRGB> extract;
     extract.setInputCloud(inputCloud);
     extract.setIndices(FilteredByMaskIndices);
-    extract.setNegative(true); // Keep points not in the indices list
+    extract.setNegative(false); // Keep points not in the indices list
     extract.filter(*inputCloud);
 }
 

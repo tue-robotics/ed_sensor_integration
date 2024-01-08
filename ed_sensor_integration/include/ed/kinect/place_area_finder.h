@@ -98,7 +98,7 @@ private:
 
     //--------------------------------------------------------------------------------------------------------------------------------------
     cv::Point2d canvasToWorld2(double u, double v);
-    void drawContourAndTransformToWorld(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, cv::Scalar color,float height);
+    void CreateAndVisConvexHull(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,float height,pcl::PointCloud<pcl::PointXYZRGB>::Ptr& world_points);
     void extractMaskPoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr inputCloud);
     //--------------------------------------------------------------------------------------------------------------------------------------
 
