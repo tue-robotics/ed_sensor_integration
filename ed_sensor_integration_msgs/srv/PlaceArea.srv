@@ -1,0 +1,4 @@
+# request info
+---
+string error_msg  # empty if no error
+geometry_msgs/PoseStamped pose  # pose of a possible place location

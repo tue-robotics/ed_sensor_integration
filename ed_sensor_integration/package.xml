@@ -18,6 +18,8 @@
   <depend>ed_sensor_integration_msgs</depend>
   <depend>geolib2</depend>
   <depend>image_geometry</depend>
+  <depend>pcl_ros</depend>
+  <depend>tf2_ros</depend>
   <depend>libopencv-dev</depend>
   <depend>libpcl-common</depend>
   <depend>libpcl-kdtree</depend>
@@ -26,6 +28,9 @@
   <depend>roscpp</depend>
   <depend>tue_config</depend>
   <depend>visualization_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+
 
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
