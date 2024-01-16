@@ -247,7 +247,7 @@ int main (int argc, char **argv)
             if(mutex.try_lock()){
                 rgbd::ImageConstPtr new_image_ptr = createModifiedImage(image, mask.clone());
                 cv::Mat rgbcanvas = new_image_ptr->getRGBImage();
-                cv::imshow("RGB remapped to mask", rgbcanvas);
+                // cv::imshow("RGB remapped to mask", rgbcanvas);
                 std::cout << "Replaced RGB with mask!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
 
                 if (!place_area_finder.findArea(new_image_ptr, sensor_pose, place_pose,mask,donal))
@@ -272,8 +272,8 @@ int main (int argc, char **argv)
         cv::Mat dilated_canvas;
         cv::Mat placement_canvas;
         place_area_finder.getCanvas(canvas);
-        place_area_finder.getDilatedCanvas(dilated_canvas);
-        place_area_finder.getPlacementCanvas(placement_canvas);
+        // place_area_finder.getDilatedCanvas(dilated_canvas);
+        // place_area_finder.getPlacementCanvas(placement_canvas);
         /*
         canvas_center = cv::Point2d(canvas.rows / 2, canvas.cols);
         geo::Pose3D sensor_pose_canvas = sensor_pose;
@@ -295,13 +295,13 @@ int main (int argc, char **argv)
         if(!placement_canvas.empty()){
         cv::imshow("Placement options costmap topview", placement_canvas);
         }
-        if (mutex.try_lock()){
+        // if (mutex.try_lock()){
 
-            if (!mask.empty()) {
-            cv::imshow("Mask", mask);
-            }
-            mutex.unlock();
-        }
+        //     if (!mask.empty()) {
+        //     cv::imshow("Mask", mask);
+        //     }
+        //     mutex.unlock();
+        // }
         if (!mask.empty())
         {
             cv::Mat annotated_image;
@@ -314,6 +314,8 @@ int main (int argc, char **argv)
         // Show RGB snapshot
         cv::Mat rgbcanvas = image->getRGBImage();
         cv::imshow("Original RGB", rgbcanvas);
+        drawMaskContour(rgbcanvas, mask);
+        cv::imshow("Original RGB with Table Mask", rgbcanvas);
 
         char key = cv::waitKey(30);
 

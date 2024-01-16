@@ -469,12 +469,12 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     {
         std::cout << "annotating image" << std::endl;
         annotated_image = image->getRGBImage().clone();
-        pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
-        annotateImage(*image, plane_cloud_index, table_color);
-        pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
-        annotateImage(*image, object_cloud_index, occupied_color);
-        pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
-        annotateImage(*image, below_table_cloud_index, occluded_color);
+        // pcl::Indices plane_cloud_index = multiplyIndex(floorless_index, plane_index);
+        // annotateImage(*image, plane_cloud_index, table_color);
+        // pcl::Indices object_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, object_index));
+        // annotateImage(*image, object_cloud_index, occupied_color);
+        // pcl::Indices below_table_cloud_index = multiplyIndex(floorless_index, multiplyIndex(planeless_index, below_index));
+        // annotateImage(*image, below_table_cloud_index, occluded_color);
     }
 
     std::cout << "creating costmap" << std::endl;
@@ -491,7 +491,6 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     cv::Scalar white(255, 255, 255);
     cv::Scalar yellow(0, 255, 255);
     cv::Scalar purple(255, 0, 255);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr filtered_plane_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr convex_hull_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     extractMaskPoints(plane_cloud);
     createCostmap(plane_cloud,yellow);
@@ -502,7 +501,7 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
     // HERO preferred radius
     createRadiusCostmap(canvas, radius_color, placement_margin);
 
-    // Dilate the costmap and create a new canvas
+    // // Dilate the costmap and create a new canvas
     dilateCostmap(canvas, dilated_canvas, placement_margin);
 
     ExtractPlacementOptions(dilated_canvas, placement_canvas, table_color);
@@ -515,11 +514,11 @@ bool PlaceAreaFinder::findArea(const rgbd::ImageConstPtr &image, geo::Pose3D sen
         return false;
     }
 
-    cv::circle(canvas, place_point_canvas, 3, placement_color, -1);
+    // // cv::circle(canvas, place_point_canvas, 3, placement_color, -1);
     geo::Vec2d place_point;
     place_point = canvasToWorld(place_point_canvas);
 
-    // fill result
+    // // fill result
     place_pose = geo::Pose3D(place_point.x, place_point.y, height + 0.02);
     return true;
 }
@@ -595,7 +594,7 @@ void PlaceAreaFinder::CreateAndVisConvexHull(pcl::PointCloud<pcl::PointXYZRGB>::
 
         // Draw the convex hull on the canvas
         std::vector<std::vector<cv::Point>> contours = { hull };
-        cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 0), cv::FILLED); // Use CV_FILLED to fill the contour
+        // cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 0), cv::FILLED); // Use CV_FILLED to fill the contour
         cv::drawContours(canvas, contours, -1, cv::Scalar(255, 255, 255), 2);// Draws white border contour
     }
     else
