@@ -423,20 +423,20 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         ed::EntityConstPtr e = *it;
 
         // Check if entity is in frustum
-        geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
-        cv::Point p_2d = cam_model.project3Dto2D(p_3d);
+        const geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t; // Only taking into account the pose, not the shape
+        const cv::Point p_2d = cam_model.project3Dto2D(p_3d);
         if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
-            continue;
+            continue; // Outside of frustum
 
         // If the entity is not updated, remove it
         if (res.update_req.updated_entities.find(e->id()) == res.update_req.updated_entities.end())
         {
-            ROS_INFO("Entity not associated and not found in frustum");
+            ROS_INFO("Entity not associated and not seen in the frustum, while seeable");
 
             float d = depth.at<float>(p_2d);
             if (d > 0 && d == d && -p_3d.z < d)
             {
-                ROS_INFO("We can shoot a ray through the center, removing entity %s", e->id().c_str());
+                ROS_INFO_STREAM("We can shoot a ray through the center(" << d << " > " << -p_3d.z << "), removing entity " << e->id());
                 res.update_req.removeEntity(e->id());
             }
         }
