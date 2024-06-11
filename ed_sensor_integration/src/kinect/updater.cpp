@@ -438,6 +438,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             {
                 ROS_INFO_STREAM("We can shoot a ray through the center(" << d << " > " << -p_3d.z << "), removing entity " << e->id());
                 res.update_req.removeEntity(e->id());
+                res.removed_entity_ids.push_back(e->id());
             }
         }
 
