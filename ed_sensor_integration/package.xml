@@ -27,6 +27,8 @@
   <depend>tue_config</depend>
   <depend>visualization_msgs</depend>
 
+  <build_depend>python3</build_depend>
+
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <build_depend>rosconsole_bridge</build_depend>
@@ -35,6 +37,8 @@
   <exec_depend>sensor_msgs</exec_depend>
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
+
+  <exec_depend>python3-pytorch-pip</exec_depend>
 
   <test_depend>catkin_lint_cmake</test_depend>
 
