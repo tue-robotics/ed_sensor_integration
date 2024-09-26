@@ -5,6 +5,7 @@
 #include <ed/types.h>
 
 #include "ed/kinect/updater.h"
+#include "ed/kinect/place_area_finder.h"
 
 #include <rgbd/image_buffer/image_buffer.h>
 
@@ -13,6 +14,7 @@
 #include <ed_sensor_integration_msgs/GetImage.h>
 #include <ed_sensor_integration_msgs/Update.h>
 #include <ed_sensor_integration_msgs/RayTrace.h>
+#include <ed_sensor_integration_msgs/PlaceArea.h>
 
 // Visualization
 #include <ros/publisher.h>
@@ -38,6 +40,7 @@ private:
     // Image retrieval
 
     rgbd::ImageBuffer image_buffer_;
+    rgbd::ImageBuffer image_buffer_bl_;
 
 //    rgbd::ImageConstPtr last_image_;
 
@@ -45,7 +48,7 @@ private:
 
 
     Updater updater_;
-
+    PlaceAreaFinder place_area_finder_;
 
     // Communication
 
@@ -73,7 +76,11 @@ private:
 
     ros::Publisher ray_trace_visualization_publisher_;
 
+    bool srvPlaceArea(ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res);
 
+    ros::ServiceServer srv_place_area_;
+    ros::Publisher place_area_publisher_;
+    ros::Publisher place_marker_publisher_;
 
 
 };
