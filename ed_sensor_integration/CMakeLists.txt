@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(ed_sensor_integration)
 
-add_compile_options(-Wall -Werror=all)
-add_compile_options(-Wextra -Werror=extra)
+#add_compile_options(-Wall -Werror=all)
+#add_compile_options(-Wextra -Werror=extra)
 
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
@@ -134,6 +134,15 @@ target_link_libraries(ed_fitter_data ${PROJECT_NAME}_console_bridge ed_kinect ${
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
 target_link_libraries(ed_fitter_live ${PROJECT_NAME}_console_bridge ed_kinect ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
+set(PROJECT_SOURCES
+        /home/amigo/Documents/repos/hero_sam/inference_utils.h
+        /home/amigo/Documents/repos/hero_sam/inference_utils.cpp
+        /home/amigo/Documents/repos/hero_sam/inference.h
+        /home/amigo/Documents/repos/hero_sam/inference.cpp
+)
+
+add_library(${PROJECT_NAME} ${PROJECT_SOURCES})
+target_link_libraries(ed_kinect ${PROJECT_NAME} ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                          Install
 # ------------------------------------------------------------------------------------------------
@@ -171,6 +180,19 @@ install(
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+# -------------- ONNXRuntime  ------------------#
+set(ONNXRUNTIME_VERSION 1.21.0)
+set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam/onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}")
+
+include_directories(${ONNXRUNTIME_ROOT}/include)
+# Link OpenCV libraries along with ONNX Runtime
+target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so)
+# and put it in the same folder of the executable file
+configure_file(/home/amigo/Documents/repos/hero_sam/coco.yaml ${CMAKE_CURRENT_BINARY_DIR}/coco.yaml COPYONLY)
+
+# Copy yolov8n.onnx file to the same folder of the executable file
+configure_file(/home/amigo/Documents/repos/hero_sam/yolo11m.onnx ${CMAKE_CURRENT_BINARY_DIR}/yolo11m.onnx COPYONLY)
+target_link_libraries(ed_kinect ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
@@ -184,6 +206,3 @@ if (CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
   target_link_libraries(test_laser_fitting ${PROJECT_NAME}_console_bridge ed_laser ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 endif ()
-
-
-

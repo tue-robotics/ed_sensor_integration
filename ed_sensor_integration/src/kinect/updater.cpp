@@ -11,7 +11,7 @@
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
-
+#include "/home/amigo/Documents/repos/hero_sam/inference_utils.h"
 #include "ed/convex_hull_calc.h"
 
 #include <opencv2/highgui/highgui.hpp>
@@ -212,6 +212,35 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // depth image
     const cv::Mat& depth = image->getDepthImage();
+    const cv::Mat& rgb = image->getRGBImage();
+    //cv::Mat img = rgb.clone();
+
+    // run classification
+    YOLO_V8* yoloDetector = new YOLO_V8;
+    ReadCocoYaml(yoloDetector);
+    DL_INIT_PARAM params;
+    params.rectConfidenceThreshold = 0.1;
+    params.iouThreshold = 0.5;
+    params.modelPath = "yolo11m.onnx";
+    params.imgSize = { 640, 640 };
+    #ifdef USE_CUDA
+        params.cudaEnable = true;
+
+        // GPU FP32 inference
+        params.modelType = YOLO_DETECT_V8;
+        // GPU FP16 inference
+        //Note: change fp16 onnx model
+        //params.modelType = YOLO_DETECT_V8_HALF;
+
+    #else
+        // CPU inference
+        params.modelType = YOLO_DETECT_V8;
+        params.cudaEnable = false;
+
+    #endif
+        yoloDetector->CreateSession(params);
+        Detector(yoloDetector, rgb);
+
 
     // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
