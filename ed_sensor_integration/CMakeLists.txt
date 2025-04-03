@@ -188,10 +188,21 @@ include_directories(${ONNXRUNTIME_ROOT}/include)
 # Link OpenCV libraries along with ONNX Runtime
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so)
 # and put it in the same folder of the executable file
-configure_file(/home/amigo/Documents/repos/hero_sam/coco.yaml ${CMAKE_CURRENT_BINARY_DIR}/coco.yaml COPYONLY)
+configure_file(/home/amigo/Documents/repos/hero_sam/coco.yaml ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/coco.yaml COPYONLY)
+#configure_file(/home/amigo/Documents/repos/hero_sam/coco.yaml ${CMAKE_CURRENT_BINARY_DIR}/coco.yaml COPYONLY)
+
 
 # Copy yolov8n.onnx file to the same folder of the executable file
-configure_file(/home/amigo/Documents/repos/hero_sam/yolo11m.onnx ${CMAKE_CURRENT_BINARY_DIR}/yolo11m.onnx COPYONLY)
+configure_file(/home/amigo/Documents/repos/hero_sam/yolo11m.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/yolo11m.onnx COPYONLY)
+# configure_file(/home/amigo/Documents/repos/hero_sam/yolo11m.onnx ${CMAKE_CURRENT_BINARY_DIR}/yolo11m.onnx COPYONLY)
+#/../repos/github.com/tue-robotics/ed
+# Copy YOLO model and COCO config to the ed directory
+#install(FILES /home/amigo/Documents/repos/hero_sam/yolo11m.onnx
+        #DESTINATION ${CATKIN_DEVEL_PREFIX}/../repos/github.com/tue-robotics/ed)
+#install(FILES /home/amigo/Documents/repos/hero_sam/coco.yaml
+        #DESTINATION ${CATKIN_DEVEL_PREFIX}/../repos/github.com/tue-robotics/ed)
+include_directories(/usr/include)
+add_definitions(-DUSE_CUDA=1)
 target_link_libraries(ed_kinect ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
