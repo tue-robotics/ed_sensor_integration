@@ -221,7 +221,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     DL_INIT_PARAM params;
     params.rectConfidenceThreshold = 0.1;
     params.iouThreshold = 0.5;
-    params.modelPath = "yolo11m.onnx";
+    params.modelPath = "/home/amigo/ros/noetic/system/devel/lib/ed_sensor_integration/yolo11m.onnx";
     params.imgSize = { 640, 640 };
     #ifdef USE_CUDA
         params.cudaEnable = true;
