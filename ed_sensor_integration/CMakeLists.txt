@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.16)
 project(ed_sensor_integration)
 
 add_compile_options(-Wall -Werror=all)
@@ -6,6 +6,7 @@ add_compile_options(-Wextra -Werror=extra)
 
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
+find_package(Torch REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   code_profiler
   ed
@@ -42,6 +43,7 @@ include_directories(
   include
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
+  ${TORCH_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -120,6 +122,11 @@ target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 # ------------------------------------------------------------------------------------------------
 #                                           TOOLS
 # ------------------------------------------------------------------------------------------------
+
+add_executable(torch_test tools/torch_test.cpp)
+target_compile_features(torch_test PRIVATE cxx_std_17)
+target_link_libraries(torch_test PRIVATE ${TORCH_LIBRARIES})
+target_link_options(torch_test PRIVATE ${TORCH_CXX_FLAGS})
 
 add_executable(ed_image_saver tools/image_saver.cpp)
 target_link_libraries(ed_image_saver ${catkin_LIBRARIES})

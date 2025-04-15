@@ -27,6 +27,8 @@
   <depend>tue_config</depend>
   <depend>visualization_msgs</depend>
 
+  <depend>torch_cpp</depend>
+
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <build_depend>rosconsole_bridge</build_depend>
