@@ -11,7 +11,7 @@
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
-#include "/home/amigo/Documents/repos/hero_sam/inference_utils.h"
+#include "/home/amigo/Documents/repos/hero_sam/pipeline/inc/ros_segment_inference.h"
 #include "ed/convex_hull_calc.h"
 
 #include <opencv2/highgui/highgui.hpp>
@@ -216,7 +216,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     //cv::Mat img = rgb.clone();
 
     // detect and classify image
-    ClassificationInference(rgb);
+    DetectTest(rgb);
 
     // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
