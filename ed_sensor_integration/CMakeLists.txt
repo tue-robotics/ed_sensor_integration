@@ -28,6 +28,9 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  #//For displaying SAM MASK
+  cv_bridge
+  image_transport
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -227,7 +230,14 @@ configure_file(/home/amigo/Documents/repos/hero_sam/yolo_inference/data/coco.yam
 configure_file(/home/amigo/Documents/repos/hero_sam/yolo_inference/model/yolo11m.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/yolo11m.onnx COPYONLY)
 configure_file(/home/amigo/Documents/repos/hero_sam/sam_inference/model/SAM_mask_decoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_mask_decoder.onnx COPYONLY)
 configure_file(/home/amigo/Documents/repos/hero_sam/sam_inference/model/SAM_encoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_encoder.onnx COPYONLY)
+#OR
+# Define model paths
+set(YOLO_MODELS_PATH "/home/amigo/Documents/repos/hero_sam/yolo_inference/model")
+set(SAM_MODELS_PATH "/home/amigo/Documents/repos/hero_sam/sam_inference/model")
 
+# Make these paths available to the C++ code
+add_definitions(-DYOLO_MODELS_PATH="${YOLO_MODELS_PATH}")
+add_definitions(-DSAM_MODELS_PATH="${SAM_MODELS_PATH}")
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------
