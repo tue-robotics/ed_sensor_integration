@@ -11,15 +11,56 @@
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
-#include "/home/amigo/Documents/repos/hero_sam/pipeline/inc/ros_segment_inference.h"
 #include "ed/convex_hull_calc.h"
+
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/Image.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
 #include <ros/console.h>
 
+#include "/home/amigo/Documents/repos/hero_sam/pipeline/inc/ros_segment_inference.h"
+
 // ----------------------------------------------------------------------------------------------------
 
+//For displaying SAM MASK
+void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
+{
+    cv::Mat visualization = rgb.clone();
+
+    // Define a set of distinct colors for different masks
+    std::vector<cv::Vec3b> colors = {
+        cv::Vec3b(255, 0, 0),     // Blue
+        cv::Vec3b(0, 255, 0),     // Green
+        cv::Vec3b(0, 0, 255),     // Red
+        cv::Vec3b(255, 255, 0),   // Cyan
+        cv::Vec3b(255, 0, 255),   // Magenta
+        cv::Vec3b(0, 255, 255),   // Yellow
+        cv::Vec3b(255, 128, 0),   // Blue-Green
+        cv::Vec3b(255, 0, 128)    // Blue-Red
+    };
+
+    // Overlay each mask with a different color
+    for (size_t i = 0; i < masks.size(); i++) {
+        const cv::Mat& mask = masks[i];
+        cv::Vec3b color = colors[i % colors.size()];
+
+        // For each pixel in the mask
+        for (int y = 0; y < mask.rows; y++) {
+            for (int x = 0; x < mask.cols; x++) {
+                // If this pixel belongs to the mask
+                if (mask.at<uint8_t>(y, x) > 0) {
+                    // Blend with original image (50% transparency)
+                    cv::Vec3b& rgb_pixel = rgb.at<cv::Vec3b>(y, x);
+                    rgb_pixel[0] = (rgb_pixel[0] + color[0]) / 2;
+                    rgb_pixel[1] = (rgb_pixel[1] + color[1]) / 2;
+                    rgb_pixel[2] = (rgb_pixel[2] + color[2]) / 2;
+                }
+            }
+        }
+    }
+}
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
@@ -185,9 +226,12 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 }
 
 // ----------------------------------------------------------------------------------------------------
-
+//For displaying SAM MASK
 Updater::Updater()
 {
+    // Initialize the image publisher
+    ros::NodeHandle nh("~");
+    mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -216,8 +260,22 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     //cv::Mat img = rgb.clone();
 
     // detect and classify image
-    DetectTest(rgb);
+    std::vector<cv::Mat> masks = DetectTest(rgb.clone());
 
+    //For displaying SAM MASK
+    // if (mask_pub_.getNumSubscribers() > 0)
+    // {
+        // Overlay masks on the RGB image
+        cv::Mat visualization = rgb.clone();
+        overlayMasksOnImage(visualization, masks);
+
+        // Convert to ROS message
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
+        msg->header.stamp = ros::Time::now();
+
+        // Publish
+        mask_pub_.publish(msg);
+    // }
     // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();

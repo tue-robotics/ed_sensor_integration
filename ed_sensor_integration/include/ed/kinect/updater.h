@@ -7,7 +7,6 @@
 
 #include <map>
 #include <vector>
-
 // ----------------------------------------------------------------------------------------------------
 
 struct UpdateRequest
@@ -63,6 +62,9 @@ private:
 
     // Stores for each segmented entity with which area description it was found
     std::map<ed::UUID, std::string> id_to_area_description_;
+
+    //For displaying SAM MASK
+    ros::Publisher mask_pub_;
 
 };
 
