@@ -14,7 +14,7 @@
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
-
+#include "ros_segment_inference.h"
 // Visualization
 //#include <opencv2/highgui/highgui.hpp>
 
@@ -175,82 +175,41 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 // ----------------------------------------------------------------------------------------------------
 
 void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
-
-    cv::Mat visited(height, width, CV_8UC1, cv::Scalar(0));
-
-    // Mark borders as visited (2-pixel border)
-    for(int x = 0; x < width; ++x)
-    {
-        visited.at<unsigned char>(0, x) = 1;
-        visited.at<unsigned char>(1, x) = 1;
-        visited.at<unsigned char>(height - 1, x) = 1;
-        visited.at<unsigned char>(height - 2, x) = 1;
-    }
-
-    for(int y = 0; y < height; ++y)
-    {
-        visited.at<unsigned char>(y, 0) = 1;
-        visited.at<unsigned char>(y, 1) = 1;
-        visited.at<unsigned char>(y, width - 1) = 1;
-        visited.at<unsigned char>(y, width - 2) = 1;
-    }
-
-    int dirs[] = { -1, 1, -width, width,
-                   -2, 2, -width * 2, width * 2};  // Also try one pixel skipped (filtering may cause some 1-pixel gaps)
+    std::vector<cv::Mat> masks = DetectTest(rgb_image.clone());
 
     ROS_DEBUG("Creating clusters");
     unsigned int size = width * height;
-    for(unsigned int i_pixel = 0; i_pixel < size; ++i_pixel)
+
+    for (size_t i = 0; i < masks.size(); ++i)
     {
-        float d = depth_image.at<float>(i_pixel);
-
-        if (d == 0 || d != d)
-            continue;
-
-        // Create cluster
+        cv::Mat mask = masks[i];
         clusters.push_back(EntityUpdate());
         EntityUpdate& cluster = clusters.back();
 
-        // Mark visited
-        visited.at<unsigned char>(i_pixel) = 1;
+        unsigned int num_points = 0;
 
-        std::queue<unsigned int> Q;
-        Q.push(i_pixel);
-
-        while(!Q.empty())
+         // Add to cluster
+        for(int y = 0; y < mask.rows; ++y)
         {
-            unsigned int p1 = Q.front();
-            Q.pop();
-
-            float p1_d = depth_image.at<float>(p1);
-
-            // Add to cluster
-            cluster.pixel_indices.push_back(p1);
-            cluster.points.push_back(cam_model.project2Dto3D(p1 % width, p1 / width) * p1_d);
-
-            for(int dir = 0; dir < 8; ++dir)
+            for(int x = 0; x < mask.cols; ++x)
             {
-                unsigned int p2 = p1 + dirs[dir];
+                if (mask.at<unsigned char>(y, x) > 0){
+                    unsigned int pixel_idx = y * width + x;
+                    float d = depth_image.at<float>(pixel_idx);
 
-                // Check if out of bounds (N.B., if dirs[dir] < 0, p2 might be negative but since it's an unsigned int it will
-                // in practice be a large number.
-                if (p2 >= size)
-                    continue;
-                float p2_d = depth_image.at<float>(p2);
 
-                // If not yet visited, and depth is within bounds
-                if (visited.at<unsigned char>(p2) == 0 && std::abs<float>(p2_d - p1_d) < 0.05)
-                {
-                    // Mark visited
-                    visited.at<unsigned char>(p2) = 1;
 
-                    // Add point to queue
-                    Q.push(p2);
+                if (d > 0 && std::isfinite(d)) {
+                        // Add pixel index and 3D point to cluster
+                        cluster.pixel_indices.push_back(pixel_idx);
+                        cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
+                        num_points++;
+                    }
                 }
             }
         }
