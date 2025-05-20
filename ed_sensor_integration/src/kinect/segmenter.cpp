@@ -174,7 +174,7 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 
 // ----------------------------------------------------------------------------------------------------
 
-void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const
 {
     int width = depth_image.cols;
@@ -201,8 +201,6 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
                 if (mask.at<unsigned char>(y, x) > 0){
                     unsigned int pixel_idx = y * width + x;
                     float d = depth_image.at<float>(pixel_idx);
-
-
 
                 if (d > 0 && std::isfinite(d)) {
                         // Add pixel index and 3D point to cluster
@@ -244,4 +242,5 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
     }
+    return masks;
 }

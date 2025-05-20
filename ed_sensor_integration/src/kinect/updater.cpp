@@ -20,8 +20,6 @@
 
 #include <ros/console.h>
 
-#include "ros_segment_inference.h"
-
 // ----------------------------------------------------------------------------------------------------
 
 //For displaying SAM MASK
@@ -61,6 +59,7 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         }
     }
 }
+
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
@@ -259,20 +258,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     const cv::Mat& rgb = image->getRGBImage();
     //cv::Mat img = rgb.clone();
 
-
-
-    // // Overlay masks on the RGB image
-    // cv::Mat visualization = rgb.clone();
-    // overlayMasksOnImage(visualization, masks);
-
-    // // Convert to ROS message
-    // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-    // msg->header.stamp = ros::Time::now();
-
-    // // Publish
-    // mask_pub_.publish(msg);
-
-    // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
 
@@ -450,7 +435,21 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-    segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb.clone());
+
+    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb.clone());
+
+    // // Overlay masks on the RGB image
+    cv::Mat visualization = rgb.clone();
+    overlayMasksOnImage(visualization, clustered_images);
+
+    // // Convert to ROS message
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
+    msg->header.stamp = ros::Time::now();
+
+    // // Publish
+    mask_pub_.publish(msg);
+
+
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
