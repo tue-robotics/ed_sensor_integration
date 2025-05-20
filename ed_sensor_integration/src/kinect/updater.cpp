@@ -20,7 +20,7 @@
 
 #include <ros/console.h>
 
-#include "/home/amigo/Documents/repos/hero_sam/pipeline/inc/ros_segment_inference.h"
+#include "ros_segment_inference.h"
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -259,23 +259,19 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     const cv::Mat& rgb = image->getRGBImage();
     //cv::Mat img = rgb.clone();
 
-    // detect and classify image
-    std::vector<cv::Mat> masks = DetectTest(rgb.clone());
 
-    //For displaying SAM MASK
-    // if (mask_pub_.getNumSubscribers() > 0)
-    // {
-        // Overlay masks on the RGB image
-        cv::Mat visualization = rgb.clone();
-        overlayMasksOnImage(visualization, masks);
 
-        // Convert to ROS message
-        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-        msg->header.stamp = ros::Time::now();
+    // // Overlay masks on the RGB image
+    // cv::Mat visualization = rgb.clone();
+    // overlayMasksOnImage(visualization, masks);
 
-        // Publish
-        mask_pub_.publish(msg);
-    // }
+    // // Convert to ROS message
+    // sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
+    // msg->header.stamp = ros::Time::now();
+
+    // // Publish
+    // mask_pub_.publish(msg);
+
     // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
@@ -454,7 +450,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-    segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
+    segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb.clone());
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
