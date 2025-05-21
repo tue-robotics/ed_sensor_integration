@@ -39,6 +39,8 @@ public:
     void calculatePointsWithin(const rgbd::Image& image, const geo::Shape& shape,
                                const geo::Pose3D& shape_pose, cv::Mat& filtered_depth_image) const;
 
+    cv::Mat preprocessRGBForSegmentation(const cv::Mat& rgb_image, const cv::Mat& filtered_depth_image) const;
+
     std::vector<cv::Mat> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                  const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const;
 
