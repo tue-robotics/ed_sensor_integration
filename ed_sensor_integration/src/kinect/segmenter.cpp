@@ -15,10 +15,16 @@
 #include <queue>
 #include <ed/convex_hull_calc.h>
 #include "ros_segment_inference.h"
+#include <sys/resource.h>
 // Visualization
 //#include <opencv2/highgui/highgui.hpp>
 
 // ----------------------------------------------------------------------------------------------------
+void printMemoryUsage(const std::string& label) {
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    ROS_INFO("%s - Memory usage: %ld KB", label.c_str(), usage.ru_maxrss);
+}
 
 Segmenter::Segmenter()
 {
@@ -174,14 +180,30 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 
 // ----------------------------------------------------------------------------------------------------
 
+cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image, const cv::Mat& filtered_depth_image) const {
+    // Apply depth mask to RGB
+    cv::Mat masked_rgb = cv::Mat::zeros(rgb_image.size(), rgb_image.type());
+    for (int y = 0; y < rgb_image.rows; y++) {
+        for (int x = 0; x < rgb_image.cols; x++) {
+            int idx = y * rgb_image.cols + x;
+            if (filtered_depth_image.at<float>(idx) > 0) {
+                masked_rgb.at<cv::Vec3b>(y, x) = rgb_image.at<cv::Vec3b>(y, x);
+            }
+        }
+    }
+    return masked_rgb;
+}
+// ----------------------------------------------------------------------------------------------------
+
 std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
+    //printMemoryUsage("Before inference");
     std::vector<cv::Mat> masks = DetectTest(rgb_image.clone());
-
+    //printMemoryUsage("After inference");
     ROS_DEBUG("Creating clusters");
     unsigned int size = width * height;
 

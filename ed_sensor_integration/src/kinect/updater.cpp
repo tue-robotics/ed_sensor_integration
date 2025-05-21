@@ -249,7 +249,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // will contain depth image filtered with given update shape and world model (background) subtraction
     cv::Mat filtered_depth_image;
-
+    cv::Mat filtered_rgb_image;
     // sensor pose might be update, so copy (making non-const)
     geo::Pose3D sensor_pose = sensor_pose_const;
 
@@ -435,8 +435,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-
-    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb.clone());
+    filtered_rgb_image = segmenter_.preprocessRGBForSegmentation(rgb, filtered_depth_image);
+    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
 
     // // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
