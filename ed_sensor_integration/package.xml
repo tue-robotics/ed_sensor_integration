@@ -36,6 +36,12 @@
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
 
+  <!-- //For displaying SAM MASK -->
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+
   <test_depend>catkin_lint_cmake</test_depend>
 
   <doc_depend>doxygen</doc_depend>

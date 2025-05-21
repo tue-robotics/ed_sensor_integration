@@ -64,6 +64,9 @@ private:
     // Stores for each segmented entity with which area description it was found
     std::map<ed::UUID, std::string> id_to_area_description_;
 
+    // Add this publisher member
+    ros::Publisher mask_pub_;
+
 };
 
 #endif

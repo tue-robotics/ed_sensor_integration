@@ -174,12 +174,15 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
 
 // ----------------------------------------------------------------------------------------------------
 
-void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
+
+    // Create vector to store masks for visualization
+    std::vector<cv::Mat> visualization_masks;
 
     cv::Mat visited(height, width, CV_8UC1, cv::Scalar(0));
 
@@ -216,6 +219,9 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
         clusters.push_back(EntityUpdate());
         EntityUpdate& cluster = clusters.back();
 
+        // Create a binary mask for this cluster
+        cv::Mat cluster_mask = cv::Mat::zeros(height, width, CV_8UC1);
+
         // Mark visited
         visited.at<unsigned char>(i_pixel) = 1;
 
@@ -229,9 +235,16 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
 
             float p1_d = depth_image.at<float>(p1);
 
+            // Calculate x,y coordinates
+            int x = p1 % width;
+            int y = p1 / width;
+
             // Add to cluster
             cluster.pixel_indices.push_back(p1);
-            cluster.points.push_back(cam_model.project2Dto3D(p1 % width, p1 / width) * p1_d);
+            cluster.points.push_back(cam_model.project2Dto3D(x, y) * p1_d);
+
+            // Mark this pixel in the mask (255 for visibility)
+            cluster_mask.at<unsigned char>(y, x) = 255;
 
             for(int dir = 0; dir < 8; ++dir)
             {
@@ -262,6 +275,9 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
             continue;
         }
 
+        // Add this cluster's mask to our visualization masks
+        visualization_masks.push_back(cluster_mask);
+
         // Calculate cluster convex hull
         float z_min = 1e9;
         float z_max = -1e9;
@@ -285,4 +301,6 @@ void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
     }
+
+    return visualization_masks;
 }

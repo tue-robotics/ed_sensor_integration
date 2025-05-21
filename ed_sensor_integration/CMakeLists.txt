@@ -184,6 +184,3 @@ if (CATKIN_ENABLE_TESTING)
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
   target_link_libraries(test_laser_fitting ${PROJECT_NAME}_console_bridge ed_laser ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 endif ()
-
-
-
