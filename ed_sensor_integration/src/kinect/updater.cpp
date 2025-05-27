@@ -25,38 +25,52 @@
 //For displaying SAM MASK
 void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 {
-    cv::Mat visualization = rgb.clone();
-
-    // Define a set of distinct colors for different masks
-    std::vector<cv::Vec3b> colors = {
-        cv::Vec3b(255, 0, 0),     // Blue
-        cv::Vec3b(0, 255, 0),     // Green
-        cv::Vec3b(0, 0, 255),     // Red
-        cv::Vec3b(255, 255, 0),   // Cyan
-        cv::Vec3b(255, 0, 255),   // Magenta
-        cv::Vec3b(0, 255, 255),   // Yellow
-        cv::Vec3b(255, 128, 0),   // Blue-Green
-        cv::Vec3b(255, 0, 128)    // Blue-Red
+    // Define colors in BGR format for OpenCV
+    std::vector<cv::Scalar> colors = {
+        cv::Scalar(0, 0, 255),     // Red
+        cv::Scalar(0, 255, 0),     // Green
+        cv::Scalar(255, 0, 0),     // Blue
+        cv::Scalar(0, 255, 255),   // Yellow
+        cv::Scalar(255, 0, 255),   // Magenta
+        cv::Scalar(255, 255, 0)    // Cyan
     };
 
-    // Overlay each mask with a different color
     for (size_t i = 0; i < masks.size(); i++) {
-        const cv::Mat& mask = masks[i];
-        cv::Vec3b color = colors[i % colors.size()];
+        // Get a working copy of the mask
+        cv::Mat working_mask = masks[i].clone();
 
-        // For each pixel in the mask
-        for (int y = 0; y < mask.rows; y++) {
-            for (int x = 0; x < mask.cols; x++) {
-                // If this pixel belongs to the mask
-                if (mask.at<uint8_t>(y, x) > 0) {
-                    // Blend with original image (50% transparency)
-                    cv::Vec3b& rgb_pixel = rgb.at<cv::Vec3b>(y, x);
-                    rgb_pixel[0] = (rgb_pixel[0] + color[0]) / 2;
-                    rgb_pixel[1] = (rgb_pixel[1] + color[1]) / 2;
-                    rgb_pixel[2] = (rgb_pixel[2] + color[2]) / 2;
-                }
-            }
+        // Check if mask needs resizing
+        if (working_mask.rows != rgb.rows || working_mask.cols != rgb.cols) {
+            cv::resize(working_mask, working_mask, rgb.size(), 0, 0, cv::INTER_NEAREST);
+            std::cout << "RRRRRRRRRRRRRRRRResized mask " << i << " from " << masks[i].size()
+                      << " to " << working_mask.size() << std::endl;
         }
+
+        // Ensure the mask is binary (values 0 or 255)
+        if (cv::countNonZero(working_mask > 0 & working_mask < 255) > 0) {
+            cv::threshold(working_mask, working_mask, 127, 255, cv::THRESH_BINARY);
+            std::cout << "CCCCCCCCCCCConverted mask " << i << " to binary." << std::endl;
+        }
+
+        // Use a different color for each mask
+        cv::Scalar color = colors[i % colors.size()];
+
+
+        // Find contours of the mask
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+        // Create a semi-transparent overlay
+        cv::Mat colorMask = cv::Mat::zeros(rgb.size(), CV_8UC3);
+        colorMask.setTo(cv::Scalar(0, 200, 0), working_mask); // Green fill
+        cv::addWeighted(rgb, 0.7, colorMask, 0.3, 0, rgb);
+
+        // Draw contours with a thick, high-contrast outline
+        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 255, 255), 2); // Yellow outline
+
+
+        // Save each mask for debugging
+        cv::imwrite("/tmp/mask_" + std::to_string(i) + ".png", working_mask);
     }
 }
 
@@ -440,8 +454,11 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
-    overlayMasksOnImage(visualization, clustered_images);
+    cv::imwrite("/tmp/visualization.png", visualization);
 
+    overlayMasksOnImage(visualization, clustered_images);
+    // save after overlaying masks
+    cv::imwrite("/tmp/visualization_with_masks.png", visualization);
     // // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
