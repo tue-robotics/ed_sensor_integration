@@ -220,15 +220,43 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         {
             for(int x = 0; x < mask.cols; ++x)
             {
-                if (mask.at<unsigned char>(y, x) > 0){
+                if (mask.at<unsigned char>(y, x) > 0) {
                     unsigned int pixel_idx = y * width + x;
                     float d = depth_image.at<float>(pixel_idx);
 
-                if (d > 0 && std::isfinite(d)) {
-                        // Add pixel index and 3D point to cluster
-                        cluster.pixel_indices.push_back(pixel_idx);
-                        cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
-                        num_points++;
+                    if (d > 0 && std::isfinite(d)) {
+                        // NEW: Check neighboring depths for consistency
+                        bool consistent_depth = true;
+                        float sum_valid_neighbors = 0;
+                        float sum_depths = 0;
+                        int num_valid = 0;
+
+                        // Check 8-connected neighborhood
+                        for (int dy = -1; dy <= 1; dy++) {
+                            for (int dx = -1; dx <= 1; dx++) {
+                                if (dx == 0 && dy == 0) continue;
+
+                                int nx = x + dx;
+                                int ny = y + dy;
+
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    float nd = depth_image.at<float>(ny * width + nx);
+                                    if (nd > 0 && std::isfinite(nd)) {
+                                        sum_depths += nd;
+                                        num_valid++;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Only include point if depth is consistent with neighbors
+                        if (num_valid > 3) {  // At least 4 valid neighbors
+                            float avg_depth = sum_depths / num_valid;
+                            if (std::abs(d - avg_depth) < 0.05) {  // Within 5cm
+                                cluster.pixel_indices.push_back(pixel_idx);
+                                cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
+                            }
+                        }
                     }
                 }
             }

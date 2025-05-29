@@ -97,6 +97,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
     float z_max = -1e9;
 
     int i_pixel = 0;
+    std::vector<float> z_values;
     for(int y = 0; y < filtered_depth_image.rows; ++y)
     {
         for(int x = 0; x < filtered_depth_image.cols; ++x)
@@ -110,6 +111,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 
             geo::Vec3 p = cam_model.project2Dto3D(x, y) * d;
             geo::Vec3 p_map = sensor_pose * p;
+            z_values.push_back(p_map.z);
 
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
@@ -119,6 +121,21 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
             ++i_pixel;
         }
     }
+
+    // Statistical filtering out outliers
+    // Calculate z statistics
+    if (z_values.empty()) return;
+
+    // Sort for percentile calculation
+    std::sort(z_values.begin(), z_values.end());
+
+    // Use 5th and 95th percentiles instead of min/max to filter outliers
+    int lower_idx = std::max(0, static_cast<int>(z_values.size() * 0.05));
+    int upper_idx = std::min(static_cast<int>(z_values.size()-1),
+                            static_cast<int>(z_values.size() * 0.95));
+
+    z_min = z_values[lower_idx];
+    z_max = z_values[upper_idx];
 
     double h = z_max - z_min;
     up.pose_map.t.z = (z_max + z_min) / 2;
@@ -470,7 +487,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
-    res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
+    //res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
