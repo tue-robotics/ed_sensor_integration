@@ -257,6 +257,9 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
                                 cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
                             }
                         }
+                        else {
+                            std::cerr << "WARNINGGGGGGGGGGG: Not enough valid neighbors for pixel (" << x << ", " << y << ") with depth " << d << std::endl;
+                        }
                     }
                 }
             }
