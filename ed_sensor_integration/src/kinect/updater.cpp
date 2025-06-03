@@ -15,6 +15,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -70,7 +71,8 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 
 
         // Save each mask for debugging
-        cv::imwrite("/tmp/mask_" + std::to_string(i) + ".png", working_mask);
+        //cv::imwrite("/tmp/mask_" + std::to_string(i) + ".png", working_mask);
+
     }
 }
 
@@ -262,6 +264,7 @@ Updater::Updater()
     // Initialize the image publisher
     ros::NodeHandle nh("~");
     mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
+    cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("3d_point_cloud", 1);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -467,23 +470,42 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     filtered_rgb_image = segmenter_.preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
+    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb);
 
     // // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
     cv::imwrite("/tmp/visualization.png", visualization);
 
+    // Create a properly normalized depth visualization
+    cv::Mat depth_vis;
+    double min_val, max_val;
+    cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
+
+    // Handle empty depth image case
+    if (max_val == 0) {
+        depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
+    } else {
+        // Scale to full 8-bit range and convert to 8-bit
+        filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
+
+        // Apply a colormap for better visibility
+        cv::Mat depth_color;
+        cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
+        cv::imwrite("/tmp/visualization_depth_color.png", depth_color);
+    }
+
+    // Save both grayscale and color versions
+    cv::imwrite("/tmp/visualization_depth.png", depth_vis);
     overlayMasksOnImage(visualization, clustered_images);
     // save after overlaying masks
     cv::imwrite("/tmp/visualization_with_masks.png", visualization);
     // // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
-
+    sensor_msgs::PointCloud2Ptr cloud_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC3", res.entity_updates.points).toImageMsg();
     // // Publish
     mask_pub_.publish(msg);
-
-
+    cloud_pub_.publish(cloud_msg);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
