@@ -545,10 +545,10 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     {
         EntityUpdate& up = *it;
 
-        up.chull.z_min -= 0.04;
-        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
+        //up.chull.z_min -= 0.04;
+        //refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
 
-        up.chull.z_min += 0.01;
+        //up.chull.z_min += 0.01;
         refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
     }
 
