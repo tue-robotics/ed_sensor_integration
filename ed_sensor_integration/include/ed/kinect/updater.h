@@ -65,6 +65,7 @@ private:
 
     //For displaying SAM MASK
     ros::Publisher mask_pub_;
+    ros::Publisher cloud_pub_;
 
 };
 

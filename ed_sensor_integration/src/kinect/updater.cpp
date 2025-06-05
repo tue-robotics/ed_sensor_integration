@@ -20,7 +20,10 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include <ros/console.h>
-
+#include <ros/ros.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 // ----------------------------------------------------------------------------------------------------
 
 //For displaying SAM MASK
@@ -264,7 +267,7 @@ Updater::Updater()
     // Initialize the image publisher
     ros::NodeHandle nh("~");
     mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
-    cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("3d_point_cloud", 1);
+    cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -502,7 +505,30 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
-    sensor_msgs::PointCloud2Ptr cloud_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC3", res.entity_updates.points).toImageMsg();
+
+    typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+    PointCloud::Ptr combined_cloud (new PointCloud);
+
+    combined_cloud->header.frame_id = "map"; // Use appropriate frame ID
+
+    // Add points from all entity updates
+    for (const EntityUpdate& update : res.entity_updates) {
+        for (const geo::Vec3& point : update.points) {
+            // Transform from camera to map frame
+            geo::Vec3 p_map = sensor_pose * point;
+            pcl::PointXYZ pcl_point;
+            pcl_point.x = p_map.x;
+            pcl_point.y = p_map.y;
+            pcl_point.z = p_map.z;
+            combined_cloud->push_back(pcl_point);
+        }
+    }
+
+    sensor_msgs::PointCloud2 cloud_msg;
+    pcl::toROSMsg(*combined_cloud, cloud_msg);
+    cloud_msg.header.stamp = ros::Time::now();
+    cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
+
     // // Publish
     mask_pub_.publish(msg);
     cloud_pub_.publish(cloud_msg);
