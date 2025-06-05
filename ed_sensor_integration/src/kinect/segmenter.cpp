@@ -216,20 +216,17 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         unsigned int num_points = 0;
 
          // Add to cluster
-        for(int y = 0; y < mask.rows; ++y)
-        {
-            for(int x = 0; x < mask.cols; ++x)
-            {
+        for(int y = 0; y < mask.rows; ++y) {
+            for(int x = 0; x < mask.cols; ++x) {
                 if (mask.at<unsigned char>(y, x) > 0) {
                     unsigned int pixel_idx = y * width + x;
                     float d = depth_image.at<float>(pixel_idx);
 
                     if (d > 0 && std::isfinite(d)) {
-                        // NEW: Check neighboring depths for consistency
-                        bool consistent_depth = true;
-                        float sum_valid_neighbors = 0;
+                        // NEW: Check neighboring depths for consistency with relative threshold
                         float sum_depths = 0;
                         int num_valid = 0;
+                        std::vector<float> neighbor_depths;
 
                         // Check 8-connected neighborhood
                         for (int dy = -1; dy <= 1; dy++) {
@@ -240,25 +237,35 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
                                 int ny = y + dy;
 
                                 if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                                    float nd = depth_image.at<float>(ny * width + nx);
-                                    if (nd > 0 && std::isfinite(nd)) {
-                                        sum_depths += nd;
-                                        num_valid++;
+                                    // Only consider neighbors that are also in the mask
+                                    if (mask.at<unsigned char>(ny, nx) > 0) {
+                                        float nd = depth_image.at<float>(ny * width + nx);
+                                        if (nd > 0 && std::isfinite(nd)) {
+                                            sum_depths += nd;
+                                            num_valid++;
+                                            neighbor_depths.push_back(nd);
+                                        }
                                     }
                                 }
                             }
                         }
 
                         // Only include point if depth is consistent with neighbors
-                        if (num_valid > 3) {  // At least 4 valid neighbors
+                        if (num_valid >= 3) {  // At least 3 valid neighbors
                             float avg_depth = sum_depths / num_valid;
-                            if (std::abs(d - avg_depth) < 0.05) {  // Within 5cm
+
+                            // Use relative threshold - tighter for closer objects
+                            float threshold = 0.03 * avg_depth;  // 3% of distance
+
+                            // Check if the point is an outlier using median instead of mean
+                            std::sort(neighbor_depths.begin(), neighbor_depths.end());
+                            float median_depth = neighbor_depths[neighbor_depths.size()/2];
+
+                            if (std::abs(d - median_depth) < threshold) {
+                                // Add this point to the cluster
                                 cluster.pixel_indices.push_back(pixel_idx);
                                 cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
                             }
-                        }
-                        else {
-                            std::cerr << "WARNINGGGGGGGGGGG: Not enough valid neighbors for pixel (" << x << ", " << y << ") with depth " << d << std::endl;
                         }
                     }
                 }
@@ -294,6 +301,30 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
 
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
+
+        // After collecting all points, filter outliers
+        if (!cluster.points.empty()) {
+            // Calculate mean and standard deviation of distances to centroid
+            geo::Vec3 centroid(0, 0, 0);
+            for (const auto& p : cluster.points)
+                centroid += p;
+            centroid = centroid / cluster.points.size();
+
+            // Calculate standard deviation
+            float sum_sq_dist = 0;
+            for (const auto& p : cluster.points)
+                sum_sq_dist += (p - centroid).length2();
+            float stddev = std::sqrt(sum_sq_dist / cluster.points.size());
+
+            // Filter points that are too far from centroid
+            std::vector<geo::Vec3> filtered_points;
+            for (const auto& p : cluster.points) {
+                if ((p - centroid).length() < 2.5 * stddev)
+                    filtered_points.push_back(p);
+            }
+
+            cluster.points = filtered_points;
+        }
     }
     return masks;
 }
