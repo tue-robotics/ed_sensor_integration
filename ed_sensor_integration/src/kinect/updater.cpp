@@ -29,15 +29,20 @@
 //For displaying SAM MASK
 void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 {
-    // Define colors in BGR format for OpenCV
+    // Define colors in BGR format for OpenCV (high contrast)
     std::vector<cv::Scalar> colors = {
         cv::Scalar(0, 0, 255),     // Red
         cv::Scalar(0, 255, 0),     // Green
         cv::Scalar(255, 0, 0),     // Blue
         cv::Scalar(0, 255, 255),   // Yellow
         cv::Scalar(255, 0, 255),   // Magenta
-        cv::Scalar(255, 255, 0)    // Cyan
+        cv::Scalar(255, 255, 0),   // Cyan
+        cv::Scalar(128, 0, 128),   // Purple
+        cv::Scalar(0, 128, 128)    // Brown
     };
+
+    // Create a copy for the overlay (preserves original for contours)
+    cv::Mat overlay = rgb.clone();
 
     for (size_t i = 0; i < masks.size(); i++) {
         // Get a working copy of the mask
@@ -46,37 +51,68 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         // Check if mask needs resizing
         if (working_mask.rows != rgb.rows || working_mask.cols != rgb.cols) {
             cv::resize(working_mask, working_mask, rgb.size(), 0, 0, cv::INTER_NEAREST);
-            std::cout << "RRRRRRRRRRRRRRRRResized mask " << i << " from " << masks[i].size()
-                      << " to " << working_mask.size() << std::endl;
         }
 
         // Ensure the mask is binary (values 0 or 255)
         if (cv::countNonZero(working_mask > 0 & working_mask < 255) > 0) {
             cv::threshold(working_mask, working_mask, 127, 255, cv::THRESH_BINARY);
-            std::cout << "CCCCCCCCCCCConverted mask " << i << " to binary." << std::endl;
         }
 
         // Use a different color for each mask
         cv::Scalar color = colors[i % colors.size()];
 
-
-        // Find contours of the mask
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-        // Create a semi-transparent overlay
+        // Create the colored overlay with this mask's specific color
         cv::Mat colorMask = cv::Mat::zeros(rgb.size(), CV_8UC3);
-        colorMask.setTo(cv::Scalar(0, 200, 0), working_mask); // Green fill
-        cv::addWeighted(rgb, 0.7, colorMask, 0.3, 0, rgb);
+        colorMask.setTo(color, working_mask);
 
-        // Draw contours with a thick, high-contrast outline
-        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 255, 255), 2); // Yellow outline
+        // Add this mask's overlay to the combined overlay
+        cv::addWeighted(overlay, 1.0, colorMask, 0.2, 0, overlay);
 
+        // Find contours of the mask - use CHAIN_APPROX_NONE for most accurate contours
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
-        // Save each mask for debugging
-        //cv::imwrite("/tmp/mask_" + std::to_string(i) + ".png", working_mask);
+        // Draw double contours for better visibility (outer black, inner colored)
+        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 0, 0), 2);      // Outer black border
+        cv::drawContours(rgb, contours, -1, color, 1);                     // Inner colored line
 
+        // // Add mask ID (optional)
+        // if (!contours.empty()) {
+        //     // Find centroid of largest contour for label placement
+        //     int largest_idx = 0;
+        //     double largest_area = 0;
+        //     for (size_t j = 0; j < contours.size(); j++) {
+        //         double area = cv::contourArea(contours[j]);
+        //         if (area > largest_area) {
+        //             largest_area = area;
+        //             largest_idx = j;
+        //         }
+        //     }
+
+        //     // Calculate centroid
+        //     cv::Moments mu = cv::moments(contours[largest_idx]);
+        //     if (mu.m00 != 0) {
+        //         cv::Point centroid(mu.m10/mu.m00, mu.m01/mu.m00);
+
+        //         // Draw ID with contrasting background
+        //         std::string label = std::to_string(i);
+        //         int baseline = 0;
+        //         cv::Size text_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
+
+        //         cv::rectangle(rgb,
+        //                       cv::Point(centroid.x - text_size.width/2 - 2, centroid.y - text_size.height/2 - 2),
+        //                       cv::Point(centroid.x + text_size.width/2 + 2, centroid.y + text_size.height/2 + 2),
+        //                       cv::Scalar(255, 255, 255), -1);
+
+        //         cv::putText(rgb, label,
+        //                    cv::Point(centroid.x - text_size.width/2, centroid.y + text_size.height/2),
+        //                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+        //     }
+        // }
     }
+
+    // Apply the semi-transparent overlay with all masks
+    cv::addWeighted(rgb, 0.7, overlay, 0.3, 0, rgb);
 }
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
