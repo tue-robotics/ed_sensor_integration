@@ -26,7 +26,43 @@
 
 // ----------------------------------------------------------------------------------------------------
 
+//For displaying SAM MASK
+void overlayMasksOnImageOld(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
+{
+    cv::Mat visualization = rgb.clone();
 
+    // Define a set of distinct colors for different masks
+    std::vector<cv::Vec3b> colors = {
+        cv::Vec3b(255, 0, 0),     // Blue
+        cv::Vec3b(0, 255, 0),     // Green
+        cv::Vec3b(0, 0, 255),     // Red
+        cv::Vec3b(255, 255, 0),   // Cyan
+        cv::Vec3b(255, 0, 255),   // Magenta
+        cv::Vec3b(0, 255, 255),   // Yellow
+        cv::Vec3b(255, 128, 0),   // Blue-Green
+        cv::Vec3b(255, 0, 128)    // Blue-Red
+    };
+
+    // Overlay each mask with a different color
+    for (size_t i = 0; i < masks.size(); i++) {
+        const cv::Mat& mask = masks[i];
+        cv::Vec3b color = colors[i % colors.size()];
+
+        // For each pixel in the mask
+        for (int y = 0; y < mask.rows; y++) {
+            for (int x = 0; x < mask.cols; x++) {
+                // If this pixel belongs to the mask
+                if (mask.at<uint8_t>(y, x) > 0) {
+                    // Blend with original image (50% transparency)
+                    cv::Vec3b& rgb_pixel = rgb.at<cv::Vec3b>(y, x);
+                    rgb_pixel[0] = (rgb_pixel[0] + color[0]) / 2;
+                    rgb_pixel[1] = (rgb_pixel[1] + color[1]) / 2;
+                    rgb_pixel[2] = (rgb_pixel[2] + color[2]) / 2;
+                }
+            }
+        }
+    }
+}
 //For displaying SAM MASK
 void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 {
@@ -60,7 +96,7 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         }
 
         // Use a different color for each mask
-        //cv::Scalar color = colors[i % colors.size()];
+        cv::Scalar color = colors[i % colors.size()];
 
         // Create the colored overlay with this mask's specific color
         cv::Mat colorMask = cv::Mat::zeros(rgb.size(), CV_8UC3);
@@ -73,10 +109,6 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
-<<<<<<< HEAD
-        // Save each mask for debugging
-        cv::imwrite("/tmp/mask_" + std::to_string(i) + ".png", working_mask);
-=======
         // Draw double contours for better visibility (outer black, inner colored)
         cv::drawContours(rgb, contours, -1, cv::Scalar(0, 0, 0), 2);      // Outer black border
         cv::drawContours(rgb, contours, -1, color, 1);                     // Inner colored line
@@ -114,7 +146,6 @@ void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         //                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
         //     }
         // }
->>>>>>> ef905cd (Better visualization on rqt)
     }
 
     // Apply the semi-transparent overlay with all masks
