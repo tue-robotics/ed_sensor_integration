@@ -66,6 +66,7 @@ private:
 
     // Add this publisher member
     ros::Publisher mask_pub_;
+    ros::Publisher cloud_pub_;
 
 };
 
