@@ -509,7 +509,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     filtered_rgb_image = segmenter_.preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb);
+    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
 
     // // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
