@@ -16,8 +16,129 @@
 #include <ed/convex_hull_calc.h>
 #include "ros_segment_inference.h"
 #include <sys/resource.h>
+
+#include <opencv2/ml.hpp>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl/segmentation/extract_clusters.h>
+
+void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
+
+    // Build point cloud in map frame
+    for (const auto& point : cluster.points) {
+        geo::Vec3 p_map = sensor_pose * point;
+        cloud->push_back(pcl::PointXYZ(p_map.x, p_map.y, p_map.z));
+    }
+
+    // Create KdTree for search
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+    tree->setInputCloud(cloud);
+
+    // Run clustering
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+    ec.setClusterTolerance(0.02);  // 2cm
+    ec.setMinClusterSize(50);
+    ec.setMaxClusterSize(25000);
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(cloud);
+    ec.extract(cluster_indices);
+
+    // Select largest cluster
+    size_t largest_idx = 0;
+    size_t largest_size = 0;
+
+    for (size_t i = 0; i < cluster_indices.size(); i++) {
+        if (cluster_indices[i].indices.size() > largest_size) {
+            largest_size = cluster_indices[i].indices.size();
+            largest_idx = i;
+        }
+    }
+
+    // Filter points
+    if (!cluster_indices.empty()) {
+        std::vector<geo::Vec3> filtered_points;
+        for (const auto& idx : cluster_indices[largest_idx].indices) {
+            filtered_points.push_back(cluster.points[idx]);
+        }
+        cluster.points = filtered_points;
+    }
+}
 // Visualization
 //#include <opencv2/highgui/highgui.hpp>
+
+// After collecting points in cluster.points:
+void applyGMMFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
+    if (cluster.points.size() < 50) return;  // Too few points
+
+    // Convert points to OpenCV Mat (N x 3)
+    cv::Mat samples(cluster.points.size(), 3, CV_32F);
+    for (size_t i = 0; i < cluster.points.size(); i++) {
+        // Transform to map frame for consistent clustering
+        geo::Vec3 p_map = sensor_pose * cluster.points[i];
+        samples.at<float>(i, 0) = p_map.x;
+        samples.at<float>(i, 1) = p_map.y;
+        samples.at<float>(i, 2) = p_map.z;
+    }
+
+    // Create and train EM model
+    cv::Ptr<cv::ml::EM> em_model = cv::ml::EM::create();
+    em_model->setClustersNumber(2);  // Object + outliers
+    em_model->setCovarianceMatrixType(cv::ml::EM::COV_MAT_GENERIC);
+    em_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 100, 0.001));
+
+    // Train the model
+    cv::Mat labels;
+    if (!em_model->trainEM(samples, cv::noArray(), labels, cv::noArray())) {
+        ROS_WARN("GMM training failed, skipping filtering");
+        return;
+    }
+
+    // Find main component (highest weight or most points)
+    cv::Mat weights = em_model->getWeights();
+    int main_component = 0;
+    double max_weight = weights.at<double>(0);
+
+    // Count points per component as a fallback
+    std::map<int, int> component_counts;
+    for (int i = 0; i < labels.rows; i++) {
+        int label = labels.at<int>(i, 0);
+        component_counts[label]++;
+    }
+
+    // Choose component with highest weight
+    for (int i = 1; i < weights.rows; i++) {
+        if (weights.at<double>(i) > max_weight) {
+            max_weight = weights.at<double>(i);
+            main_component = i;
+        }
+    }
+
+    // If highest weight component has very few points, use largest component instead
+    if (component_counts[main_component] < cluster.points.size() * 0.1) {
+        int max_count = 0;
+        for (const auto& pair : component_counts) {
+            if (pair.second > max_count) {
+                max_count = pair.second;
+                main_component = pair.first;
+            }
+        }
+    }
+
+    // Filter points
+    std::vector<geo::Vec3> filtered_points;
+    for (int i = 0; i < labels.rows; i++) {
+        if (labels.at<int>(i, 0) == main_component) {
+            filtered_points.push_back(cluster.points[i]);
+        }
+    }
+
+    // Only replace if we kept some points
+    if (filtered_points.size() > cluster.points.size() * 0.1) {
+        cluster.points = filtered_points;
+    }
+}
 
 // ----------------------------------------------------------------------------------------------------
 void printMemoryUsage(const std::string& label) {
@@ -278,6 +399,12 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             clusters.pop_back();
             continue;
         }
+
+
+        // After collecting all points in the cluster but before convex hull calculation
+        applyDBSCANFiltering(cluster, sensor_pose);
+        //applyGMMFiltering(cluster, sensor_pose);
+
 
         // Calculate cluster convex hull
         float z_min = 1e9;
