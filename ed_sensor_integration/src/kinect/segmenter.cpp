@@ -22,6 +22,9 @@
 #include <pcl/point_cloud.h>
 #include <pcl/segmentation/extract_clusters.h>
 
+#include <Eigen/Dense>
+#include "ed/kinect/bayesian_gmm.h"
+
 void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
@@ -38,9 +41,18 @@ void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose)
     // Run clustering
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+    // This is the DBSCAN "epsilon" (ε) parameter.
+    // Defines the radius (2cm) in which to search for neighboring points
+    // Too small: Objects fragment into multiple clusters | Too large: Different objects merge together
     ec.setClusterTolerance(0.02);  // 2cm
+    // Minimum number of points required to form a valid cluster
+    // Smaller values: More sensitive to noise and small objects
+    // Larger values: Eliminates smaller objects but reduces noise
     ec.setMinClusterSize(50);
+    // Maximum number of points allowed in a cluster. Should be large enough for your largest expected object
     ec.setMaxClusterSize(25000);
+    // Specifies the spatial indexing structure for neighbor searches
+    // KdTree is efficient for finding neighbors in 3D space
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud);
     ec.extract(cluster_indices);
@@ -402,8 +414,32 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
 
 
         // After collecting all points in the cluster but before convex hull calculation
-        applyDBSCANFiltering(cluster, sensor_pose);
-        //applyGMMFiltering(cluster, sensor_pose);
+        //applyDBSCANFiltering(cluster, sensor_pose);
+        applyGMMFiltering(cluster, sensor_pose);
+
+        // apply bayesian GMM filtering
+        MAPGMM gmm(2); // 2 components: object + outliers
+        gmm.fit(cluster.points, sensor_pose);
+        // Get component assignments and inlier component
+        std::vector<int> labels = gmm.get_labels();
+        int inlier_component = gmm.get_inlier_component();
+        // Filter points
+        std::vector<geo::Vec3> filtered_points;
+        for (size_t i = 0; i < labels.size(); i++) {
+            if (labels[i] == inlier_component) {
+                filtered_points.push_back(cluster.points[i]);
+            }
+        }
+        // Safety check
+        if (filtered_points.size() > 10 && filtered_points.size() > 0.1 * cluster.points.size()) {
+            ROS_INFO("MAP-GMM filtering: kept %zu of %zu points (%.1f%%)",
+                    filtered_points.size(), cluster.points.size(),
+                    100.0 * filtered_points.size() / cluster.points.size());
+            cluster.points = filtered_points;
+        } else {
+            ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
+        }
+
 
 
         // Calculate cluster convex hull
