@@ -135,7 +135,8 @@ int main(int argc, char **argv)
 
     ed::SnapshotCrawler crawler(path);
 
-    Updater updater(tue::Configuration);
+    tue::Configuration config;
+    Updater updater(config);
 
     std::vector<ed::Snapshot> snapshots;
 
@@ -148,7 +149,7 @@ int main(int argc, char **argv)
 
         UpdateRequest kinect_update_request;
         kinect_update_request.area_description = area_description;
-        updater->update(*world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
+        updater.update(*world_model, snapshot.image, snapshot.sensor_pose, kinect_update_request, res);
 
         std::cout << update_req.measurements.size() << std::endl;
 

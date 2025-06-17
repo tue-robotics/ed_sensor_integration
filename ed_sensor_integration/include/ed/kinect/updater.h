@@ -49,7 +49,7 @@ class Updater
 
 public:
 
-    Updater(tue::Configuration& config);
+    Updater(tue::Configuration config);
 
     ~Updater();
 

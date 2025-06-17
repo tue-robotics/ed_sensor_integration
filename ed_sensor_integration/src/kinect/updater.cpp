@@ -298,7 +298,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 
 // ----------------------------------------------------------------------------------------------------
 //For displaying SAM MASK
-Updater::Updater(tue::Configuration& config)
+Updater::Updater(tue::Configuration config)
 {
     if (config.readGroup("segmenter", tue::config::OPTIONAL))
     {

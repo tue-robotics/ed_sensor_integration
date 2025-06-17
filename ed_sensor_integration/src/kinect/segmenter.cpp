@@ -159,7 +159,7 @@ void printMemoryUsage(const std::string& label) {
     ROS_INFO("%s - Memory usage: %ld KB", label.c_str(), usage.ru_maxrss);
 }
 
-Segmenter::Segmenter(tue::Configuration& config)
+Segmenter::Segmenter(tue::Configuration config)
 {
 }
 
