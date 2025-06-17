@@ -9,7 +9,8 @@
 
 class MAPGMM {
 public:
-    MAPGMM(int n_components = 2);
+    MAPGMM(int n_components = 2,
+           const std::vector<geo::Vec3>& points = std::vector<geo::Vec3>());
     void fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor_pose);
     std::vector<int> get_labels() const;
     int get_inlier_component() const;
@@ -29,7 +30,7 @@ private:
     std::vector<Eigen::Matrix3d> Psi0_;  // Prior covariance matrices
     std::vector<double> nu0_;  // Prior degrees of freedom
 
-    void setupPriors();
+    void setupPriors(const std::vector<geo::Vec3>& points);
 
     double eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp);
     void mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp);

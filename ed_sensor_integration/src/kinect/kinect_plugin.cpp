@@ -57,6 +57,13 @@ void KinectPlugin::initialize(ed::InitData& init)
         image_buffer_.initialize(topic, "map");
     }
 
+    if (config.readGroup("updater", tue::config::REQUIRED))
+    {
+        updater_ = std::make_unique<Updater>(config.limitScope());
+        config.endGroup();
+    }
+    // config.endGroup();
+
     // - - - - - - - - - - - - - - - - - -
     // Services
 
@@ -180,7 +187,7 @@ bool KinectPlugin::srvUpdate(ed_sensor_integration_msgs::Update::Request& req, e
     kinect_update_req.max_yaw_change = 0.25 * M_PI;
 
     UpdateResult kinect_update_res(*update_req_);
-    if (!updater_.update(*world_, image, sensor_pose, kinect_update_req, kinect_update_res))
+    if (!updater_->update(*world_, image, sensor_pose, kinect_update_req, kinect_update_res))
     {
         res.error_msg = kinect_update_res.error.str();
         return true;

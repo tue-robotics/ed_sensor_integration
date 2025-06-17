@@ -5,6 +5,8 @@
 #include "ed/kinect/segmenter.h"
 #include "ed/kinect/entity_update.h"
 
+#include <tue/config/configuration.h>
+
 #include <map>
 #include <vector>
 // ----------------------------------------------------------------------------------------------------
@@ -47,7 +49,7 @@ class Updater
 
 public:
 
-    Updater();
+    Updater(tue::Configuration& config);
 
     ~Updater();
 
@@ -58,7 +60,7 @@ private:
 
     Fitter fitter_;
 
-    Segmenter segmenter_;
+    std::unique_ptr<Segmenter> segmenter_;
 
     // Stores for each segmented entity with which area description it was found
     std::map<ed::UUID, std::string> id_to_area_description_;
