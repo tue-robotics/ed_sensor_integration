@@ -6,6 +6,7 @@
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
 #include <opencv2/core/core.hpp>
+#include <tue/config/configuration.h>
 
 #include <ed/convex_hull.h>
 #include <ed/types.h>
@@ -29,7 +30,7 @@ class Segmenter
 
 public:
 
-    Segmenter();
+    Segmenter(tue::Configuration& config);
 
     ~Segmenter();
 

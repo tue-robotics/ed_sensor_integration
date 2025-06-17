@@ -298,8 +298,12 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 
 // ----------------------------------------------------------------------------------------------------
 //For displaying SAM MASK
-Updater::Updater()
+Updater::Updater(tue::Configuration& config)
 {
+    if (config.readGroup("segmenter", tue::config::OPTIONAL))
+    {
+        segmenter_ = std::make_unique<Segmenter>(config);
+    }
     // Initialize the image publisher
     ros::NodeHandle nh("~");
     mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
@@ -455,7 +459,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             // Segment
 
             geo::Pose3D shape_pose = sensor_pose.inverse() * new_pose;
-            segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
+            segmenter_->calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
         }
     }
     else
@@ -473,7 +477,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     ed::WorldModel world_updated = world;
     world_updated.update(res.update_req);
 
-    segmenter_.removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
+    segmenter_->removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there
@@ -508,8 +512,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-    filtered_rgb_image = segmenter_.preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::vector<cv::Mat> clustered_images = segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
+    filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
+    std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
 
     // // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
@@ -585,7 +589,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         //refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
 
         //up.chull.z_min += 0.01;
-        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
+        refitConvexHull(*image, sensor_pose, cam_model, *segmenter_, up);
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -

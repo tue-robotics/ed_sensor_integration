@@ -1,7 +1,7 @@
 #include "ed/kinect/bayesian_gmm.h"
 
 
-MAPGMM::MAPGMM(int n_components) : K_(n_components), inlier_component_(0) {
+MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points) : K_(n_components), inlier_component_(0) {
     // Initialize all containers to proper sizes
     means_.resize(K_);
     covs_.resize(K_);
@@ -25,7 +25,7 @@ MAPGMM::MAPGMM(int n_components) : K_(n_components), inlier_component_(0) {
     }
 
     // Set up actual prior values
-    setupPriors();
+    setupPriors(points);
 }
 
 void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor_pose) {
@@ -101,18 +101,23 @@ int MAPGMM::get_inlier_component() const {
 
 
 
-void MAPGMM::setupPriors() {
+void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
     if (mu0_.size() != K_ || kappa0_.size() != K_ ||
         Psi0_.size() != K_ || nu0_.size() != K_) {
         ROS_ERROR("Prior vectors not properly initialized in MAPGMM constructor");
         return;
     }
     // Dirichlet prior for weights (alpha>1 favors more uniform weights)
-    alpha_ = 1.5;
-
+    alpha_ = 1.0;
+    Eigen::Vector3d means = Eigen::Vector3d::Zero();
+    for (const auto& p : points) {
+        means += Eigen::Vector3d(p.x, p.y, p.z);
+    }
+    means /= points.size();
     for (int k = 0; k < K_; k++) {
         // Same prior for all components initially
-        mu0_[k] = Eigen::Vector3d(0.0, 0.0, 0.03);  // Neutral height
+        mu0_[k] = means;
+
         kappa0_[k] = 0.1;  // Weak prior
 
         // Same covariance prior for all components
@@ -150,7 +155,7 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp) {
         Eigen::VectorXd exp_probs = (log_probs.row(i).array() - max_log_prob).exp();
         double sum_exp = exp_probs.sum();
 
-        // Set responsibilities
+        // Set responsibilities (p_z=k|x)
         resp.row(i) = exp_probs / sum_exp;
 
         // Add to log likelihood
@@ -206,29 +211,42 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
 }
 
 void MAPGMM::determineInlierComponent() {
-    // Use covariance properties to identify inlier component
-    std::vector<double> scores(K_);
+    // Count points per component
+    std::vector<int> counts(K_, 0);
+    for (int label : labels_) {
+        counts[label]++;
+    }
+
+    ROS_INFO("Component counts: [%d, %d]", counts[0], counts[1]);
+
+    // Calculate component statistics
+    std::vector<double> scores(K_, 0.0);
 
     for (int k = 0; k < K_; k++) {
+        if (counts[k] < 10) {
+            ROS_INFO("Component %d has too few points (%d), skipping", k, counts[k]);
+            continue;
+        }
+
         // Eigendecomposition of covariance
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(covs_[k]);
         Eigen::Vector3d eigenvalues = eig.eigenvalues();
 
-        // Sort eigenvalues
         std::vector<double> evals = {eigenvalues(0), eigenvalues(1), eigenvalues(2)};
         std::sort(evals.begin(), evals.end());
 
-        // Elongation (real objects have lower elongation)
+        // Calculate metrics
         double elongation = evals[2] / (evals[1] + 1e-6);
-
-        // XY:Z ratio (artifacts spread more in XY than Z)
         double xy_to_z_ratio = std::sqrt(evals[1] * evals[2]) / (evals[0] + 1e-6);
-
-        // Height (real objects are higher)
         double height = means_[k][2];
+        double volume = std::sqrt(evals[0] * evals[1] * evals[2]);
+        double density = counts[k] / (volume + 1e-10);
 
         // Combined score
         scores[k] = -elongation + 2.0 * height - std::abs(std::log(xy_to_z_ratio));
+
+        ROS_INFO("Component %d: count=%d, elongation=%.3f, xy_z_ratio=%.3f, height=%.3f, density=%.3f, score=%.3f",
+                k, counts[k], elongation, xy_to_z_ratio, height, density, scores[k]);
     }
 
     // Select component with highest score
@@ -236,4 +254,7 @@ void MAPGMM::determineInlierComponent() {
     if (K_ > 1 && scores[1] > scores[0]) {
         inlier_component_ = 1;
     }
+
+    ROS_INFO("Selected inlier component: %d (score: %.3f)",
+            inlier_component_, scores[inlier_component_]);
 }
