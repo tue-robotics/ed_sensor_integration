@@ -30,7 +30,7 @@ class Segmenter
 
 public:
 
-    Segmenter(tue::Configuration& config);
+    Segmenter(tue::Configuration config);
 
     ~Segmenter();
 
