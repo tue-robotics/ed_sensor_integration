@@ -300,9 +300,14 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 //For displaying SAM MASK
 Updater::Updater(tue::Configuration config)
 {
-    if (config.readGroup("segmenter", tue::config::OPTIONAL))
+    if (config.readGroup("segmenter", tue::config::REQUIRED))
     {
         segmenter_ = std::make_unique<Segmenter>(config);
+    }
+    else
+    {
+        ROS_ERROR("No segmenter configuration found, cannot initialize Updater.");
+        throw std::runtime_error("No segmenter configuration found");
     }
     // Initialize the image publisher
     ros::NodeHandle nh("~");

@@ -160,6 +160,7 @@ void printMemoryUsage(const std::string& label) {
 }
 
 Segmenter::Segmenter(tue::Configuration config)
+    : config_(config)
 {
 }
 
@@ -329,7 +330,7 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image, const 
 // ----------------------------------------------------------------------------------------------------
 
 std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -418,7 +419,14 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         //applyGMMFiltering(cluster, sensor_pose);
 
         // apply bayesian GMM filtering
-        MAPGMM gmm(2, cluster.points); // 2 components: object + outliers
+        GMMParams params;
+        config_.value("psi0", params.psi0);
+        config_.value("nu0", params.nu0);
+        config_.value("alpha", params.alpha);
+        config_.value("kappa0", params.kappa0);
+
+
+        MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
         gmm.fit(cluster.points, sensor_pose);
         // Get component assignments and inlier component
         std::vector<int> labels = gmm.get_labels();
