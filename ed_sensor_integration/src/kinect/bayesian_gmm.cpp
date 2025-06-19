@@ -61,11 +61,12 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
     double tol = 1e-4;
     double prev_log_likelihood = -1e10;
 
-    Eigen::MatrixXd resp(N, K_);
+
+    resp_ = Eigen::MatrixXd::Zero(N, K_);
 
     for (int iter = 0; iter < max_iter; iter++) {
         // E-step: Calculate responsibilities
-        double log_likelihood = eStep(data, resp);
+        double log_likelihood = eStep(data, resp_);
 
         // Check convergence
         double change = std::abs((log_likelihood - prev_log_likelihood) / (std::abs(prev_log_likelihood) + 1e-10));
@@ -76,13 +77,13 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
         prev_log_likelihood = log_likelihood;
 
         // M-step: Update parameters with MAP
-        mStep(data, resp);
+        mStep(data, resp_);
     }
 
     // Assign labels based on highest responsibility
     labels_.resize(N);
     for (int i = 0; i < N; i++) {
-        Eigen::VectorXd r = resp.row(i);
+        Eigen::VectorXd r = resp_.row(i);
         int max_idx = 0;
         r.maxCoeff(&max_idx);
         labels_[i] = max_idx;
@@ -127,7 +128,7 @@ void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
     }
 }
 
-double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp) {
+double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
     int N = data.rows();
     double log_likelihood = 0.0;
 
@@ -156,7 +157,7 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp) {
         double sum_exp = exp_probs.sum();
 
         // Set responsibilities (p_z=k|x)
-        resp.row(i) = exp_probs / sum_exp;
+        resp_.row(i) = exp_probs / sum_exp;
 
         // Add to log likelihood
         log_likelihood += max_log_prob + std::log(sum_exp);
@@ -165,13 +166,13 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp) {
     return log_likelihood;
 }
 
-void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
+void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp_) {
     int N = data.rows();
 
     // For each component
     for (int k = 0; k < K_; k++) {
         // Component responsibility sum
-        double Nk = resp.col(k).sum();
+        double Nk = resp_.col(k).sum();
 
         // MAP update for weight (Dirichlet prior)
         weights_[k] = (Nk + alpha_ - 1.0) / (N + K_ * alpha_ - K_);
@@ -179,7 +180,7 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
         // Calculate weighted mean of data
         Eigen::Vector3d mean_data = Eigen::Vector3d::Zero();
         for (int i = 0; i < N; i++) {
-            mean_data += resp(i, k) * data.row(i).transpose();
+            mean_data += resp_(i, k) * data.row(i).transpose();
         }
         mean_data /= Nk;
 
@@ -191,7 +192,7 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
         Eigen::Matrix3d cov_data = Eigen::Matrix3d::Zero();
         for (int i = 0; i < N; i++) {
             Eigen::Vector3d diff = data.row(i).transpose() - mean_data;
-            cov_data += resp(i, k) * diff * diff.transpose();
+            cov_data += resp_(i, k) * diff * diff.transpose();
         }
         cov_data /= Nk;
 
@@ -212,50 +213,24 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
 }
 
 void MAPGMM::determineInlierComponent() {
-    // Count points per component
-    std::vector<int> counts(K_, 0);
-    for (int label : labels_) {
-        counts[label]++;
-    }
+     // Compute N_k: total responsibility mass for each component
+    std::vector<double> Nk(K_, 0.0);
+    int N = labels_.size();  // or you can use resp.rows()
 
-    ROS_INFO("Component counts: [%d, %d]", counts[0], counts[1]);
-
-    // Calculate component statistics
-    std::vector<double> scores(K_, 0.0);
-
-    for (int k = 0; k < K_; k++) {
-        if (counts[k] < 10) {
-            ROS_INFO("Component %d has too few points (%d), skipping", k, counts[k]);
-            continue;
+    for (int i = 0; i < N; i++) {
+        for (int k = 0; k < K_; k++) {
+            Nk[k] += resp_(i, k);  // You'll need to save `resp_` as a class member
         }
-
-        // Eigendecomposition of covariance
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(covs_[k]);
-        Eigen::Vector3d eigenvalues = eig.eigenvalues();
-
-        std::vector<double> evals = {eigenvalues(0), eigenvalues(1), eigenvalues(2)};
-        std::sort(evals.begin(), evals.end());
-
-        // Calculate metrics
-        double elongation = evals[2] / (evals[1] + 1e-6);
-        double xy_to_z_ratio = std::sqrt(evals[1] * evals[2]) / (evals[0] + 1e-6);
-        double height = means_[k][2];
-        double volume = std::sqrt(evals[0] * evals[1] * evals[2]);
-        double density = counts[k] / (volume + 1e-10);
-
-        // Combined score
-        scores[k] = -elongation + 2.0 * height - std::abs(std::log(xy_to_z_ratio));
-
-        ROS_INFO("Component %d: count=%d, elongation=%.3f, xy_z_ratio=%.3f, height=%.3f, density=%.3f, score=%.3f",
-                k, counts[k], elongation, xy_to_z_ratio, height, density, scores[k]);
     }
 
-    // Select component with highest score
+    // Find the component with max Nk
     inlier_component_ = 0;
-    if (K_ > 1 && scores[1] > scores[0]) {
-        inlier_component_ = 1;
+    for (int k = 1; k < K_; k++) {
+        if (Nk[k] > Nk[inlier_component_]) {
+            inlier_component_ = k;
+        }
     }
 
-    ROS_INFO("Selected inlier component: %d (score: %.3f)",
-            inlier_component_, scores[inlier_component_]);
+    ROS_INFO("Bayesian selection: inlier component = %d (Nk = %.2f)", inlier_component_, Nk[inlier_component_]);
+
 }
