@@ -43,10 +43,10 @@ public:
     cv::Mat preprocessRGBForSegmentation(const cv::Mat& rgb_image, const cv::Mat& filtered_depth_image) const;
 
     std::vector<cv::Mat> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image) const;
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image);
 
 private:
-
+    tue::Configuration config_;
 };
 
 #endif

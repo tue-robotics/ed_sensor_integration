@@ -1,7 +1,7 @@
 #include "ed/kinect/bayesian_gmm.h"
 
 
-MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points) : K_(n_components), inlier_component_(0) {
+MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMMParams & params) : K_(n_components), inlier_component_(0), params_(params) {
     // Initialize all containers to proper sizes
     means_.resize(K_);
     covs_.resize(K_);
@@ -108,7 +108,7 @@ void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
         return;
     }
     // Dirichlet prior for weights (alpha>1 favors more uniform weights)
-    alpha_ = 1.0;
+    alpha_ = params_.alpha;
     Eigen::Vector3d means = Eigen::Vector3d::Zero();
     for (const auto& p : points) {
         means += Eigen::Vector3d(p.x, p.y, p.z);
@@ -118,12 +118,12 @@ void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
         // Same prior for all components initially
         mu0_[k] = means;
 
-        kappa0_[k] = 0.1;  // Weak prior
+        kappa0_[k] = params_.kappa0;  // Weak prior
 
         // Same covariance prior for all components
-        Eigen::Matrix3d psi = Eigen::Matrix3d::Identity() * 0.005;
+        Eigen::Matrix3d psi = Eigen::Matrix3d::Identity() * params_.psi0;
         Psi0_[k] = psi;
-        nu0_[k] = 4;  // Minimum value for 3D (d+1)
+        nu0_[k] = params_.nu0;  // Minimum value for 3D (d+1)
     }
 }
 
@@ -184,6 +184,7 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp) {
         mean_data /= Nk;
 
         // MAP update for mean (Normal-Wishart prior)
+        //kappa0_[k] += Nk;  // Update kappa prior
         means_[k] = (Nk * mean_data + kappa0_[k] * mu0_[k]) / (Nk + kappa0_[k]);
 
         // Calculate weighted covariance of data
