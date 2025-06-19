@@ -40,6 +40,8 @@ private:
     std::vector<Eigen::Matrix3d> Psi0_;  // Prior covariance matrices
     std::vector<double> nu0_;  // Prior degrees of freedom
 
+    Eigen::MatrixXd resp_;  // Store responsibilities matrix
+
     void setupPriors(const std::vector<geo::Vec3>& points);
 
     double eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp);
