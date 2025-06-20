@@ -20,8 +20,6 @@ MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMM
         covs_[k] = Eigen::Matrix3d::Identity();
         mu0_[k] = Eigen::Vector3d::Zero();
         Psi0_[k] = Eigen::Matrix3d::Identity();
-        kappa0_[k] = 1.0;
-        nu0_[k] = 4.0;  // Minimum for 3D
     }
 
     // Set up actual prior values
@@ -50,11 +48,9 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
     for (int k = 0; k < K_; k++) {
         int idx = rand() % N;
         means_[k] = data.row(idx).transpose();
-        covs_[k] = Eigen::Matrix3d::Identity() * 0.01;  // Small initial cov
+        covs_[k] = Eigen::Matrix3d::Identity() * 0.01;  // Small initial cov NEED TO PUT THIS ON THE PARAMETERS AS WELL
     }
 
-    // Set up priors
-    //setupPriors();
 
     // EM iterations
     int max_iter = 100;
