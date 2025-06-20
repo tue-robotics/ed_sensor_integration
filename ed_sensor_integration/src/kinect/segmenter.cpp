@@ -101,44 +101,29 @@ void applyGMMFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
     em_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 100, 0.001));
 
     // Train the model
-    cv::Mat labels;
-    if (!em_model->trainEM(samples, cv::noArray(), labels, cv::noArray())) {
+    cv::Mat labels, probs;
+    if (!em_model->trainEM(samples, cv::noArray(), labels, probs)) {
         ROS_WARN("GMM training failed, skipping filtering");
         return;
     }
 
-    // Find main component (highest weight or most points)
-    cv::Mat weights = em_model->getWeights();
-    int main_component = 0;
-    double max_weight = weights.at<double>(0);
-
-    // Count points per component as a fallback
+    // Count points per component
     std::map<int, int> component_counts;
     for (int i = 0; i < labels.rows; i++) {
-        int label = labels.at<int>(i, 0);
-        component_counts[label]++;
+        component_counts[labels.at<int>(i, 0)]++;
     }
 
-    // Choose component with highest weight
-    for (int i = 1; i < weights.rows; i++) {
-        if (weights.at<double>(i) > max_weight) {
-            max_weight = weights.at<double>(i);
-            main_component = i;
+    // Find component with most points (argmax)
+    int main_component = 0;
+    int max_count = 0;
+    for (const auto& pair : component_counts) {
+        if (pair.second > max_count) {
+            max_count = pair.second;
+            main_component = pair.first;
         }
     }
 
-    // If highest weight component has very few points, use largest component instead
-    if (component_counts[main_component] < cluster.points.size() * 0.1) {
-        int max_count = 0;
-        for (const auto& pair : component_counts) {
-            if (pair.second > max_count) {
-                max_count = pair.second;
-                main_component = pair.first;
-            }
-        }
-    }
-
-    // Filter points
+    // Keep all points from the largest component
     std::vector<geo::Vec3> filtered_points;
     for (int i = 0; i < labels.rows; i++) {
         if (labels.at<int>(i, 0) == main_component) {
@@ -146,10 +131,12 @@ void applyGMMFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
         }
     }
 
+    cluster.points = filtered_points;
+
     // Only replace if we kept some points
-    if (filtered_points.size() > cluster.points.size() * 0.1) {
-        cluster.points = filtered_points;
-    }
+    //if (filtered_points.size() > cluster.points.size() * 0.1) {
+        //cluster.points = filtered_points;
+    //}
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -418,7 +405,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         //applyDBSCANFiltering(cluster, sensor_pose);
         //applyGMMFiltering(cluster, sensor_pose);
 
-        // apply bayesian GMM filtering
+        ///////////////////// apply bayesian GMM filtering /////////////////////
         GMMParams params;
         config_.value("psi0", params.psi0);
         config_.value("nu0", params.nu0);
@@ -448,7 +435,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
         }
 
-
+        ///////////////////// END: apply bayesian GMM filtering /////////////////////
 
         // Calculate cluster convex hull
         float z_min = 1e9;
