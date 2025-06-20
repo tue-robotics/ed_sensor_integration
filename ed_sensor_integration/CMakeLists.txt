@@ -100,6 +100,7 @@ add_library(ed_kinect
   include/ed/kinect/segmenter.h
   include/ed/kinect/updater.h
   include/ed/kinect/bayesian_gmm.h
+  include/ed/kinect/variational_gmm.h
   src/kinect/association.cpp
   src/kinect/beam_model.cpp
   src/kinect/fitter.cpp
@@ -108,6 +109,7 @@ add_library(ed_kinect
   src/kinect/segmenter.cpp
   src/kinect/updater.cpp
   src/kinect/bayesian_gmm.cpp
+  src/kinect/variational_gmm.cpp
 )
 # Link ed_kinect with ALL its dependencies in one place
 target_link_libraries(ed_kinect
