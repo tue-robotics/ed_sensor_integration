@@ -26,7 +26,7 @@
 #include "ed/kinect/bayesian_gmm.h"
 #include "ed/kinect/variational_gmm.h"
 
-void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
+void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose, tue::Configuration config_) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
     // Build point cloud in map frame
@@ -39,17 +39,24 @@ void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose)
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud);
 
+    // Initialize clustering parameters from config
+    double eps = 0.02;         // Default: 2cm
+    int min_samples = 30;
+    config_.value("eps", eps);
+    config_.value("min_samples", min_samples);
+
+
     // Run clustering
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
     // This is the DBSCAN "epsilon" (ε) parameter.
     // Defines the radius (2cm) in which to search for neighboring points
     // Too small: Objects fragment into multiple clusters | Too large: Different objects merge together
-    ec.setClusterTolerance(0.02);  // 2cm
+    ec.setClusterTolerance(eps);  // 2cm
     // Minimum number of points required to form a valid cluster
     // Smaller values: More sensitive to noise and small objects
     // Larger values: Eliminates smaller objects but reduces noise
-    ec.setMinClusterSize(50);
+    ec.setMinClusterSize(min_samples);
     // Maximum number of points allowed in a cluster. Should be large enough for your largest expected object
     ec.setMaxClusterSize(25000);
     // Specifies the spatial indexing structure for neighbor searches
@@ -432,39 +439,39 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
 
 
         // After collecting all points in the cluster but before convex hull calculation
-        //applyDBSCANFiltering(cluster, sensor_pose);
+        //applyDBSCANFiltering(cluster, sensor_pose, config_);
         //applyGMMFiltering(cluster, sensor_pose);
-        applyVariationalBayesianGMMFiltering(cluster, sensor_pose);
+        //applyVariationalBayesianGMMFiltering(cluster, sensor_pose);
 
         ///////////////////// apply bayesian GMM filtering /////////////////////
-        // GMMParams params;
-        // config_.value("psi0", params.psi0);
-        // config_.value("nu0", params.nu0);
-        // config_.value("alpha", params.alpha);
-        // config_.value("kappa0", params.kappa0);
+        GMMParams params;
+        config_.value("psi0", params.psi0);
+        config_.value("nu0", params.nu0);
+        config_.value("alpha", params.alpha);
+        config_.value("kappa0", params.kappa0);
 
 
-        // MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
-        // gmm.fit(cluster.points, sensor_pose);
-        // // Get component assignments and inlier component
-        // std::vector<int> labels = gmm.get_labels();
-        // int inlier_component = gmm.get_inlier_component();
-        // // Filter points
-        // std::vector<geo::Vec3> filtered_points;
-        // for (size_t i = 0; i < labels.size(); i++) {
-        //     if (labels[i] == inlier_component) {
-        //         filtered_points.push_back(cluster.points[i]);
-        //     }
-        // }
-        // // Safety check
-        // if (filtered_points.size() > 10 && filtered_points.size() > 0.1 * cluster.points.size()) {
-        //     ROS_INFO("MAP-GMM filtering: kept %zu of %zu points (%.1f%%)",
-        //             filtered_points.size(), cluster.points.size(),
-        //             100.0 * filtered_points.size() / cluster.points.size());
-        //     cluster.points = filtered_points;
-        // } else {
-        //     ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
-        // }
+        MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
+        gmm.fit(cluster.points, sensor_pose);
+        // Get component assignments and inlier component
+        std::vector<int> labels = gmm.get_labels();
+        int inlier_component = gmm.get_inlier_component();
+        // Filter points
+        std::vector<geo::Vec3> filtered_points;
+        for (size_t i = 0; i < labels.size(); i++) {
+            if (labels[i] == inlier_component) {
+                filtered_points.push_back(cluster.points[i]);
+            }
+        }
+        // Safety check
+        if (filtered_points.size() > 10 && filtered_points.size() > 0.1 * cluster.points.size()) {
+            ROS_INFO("MAP-GMM filtering: kept %zu of %zu points (%.1f%%)",
+                    filtered_points.size(), cluster.points.size(),
+                    100.0 * filtered_points.size() / cluster.points.size());
+            cluster.points = filtered_points;
+        } else {
+            ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
+        }
 
         ///////////////////// END: apply bayesian GMM filtering /////////////////////
 
