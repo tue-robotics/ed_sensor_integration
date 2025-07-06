@@ -381,54 +381,16 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
                     float d = depth_image.at<float>(pixel_idx);
 
                     if (d > 0 && std::isfinite(d)) {
-                        // NEW: Check neighboring depths for consistency with relative threshold
-                        float sum_depths = 0;
-                        int num_valid = 0;
-                        std::vector<float> neighbor_depths;
 
-                        // Check 8-connected neighborhood
-                        for (int dy = -1; dy <= 1; dy++) {
-                            for (int dx = -1; dx <= 1; dx++) {
-                                if (dx == 0 && dy == 0) continue;
-
-                                int nx = x + dx;
-                                int ny = y + dy;
-
-                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                                    // Only consider neighbors that are also in the mask
-                                    if (mask.at<unsigned char>(ny, nx) > 0) {
-                                        float nd = depth_image.at<float>(ny * width + nx);
-                                        if (nd > 0 && std::isfinite(nd)) {
-                                            sum_depths += nd;
-                                            num_valid++;
-                                            neighbor_depths.push_back(nd);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Only include point if depth is consistent with neighbors
-                        if (num_valid >= 3) {  // At least 3 valid neighbors
-                            float avg_depth = sum_depths / num_valid;
-
-                            // Use relative threshold - tighter for closer objects
-                            float threshold = 0.03 * avg_depth;  // 3% of distance
-
-                            // Check if the point is an outlier using median instead of mean
-                            std::sort(neighbor_depths.begin(), neighbor_depths.end());
-                            float median_depth = neighbor_depths[neighbor_depths.size()/2];
-
-                            if (std::abs(d - median_depth) < threshold) {
-                                // Add this point to the cluster
-                                cluster.pixel_indices.push_back(pixel_idx);
-                                cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
-                            }
-                        }
+                        // Add this point to the cluster
+                        cluster.pixel_indices.push_back(pixel_idx);
+                        cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
+                        num_points++;
                     }
                 }
             }
         }
+
 
         // Check if cluster has enough points. If not, remove it from the list
         if (cluster.pixel_indices.size() < 100) // TODO: magic number
