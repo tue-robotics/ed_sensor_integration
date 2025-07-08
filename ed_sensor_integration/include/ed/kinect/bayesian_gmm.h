@@ -41,12 +41,14 @@ private:
     std::vector<double> nu0_;  // Prior degrees of freedom
 
     Eigen::MatrixXd resp_;  // Store responsibilities matrix
+    double volume_;  // Volume of bounding box for uniform outlier component
 
     void setupPriors(const std::vector<geo::Vec3>& points);
 
     double eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp);
     void mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp);
     void determineInlierComponent();
+    void computeBoundingVolume(const Eigen::MatrixXd& data);
 };
 
 #endif  // BAYESIAN_GMM_H_

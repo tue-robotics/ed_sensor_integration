@@ -37,6 +37,8 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
         data(i, 1) = p_map.y;
         data(i, 2) = p_map.z;
     }
+    // Compute bounding volume for the data
+    computeBoundingVolume(data);
 
     // Initialize parameters
     weights_ = Eigen::VectorXd::Constant(K_, 1.0/K_);
@@ -124,6 +126,12 @@ void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
     }
 }
 
+void MAPGMM::computeBoundingVolume(const Eigen::MatrixXd& data) {
+    Eigen::Vector3d min_vals = data.colwise().minCoeff();
+    Eigen::Vector3d max_vals = data.colwise().maxCoeff();
+    volume_ = (max_vals - min_vals).prod();  // volume = (xmax - xmin) * (ymax - ymin) * (zmax - zmin)
+}
+
 double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
     int N = data.rows();
     double log_likelihood = 0.0;
@@ -135,6 +143,13 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
         // Compute multivariate normal density for all points
         for (int i = 0; i < N; i++) {
             Eigen::Vector3d x = data.row(i).transpose();
+            if (k == 0) {
+                // For the outlier component, use a uniform distribution over the bounding volume
+                double uniform_prob = 1.0 / volume_;
+                log_probs(i, k) = std::log(weights_[k]) + std::log(uniform_prob);
+                continue;
+            }
+            else{
             Eigen::Vector3d diff = x - means_[k];
 
             double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
@@ -142,6 +157,7 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
                             - 1.5 * std::log(2 * M_PI);
 
             log_probs(i, k) = std::log(weights_[k]) + log_prob;
+            }
         }
     }
 
@@ -172,6 +188,8 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp_) {
 
         // MAP update for weight (Dirichlet prior)
         weights_[k] = (Nk + alpha_ - 1.0) / (N + K_ * alpha_ - K_);
+
+        if (k == 0) continue;  // Skip outlier component for weight update since uniform distribution does not depend on data
 
         // Calculate weighted mean of data
         Eigen::Vector3d mean_data = Eigen::Vector3d::Zero();
@@ -220,7 +238,8 @@ void MAPGMM::determineInlierComponent() {
     }
 
     // Find the component with max Nk
-    inlier_component_ = 0;
+    // Skip the outlier uniform distribution component (k=0)
+    inlier_component_ = 1;
     for (int k = 1; k < K_; k++) {
         if (Nk[k] > Nk[inlier_component_]) {
             inlier_component_ = k;
