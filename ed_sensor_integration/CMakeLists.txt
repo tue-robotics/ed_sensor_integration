@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(ed_sensor_integration)
 
 add_compile_options(-Wall -Werror=all)
