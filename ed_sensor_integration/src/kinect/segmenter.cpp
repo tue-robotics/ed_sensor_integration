@@ -14,7 +14,7 @@
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
-#include "ros_segment_inference.h"
+#include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 #include <sys/resource.h>
 
 #include <opencv2/ml.hpp>
@@ -23,8 +23,8 @@
 #include <pcl/segmentation/extract_clusters.h>
 
 #include <Eigen/Dense>
-#include "ed/kinect/bayesian_gmm.h"
-#include "ed/kinect/variational_gmm.h"
+#include "bayesian_gmm.h"
+#include "variational_gmm.h"
 
 void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose, tue::Configuration config_) {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());

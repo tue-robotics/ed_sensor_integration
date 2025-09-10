@@ -3,7 +3,7 @@ project(ed_sensor_integration)
 
 # -------------- ONNXRuntime Setup (define this early) ------------------#
 set(ONNXRUNTIME_VERSION 1.21.1)
-set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}")
+set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam.bak/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}")
 
 # Add CUDA support for GPU acceleration
 add_definitions(-DUSE_CUDA=1)
@@ -28,6 +28,8 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  sam_onnx_ros
+  bmm_ros
   #//For displaying SAM MASK
   cv_bridge
   image_transport
@@ -40,7 +42,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect ${PROJECT_NAME}
-  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs sam_onnx_ros bmm_ros
   DEPENDS OpenCV PCL
 )
 
@@ -54,9 +56,8 @@ include_directories(
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  /home/amigo/Documents/repos/hero_sam/pipeline/inc
-  /home/amigo/Documents/repos/hero_sam/sam_inference/inc
-  /home/amigo/Documents/repos/hero_sam/yolo_inference/inc
+  /home/amigo/Documents/repos/hero_sam.bak/yolo_inference/inc
+  #/home/amigo/Documents/repos/hero_sam.bak/pipeline/inc
   ${ONNXRUNTIME_ROOT}/include
   /usr/include
   /usr/local/cuda/include
@@ -68,10 +69,8 @@ include_directories(
 
 # Define your project sources for YOLO and SAM first
 set(PROJECT_SOURCES
-  /home/amigo/Documents/repos/hero_sam/pipeline/src/ros_segment_inference.cpp
-  /home/amigo/Documents/repos/hero_sam/yolo_inference/src/yolo_inference.cpp
-  /home/amigo/Documents/repos/hero_sam/sam_inference/src/sam_inference.cpp
-  /home/amigo/Documents/repos/hero_sam/sam_inference/src/utils.cpp
+  #/home/amigo/Documents/repos/hero_sam.bak/pipeline/src/ros_segment_inference.cpp
+  /home/amigo/Documents/repos/hero_sam.bak/yolo_inference/src/yolo_inference.cpp
 )
 
 # Add the main library first since other components depend on it
@@ -99,8 +98,7 @@ add_library(ed_kinect
   include/ed/kinect/renderer.h
   include/ed/kinect/segmenter.h
   include/ed/kinect/updater.h
-  include/ed/kinect/bayesian_gmm.h
-  include/ed/kinect/variational_gmm.h
+  include/ed_sensor_integration/kinect/segmodules/sam_seg_module.h
   src/kinect/association.cpp
   src/kinect/beam_model.cpp
   src/kinect/fitter.cpp
@@ -108,8 +106,7 @@ add_library(ed_kinect
   src/kinect/renderer.cpp
   src/kinect/segmenter.cpp
   src/kinect/updater.cpp
-  src/kinect/bayesian_gmm.cpp
-  src/kinect/variational_gmm.cpp
+  src/kinect/sam_seg_module.cpp
 )
 # Link ed_kinect with ALL its dependencies in one place
 target_link_libraries(ed_kinect
@@ -230,14 +227,14 @@ install(
 )
 
 # Copy model files to the same folder as the executables
-configure_file(/home/amigo/Documents/repos/hero_sam/yolo_inference/data/coco.yaml ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/coco.yaml COPYONLY)
-configure_file(/home/amigo/Documents/repos/hero_sam/yolo_inference/model/yolo11m.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/yolo11m.onnx COPYONLY)
-configure_file(/home/amigo/Documents/repos/hero_sam/sam_inference/model/SAM_mask_decoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_mask_decoder.onnx COPYONLY)
-configure_file(/home/amigo/Documents/repos/hero_sam/sam_inference/model/SAM_encoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_encoder.onnx COPYONLY)
+#configure_file(/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/data/coco.yaml ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/coco.yaml COPYONLY)
+#configure_file(/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/model/yolo11m.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/yolo11m.onnx COPYONLY)
+# configure_file(/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model/SAM_mask_decoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_mask_decoder.onnx COPYONLY)
+# configure_file(/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model/SAM_encoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_encoder.onnx COPYONLY)
 #OR
 # Define model paths
-set(YOLO_MODELS_PATH "/home/amigo/Documents/repos/hero_sam/yolo_inference/model")
-set(SAM_MODELS_PATH "/home/amigo/Documents/repos/hero_sam/sam_inference/model")
+set(YOLO_MODELS_PATH "/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/model")
+set(SAM_MODELS_PATH "/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model")
 
 # Make these paths available to the C++ code
 add_definitions(-DYOLO_MODELS_PATH="${YOLO_MODELS_PATH}")

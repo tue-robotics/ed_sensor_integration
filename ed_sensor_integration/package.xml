@@ -26,6 +26,9 @@
   <depend>roscpp</depend>
   <depend>tue_config</depend>
   <depend>visualization_msgs</depend>
+  <depend>sam_onnx_ros</depend>
+  <depend>yolo_onnx_ros</depend>
+  <depend>bmm_ros</depend>
 
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
