@@ -309,6 +309,7 @@ Updater::Updater(tue::Configuration config)
         ROS_ERROR("No segmenter configuration found, cannot initialize Updater.");
         throw std::runtime_error("No segmenter configuration found");
     }
+    //For displaying SAM MASK
     // Initialize the image publisher
     ros::NodeHandle nh("~");
     mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
@@ -340,6 +341,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     const cv::Mat& rgb = image->getRGBImage();
     //cv::Mat img = rgb.clone();
 
+    // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
 
@@ -520,67 +522,11 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
     std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
 
-    // // Overlay masks on the RGB image
-    cv::Mat visualization = rgb.clone();
-    cv::imwrite("/tmp/visualization.png", visualization);
-
-    // Create a properly normalized depth visualization
-    cv::Mat depth_vis;
-    double min_val, max_val;
-    cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
-
-    // Handle empty depth image case
-    if (max_val == 0) {
-        depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
-    } else {
-        // Scale to full 8-bit range and convert to 8-bit
-        filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
-
-        // Apply a colormap for better visibility
-        cv::Mat depth_color;
-        cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite("/tmp/visualization_depth_color.png", depth_color);
-    }
-
-    // Save both grayscale and color versions
-    cv::imwrite("/tmp/visualization_depth.png", depth_vis);
-    overlayMasksOnImage(visualization, clustered_images);
-    // save after overlaying masks
-    cv::imwrite("/tmp/visualization_with_masks.png", visualization);
-    // // Convert to ROS message
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-    msg->header.stamp = ros::Time::now();
-
-    typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-    PointCloud::Ptr combined_cloud (new PointCloud);
-
-    combined_cloud->header.frame_id = "map"; // Use appropriate frame ID
-
-    // Add points from all entity updates
-    for (const EntityUpdate& update : res.entity_updates) {
-        for (const geo::Vec3& point : update.points) {
-            // Transform from camera to map frame
-            geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZ pcl_point;
-            pcl_point.x = p_map.x;
-            pcl_point.y = p_map.y;
-            pcl_point.z = p_map.z;
-            combined_cloud->push_back(pcl_point);
-        }
-    }
-
-    sensor_msgs::PointCloud2 cloud_msg;
-    pcl::toROSMsg(*combined_cloud, cloud_msg);
-    cloud_msg.header.stamp = ros::Time::now();
-    cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
-
-    // // Publish
-    mask_pub_.publish(msg);
-    cloud_pub_.publish(cloud_msg);
+    publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
-    //res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
+    res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Increase the convex hulls a bit towards the supporting surface and re-calculate mask

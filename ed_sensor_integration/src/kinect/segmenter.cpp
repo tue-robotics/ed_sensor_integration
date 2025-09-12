@@ -23,165 +23,10 @@
 #include <pcl/segmentation/extract_clusters.h>
 
 #include <Eigen/Dense>
+
 #include "bayesian_gmm.h"
-#include "variational_gmm.h"
-
-void applyDBSCANFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose, tue::Configuration config_) {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
-
-    // Build point cloud in map frame
-    for (const auto& point : cluster.points) {
-        geo::Vec3 p_map = sensor_pose * point;
-        cloud->push_back(pcl::PointXYZ(p_map.x, p_map.y, p_map.z));
-    }
-
-    // Create KdTree for search
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud);
-
-    // Initialize clustering parameters from config
-    double eps = 0.02;         // Default: 2cm
-    int min_samples = 30;
-    config_.value("eps", eps);
-    config_.value("min_samples", min_samples);
-
-
-    // Run clustering
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    // This is the DBSCAN "epsilon" (ε) parameter.
-    // Defines the radius (2cm) in which to search for neighboring points
-    // Too small: Objects fragment into multiple clusters | Too large: Different objects merge together
-    ec.setClusterTolerance(eps);  // 2cm
-    // Minimum number of points required to form a valid cluster
-    // Smaller values: More sensitive to noise and small objects
-    // Larger values: Eliminates smaller objects but reduces noise
-    ec.setMinClusterSize(min_samples);
-    // Maximum number of points allowed in a cluster. Should be large enough for your largest expected object
-    ec.setMaxClusterSize(25000);
-    // Specifies the spatial indexing structure for neighbor searches
-    // KdTree is efficient for finding neighbors in 3D space
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud);
-    ec.extract(cluster_indices);
-
-    // Select largest cluster
-    size_t largest_idx = 0;
-    size_t largest_size = 0;
-
-    for (size_t i = 0; i < cluster_indices.size(); i++) {
-        if (cluster_indices[i].indices.size() > largest_size) {
-            largest_size = cluster_indices[i].indices.size();
-            largest_idx = i;
-        }
-    }
-
-    // Filter points
-    if (!cluster_indices.empty()) {
-        std::vector<geo::Vec3> filtered_points;
-        for (const auto& idx : cluster_indices[largest_idx].indices) {
-            filtered_points.push_back(cluster.points[idx]);
-        }
-        cluster.points = filtered_points;
-    }
-}
-// Visualization
-//#include <opencv2/highgui/highgui.hpp>
-
-// After collecting points in cluster.points:
-void applyGMMFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
-    if (cluster.points.size() < 50) return;  // Too few points
-
-    // Convert points to OpenCV Mat (N x 3)
-    cv::Mat samples(cluster.points.size(), 3, CV_32F);
-    for (size_t i = 0; i < cluster.points.size(); i++) {
-        // Transform to map frame for consistent clustering
-        geo::Vec3 p_map = sensor_pose * cluster.points[i];
-        samples.at<float>(i, 0) = p_map.x;
-        samples.at<float>(i, 1) = p_map.y;
-        samples.at<float>(i, 2) = p_map.z;
-    }
-
-    // Create and train EM model
-    cv::Ptr<cv::ml::EM> em_model = cv::ml::EM::create();
-    em_model->setClustersNumber(2);  // Object + outliers
-    em_model->setCovarianceMatrixType(cv::ml::EM::COV_MAT_GENERIC);
-    em_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 100, 0.001));
-
-    // Train the model
-    cv::Mat labels, probs;
-    if (!em_model->trainEM(samples, cv::noArray(), labels, probs)) {
-        ROS_WARN("GMM training failed, skipping filtering");
-        return;
-    }
-
-    // Count points per component
-    std::map<int, int> component_counts;
-    for (int i = 0; i < labels.rows; i++) {
-        component_counts[labels.at<int>(i, 0)]++;
-    }
-
-    // Find component with most points (argmax)
-    int main_component = 0;
-    int max_count = 0;
-    for (const auto& pair : component_counts) {
-        if (pair.second > max_count) {
-            max_count = pair.second;
-            main_component = pair.first;
-        }
-    }
-
-    // Keep all points from the largest component
-    std::vector<geo::Vec3> filtered_points;
-    for (int i = 0; i < labels.rows; i++) {
-        if (labels.at<int>(i, 0) == main_component) {
-            filtered_points.push_back(cluster.points[i]);
-        }
-    }
-
-    cluster.points = filtered_points;
-
-    // Only replace if we kept some points
-    //if (filtered_points.size() > cluster.points.size() * 0.1) {
-        //cluster.points = filtered_points;
-    //}
-}
-
-void applyVariationalBayesianGMMFiltering(EntityUpdate& cluster, const geo::Pose3D& sensor_pose) {
-    if (cluster.points.size() < 50) return;
-
-    // Create and fit VB-GMM
-    VBGMM vbgmm(2, cluster.points); // 2 components: object + outliers
-    vbgmm.fit(cluster.points, sensor_pose);
-
-    // Get results
-    std::vector<int> labels = vbgmm.get_labels();
-    int inlier_component = vbgmm.get_inlier_component();
-    double lower_bound = vbgmm.get_lower_bound();
-
-    ROS_INFO("VB-GMM lower bound: %.3f", lower_bound);
-
-    // Filter points based on component assignment
-    std::vector<geo::Vec3> filtered_points;
-    for (size_t i = 0; i < labels.size(); i++) {
-        if (labels[i] == inlier_component) {
-            filtered_points.push_back(cluster.points[i]);
-        }
-    }
-
-    if (!filtered_points.empty()) {
-        cluster.points = filtered_points;
-        ROS_INFO("VB filtering: kept %zu of %zu points",
-                filtered_points.size(), cluster.points.size());
-    }
-}
 
 // ----------------------------------------------------------------------------------------------------
-void printMemoryUsage(const std::string& label) {
-    struct rusage usage;
-    getrusage(RUSAGE_SELF, &usage);
-    ROS_INFO("%s - Memory usage: %ld KB", label.c_str(), usage.ru_maxrss);
-}
 
 Segmenter::Segmenter(tue::Configuration config)
     : config_(config)
@@ -399,13 +244,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             continue;
         }
 
-
-        // After collecting all points in the cluster but before convex hull calculation
-        //applyDBSCANFiltering(cluster, sensor_pose, config_);
-        //applyGMMFiltering(cluster, sensor_pose);
-        //applyVariationalBayesianGMMFiltering(cluster, sensor_pose);
-
-        ///////////////////// apply bayesian GMM filtering /////////////////////
+        // BMM point cloud denoising
         GMMParams params;
         config_.value("psi0", params.psi0);
         config_.value("nu0", params.nu0);
@@ -435,8 +274,6 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
         }
 
-        ///////////////////// END: apply bayesian GMM filtering /////////////////////
-
         // Calculate cluster convex hull
         float z_min = 1e9;
         float z_max = -1e9;
@@ -460,6 +297,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
 
+        // Simple statistical outlier removal (geometric based & can be ommited)
         // After collecting all points, filter outliers
         if (!cluster.points.empty()) {
             // Calculate mean and standard deviation of distances to centroid
