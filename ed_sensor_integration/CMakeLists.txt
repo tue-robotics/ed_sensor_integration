@@ -28,6 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
   tue_config
   tue_filesystem
   visualization_msgs
+  yolo_onnx_ros
   sam_onnx_ros
   bmm_ros
   #//For displaying SAM MASK
@@ -41,8 +42,15 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ed_kinect ${PROJECT_NAME}
-  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs sam_onnx_ros bmm_ros
+  LIBRARIES
+    ed_kinect
+    ${PROJECT_NAME}_console_bridge
+    ed_association
+    ed_laser
+  CATKIN_DEPENDS
+    code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer
+    roscpp tue_config visualization_msgs sam_onnx_ros bmm_ros
+    cv_bridge image_transport
   DEPENDS OpenCV PCL
 )
 
@@ -56,7 +64,7 @@ include_directories(
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  /home/amigo/Documents/repos/hero_sam.bak/yolo_inference/inc
+  #/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/inc
   #/home/amigo/Documents/repos/hero_sam.bak/pipeline/inc
   ${ONNXRUNTIME_ROOT}/include
   /usr/include
@@ -67,18 +75,7 @@ include_directories(
 #                                         LIBRARIES
 # ------------------------------------------------------------------------------------------------
 
-# Define your project sources for YOLO and SAM first
-set(PROJECT_SOURCES
-  #/home/amigo/Documents/repos/hero_sam.bak/pipeline/src/ros_segment_inference.cpp
-  /home/amigo/Documents/repos/hero_sam.bak/yolo_inference/src/yolo_inference.cpp
-)
 
-# Add the main library first since other components depend on it
-add_library(${PROJECT_NAME} ${PROJECT_SOURCES})
-target_link_libraries(${PROJECT_NAME}
-  ${OpenCV_LIBS}
-  ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so
-)
 
 add_library(${PROJECT_NAME}_console_bridge
   src/rosconsole_bridge.cpp
@@ -108,12 +105,9 @@ add_library(ed_kinect
   src/kinect/updater.cpp
   src/kinect/sam_seg_module.cpp
 )
-# Link ed_kinect with ALL its dependencies in one place
 target_link_libraries(ed_kinect
   ${PROJECT_NAME}_console_bridge
   ed_association
-  ${PROJECT_NAME}
-  ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
 )
@@ -137,7 +131,11 @@ add_library(ed_kinect_plugin
   src/kinect/ray_tracer.cpp
   src/kinect/ray_tracer.h
 )
-target_link_libraries(ed_kinect_plugin ${PROJECT_NAME}_console_bridge ed_kinect ${catkin_LIBRARIES})
+target_link_libraries(ed_kinect_plugin
+  ${PROJECT_NAME}_console_bridge
+  ed_kinect
+  ${catkin_LIBRARIES}
+)
 add_dependencies(ed_kinect_plugin ${catkin_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
@@ -165,25 +163,23 @@ target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
-# Make sure to link against ${PROJECT_NAME} directly
-target_link_libraries(ed_segmenter ed_kinect ${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(ed_segmenter
+  ed_kinect
+  ${catkin_LIBRARIES}
+)
 
 add_executable(ed_fitter_data tools/fitter_viz_data.cpp)
-# Make sure to link against ${PROJECT_NAME} directly
 target_link_libraries(ed_fitter_data
   ${PROJECT_NAME}_console_bridge
   ed_kinect
-  ${PROJECT_NAME}
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
-# Make sure to link against ${PROJECT_NAME} directly
 target_link_libraries(ed_fitter_live
   ${PROJECT_NAME}_console_bridge
   ed_kinect
-  ${PROJECT_NAME}
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
 )
@@ -204,7 +200,6 @@ install(
 
 install(
   TARGETS
-    ${PROJECT_NAME}
     ed_association
     ed_clearer_plugin
     ed_kinect
@@ -247,8 +242,18 @@ if (CATKIN_ENABLE_TESTING)
   catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
 
   catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
-  target_link_libraries(test_furniture_fitting ${PROJECT_NAME}_console_bridge ed_kinect ${PROJECT_NAME} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  target_link_libraries(test_furniture_fitting
+    ${PROJECT_NAME}_console_bridge
+    ed_kinect
+    ${OpenCV_LIBRARIES}
+    ${catkin_LIBRARIES}
+  )
 
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
-  target_link_libraries(test_laser_fitting ${PROJECT_NAME}_console_bridge ed_laser ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  target_link_libraries(test_laser_fitting
+    ${PROJECT_NAME}_console_bridge
+    ed_laser
+    ${OpenCV_LIBRARIES}
+    ${catkin_LIBRARIES}
+  )
 endif ()
