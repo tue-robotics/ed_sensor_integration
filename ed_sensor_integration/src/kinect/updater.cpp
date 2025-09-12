@@ -13,112 +13,21 @@
 #include "ed/kinect/renderer.h"
 #include "ed/convex_hull_calc.h"
 
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
+
+
 
 #include <opencv2/highgui/highgui.hpp>
 
 #include <ros/console.h>
 #include <ros/ros.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
+
+#include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 // ----------------------------------------------------------------------------------------------------
-
-//For displaying SAM MASK
-void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
-{
-    // Define colors in BGR format for OpenCV (high contrast)
-    std::vector<cv::Scalar> colors = {
-        cv::Scalar(0, 0, 255),     // Red
-        cv::Scalar(0, 255, 0),     // Green
-        cv::Scalar(255, 0, 0),     // Blue
-        cv::Scalar(0, 255, 255),   // Yellow
-        cv::Scalar(255, 0, 255),   // Magenta
-        cv::Scalar(255, 255, 0),   // Cyan
-        cv::Scalar(128, 0, 128),   // Purple
-        cv::Scalar(0, 128, 128)    // Brown
-    };
-
-    // Create a copy for the overlay (preserves original for contours)
-    cv::Mat overlay = rgb.clone();
-
-    for (size_t i = 0; i < masks.size(); i++) {
-        // Get a working copy of the mask
-        cv::Mat working_mask = masks[i].clone();
-
-        // Check if mask needs resizing
-        if (working_mask.rows != rgb.rows || working_mask.cols != rgb.cols) {
-            cv::resize(working_mask, working_mask, rgb.size(), 0, 0, cv::INTER_NEAREST);
-        }
-
-        // Ensure the mask is binary (values 0 or 255)
-        if (cv::countNonZero(working_mask > 0 & working_mask < 255) > 0) {
-            cv::threshold(working_mask, working_mask, 127, 255, cv::THRESH_BINARY);
-        }
-
-        // Use a different color for each mask
-        cv::Scalar color = colors[i % colors.size()];
-
-        // Create the colored overlay with this mask's specific color
-        cv::Mat colorMask = cv::Mat::zeros(rgb.size(), CV_8UC3);
-        colorMask.setTo(color, working_mask);
-
-        // Add this mask's overlay to the combined overlay
-        cv::addWeighted(overlay, 1.0, colorMask, 0.2, 0, overlay);
-
-        // Find contours of the mask - use CHAIN_APPROX_NONE for most accurate contours
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-
-        // Draw double contours for better visibility (outer black, inner colored)
-        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 0, 0), 2);      // Outer black border
-        cv::drawContours(rgb, contours, -1, color, 1);                     // Inner colored line
-
-        // // Add mask ID (optional)
-        // if (!contours.empty()) {
-        //     // Find centroid of largest contour for label placement
-        //     int largest_idx = 0;
-        //     double largest_area = 0;
-        //     for (size_t j = 0; j < contours.size(); j++) {
-        //         double area = cv::contourArea(contours[j]);
-        //         if (area > largest_area) {
-        //             largest_area = area;
-        //             largest_idx = j;
-        //         }
-        //     }
-
-        //     // Calculate centroid
-        //     cv::Moments mu = cv::moments(contours[largest_idx]);
-        //     if (mu.m00 != 0) {
-        //         cv::Point centroid(mu.m10/mu.m00, mu.m01/mu.m00);
-
-        //         // Draw ID with contrasting background
-        //         std::string label = std::to_string(i);
-        //         int baseline = 0;
-        //         cv::Size text_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
-
-        //         cv::rectangle(rgb,
-        //                       cv::Point(centroid.x - text_size.width/2 - 2, centroid.y - text_size.height/2 - 2),
-        //                       cv::Point(centroid.x + text_size.width/2 + 2, centroid.y + text_size.height/2 + 2),
-        //                       cv::Scalar(255, 255, 255), -1);
-
-        //         cv::putText(rgb, label,
-        //                    cv::Point(centroid.x - text_size.width/2, centroid.y + text_size.height/2),
-        //                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
-        //     }
-        // }
-    }
-
-    // Apply the semi-transparent overlay with all masks
-    cv::addWeighted(rgb, 0.7, overlay, 0.3, 0, rgb);
-}
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                     const Segmenter& segmenter_, EntityUpdate& up)
+                     const std::unique_ptr<Segmenter>& segmenter_, EntityUpdate& up)
 {
     up.pose_map.t.z += (up.chull.z_max + up.chull.z_min) / 2;
 
@@ -129,7 +38,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
     geo::createConvexPolygon(chull_shape, points, up.chull.height());
 
     cv::Mat filtered_depth_image;
-    segmenter_.calculatePointsWithin(image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
+    segmenter_->calculatePointsWithin(image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
 
     up.points.clear();
     up.pixel_indices.clear();
@@ -192,7 +101,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
  * @return new EntityUpdate including new convexHull and measurement points of both inputs.
  */
 EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                              const Segmenter& segmenter_, const EntityUpdate& u1, const EntityUpdate& u2)
+                              const std::unique_ptr<Segmenter>& segmenter_, const EntityUpdate& u1, const EntityUpdate& u2)
 {
     EntityUpdate new_u = u1;
     double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
@@ -222,7 +131,7 @@ EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& senso
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
+                                                         const std::unique_ptr<Segmenter>& segmenter_, const std::vector<EntityUpdate>& updates)
 {
 
   ROS_INFO("mergoverlapping chulls: nr of updates: %lu", updates.size());
@@ -297,7 +206,6 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 }
 
 // ----------------------------------------------------------------------------------------------------
-//For displaying SAM MASK
 Updater::Updater(tue::Configuration config)
 {
     if (config.readGroup("segmenter", tue::config::REQUIRED))
@@ -536,11 +444,11 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     {
         EntityUpdate& up = *it;
 
-        //up.chull.z_min -= 0.04;
-        //refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
+        up.chull.z_min -= 0.04;
+        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
 
-        //up.chull.z_min += 0.01;
-        refitConvexHull(*image, sensor_pose, cam_model, *segmenter_, up);
+        up.chull.z_min += 0.01;
+        refitConvexHull(*image, sensor_pose, cam_model, segmenter_, up);
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
