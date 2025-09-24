@@ -21,8 +21,8 @@
 #include <ed/kinect/entity_update.h>
 #include <ed/kinect/segmenter.h>  // defines UpdateResult (and possibly other needed types)
 
-std::vector<cv::Mat> DetectTest(const cv::Mat& img);
-void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks);
+std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img);
+void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks);
 void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
                                 const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
                                 ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates);

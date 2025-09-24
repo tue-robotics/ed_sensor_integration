@@ -14,7 +14,6 @@
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
-#include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 #include <sys/resource.h>
 
 #include <opencv2/ml.hpp>
@@ -24,6 +23,7 @@
 
 #include <Eigen/Dense>
 
+#include <ed_sensor_integration/kinect/segmodules/sam_seg_module.h>
 #include <bmm/bayesian_mixture_model.hpp>
 
 // ----------------------------------------------------------------------------------------------------
@@ -204,9 +204,8 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
-    //printMemoryUsage("Before inference");
-    std::vector<cv::Mat> masks = DetectTest(rgb_image.clone());
-    //printMemoryUsage("After inference");
+
+    std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone());
     ROS_DEBUG("Creating clusters");
     unsigned int size = width * height;
 
