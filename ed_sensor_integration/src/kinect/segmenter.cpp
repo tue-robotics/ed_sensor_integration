@@ -24,7 +24,7 @@
 
 #include <Eigen/Dense>
 
-#include "bayesian_gmm.h"
+#include <bmm/bayesian_mixture_model.hpp>
 
 // ----------------------------------------------------------------------------------------------------
 
