@@ -11,7 +11,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 
-std::vector<cv::Mat> DetectTest(const cv::Mat& img)
+std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img)
 {
 
 
@@ -64,7 +64,7 @@ std::vector<cv::Mat> DetectTest(const cv::Mat& img)
     }
 
 //For displaying SAM MASK
-void overlayMasksOnImage(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
+void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 {
     // Define colors in BGR format for OpenCV (high contrast)
     std::vector<cv::Scalar> colors = {
@@ -147,7 +147,7 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
 
     // Save both grayscale and color versions
     cv::imwrite("/tmp/visualization_depth.png", depth_vis);
-    overlayMasksOnImage(visualization, clustered_images);
+    overlayMasksOnImage_(visualization, clustered_images);
     // save after overlaying masks
     cv::imwrite("/tmp/visualization_with_masks.png", visualization);
     // // Convert to ROS message
