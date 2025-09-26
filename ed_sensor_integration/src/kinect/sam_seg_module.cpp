@@ -168,7 +168,7 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     cloud_msg.header.stamp = ros::Time::now();
     cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
 
-    // // Publish
+    // Publish
     mask_pub_.publish(msg);
     cloud_pub_.publish(cloud_msg);
 }

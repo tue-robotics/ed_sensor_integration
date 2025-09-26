@@ -299,30 +299,30 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
 
-        // Simple statistical outlier removal (geometric based & can be ommited)
+        // Simple statistical outlier removal (geometric based optional for some better results if needed)
         // After collecting all points, filter outliers
-        if (!cluster.points.empty()) {
-            // Calculate mean and standard deviation of distances to centroid
-            geo::Vec3 centroid(0, 0, 0);
-            for (const auto& p : cluster.points)
-                centroid += p;
-            centroid = centroid / cluster.points.size();
+        // if (!cluster.points.empty()) {
+        //     // Calculate mean and standard deviation of distances to centroid
+        //     geo::Vec3 centroid(0, 0, 0);
+        //     for (const auto& p : cluster.points)
+        //         centroid += p;
+        //     centroid = centroid / cluster.points.size();
 
-            // Calculate standard deviation
-            float sum_sq_dist = 0;
-            for (const auto& p : cluster.points)
-                sum_sq_dist += (p - centroid).length2();
-            float stddev = std::sqrt(sum_sq_dist / cluster.points.size());
+        //     // Calculate standard deviation
+        //     float sum_sq_dist = 0;
+        //     for (const auto& p : cluster.points)
+        //         sum_sq_dist += (p - centroid).length2();
+        //     float stddev = std::sqrt(sum_sq_dist / cluster.points.size());
 
-            // Filter points that are too far from centroid
-            std::vector<geo::Vec3> filtered_points;
-            for (const auto& p : cluster.points) {
-                if ((p - centroid).length() < 2.5 * stddev)
-                    filtered_points.push_back(p);
-            }
+        //     // Filter points that are too far from centroid
+        //     std::vector<geo::Vec3> filtered_points;
+        //     for (const auto& p : cluster.points) {
+        //         if ((p - centroid).length() < 2.5 * stddev)
+        //             filtered_points.push_back(p);
+        //     }
 
-            cluster.points = filtered_points;
-        }
+        //     cluster.points = filtered_points;
+        // }
     }
     return masks;
 }
