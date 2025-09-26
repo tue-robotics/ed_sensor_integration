@@ -43,6 +43,9 @@ Segmenter::~Segmenter()
 
 namespace
 {
+// Internal constants (tuning thresholds)
+constexpr std::size_t MIN_FILTERED_POINTS = 10;
+constexpr double      MIN_RETENTION_RATIO = 0.10;  // 10%
 
 class DepthRenderer : public geo::RenderResult
 {
@@ -264,7 +267,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             }
         }
         // Safety check
-        if (filtered_points.size() > 10 && filtered_points.size() > 0.1 * cluster.points.size()) {
+        if (filtered_points.size() > MIN_FILTERED_POINTS && filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
             ROS_INFO("MAP-GMM filtering: kept %zu of %zu points (%.1f%%)",
                     filtered_points.size(), cluster.points.size(),
                     100.0 * filtered_points.size() / cluster.points.size());

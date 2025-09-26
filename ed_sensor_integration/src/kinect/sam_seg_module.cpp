@@ -14,7 +14,6 @@
 std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img)
 {
 
-
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
@@ -34,21 +33,11 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img)
     resYolo = Detector(yoloDetector, img);
 
     ////////////////////////// SAM //////////////////////////////////////
-    // Make sure we have at least one result
-
-    // for (const auto& result : resYolo) {
-    //     if (result.confidence < 0.5) {
-    //         std::cout << "Confidence is too low: " << result.confidence << std::endl;
-    //         std::cout << "Class ID is: " << yoloDetector->classes[result.classId] << std::endl;
-    //         continue;
-    //     }
-    //     std::cout << "Confidence is OKOK: " << result.confidence << std::endl;
-    //         std::cout << "Class ID is: " << yoloDetector->classes[result.classId] << std::endl;
-    //     res.boxes.push_back(result.box);
-    // }
-
     for (const auto& result : resYolo) {
-        if (result.classId == 60) {
+        // This should be deleted as we would upload everything
+        // (here we are skipping the table object but it should happen only on the rosservice scenario: on_top_of dinner_table )
+        int table_classification = 60;
+        if (result.classId == table_classification) {
             std::cout << "Class ID is: " << yoloDetector->classes[result.classId] << " So we dont append"<< std::endl;
             continue;
         }
@@ -63,7 +52,7 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img)
     return std::move(res.masks);
     }
 
-//For displaying SAM MASK
+
 void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 {
     // Define colors in BGR format for OpenCV (high contrast)
@@ -123,9 +112,11 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
                                 const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
                                 ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
 {
-// // Overlay masks on the RGB image
+    // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
-    cv::imwrite("/tmp/visualization.png", visualization);
+    // Create a path to save the image
+    std::string path = "/tmp";
+    cv::imwrite(path + "/visualization.png", visualization);
 
     // Create a properly normalized depth visualization
     cv::Mat depth_vis;
@@ -142,15 +133,15 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
         // Apply a colormap for better visibility
         cv::Mat depth_color;
         cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite("/tmp/visualization_depth_color.png", depth_color);
+        cv::imwrite(path + "/visualization_depth_color.png", depth_color);
     }
 
     // Save both grayscale and color versions
-    cv::imwrite("/tmp/visualization_depth.png", depth_vis);
+    cv::imwrite(path + "/visualization_depth.png", depth_vis);
     overlayMasksOnImage_(visualization, clustered_images);
     // save after overlaying masks
-    cv::imwrite("/tmp/visualization_with_masks.png", visualization);
-    // // Convert to ROS message
+    cv::imwrite(path + "/visualization_with_masks.png", visualization);
+    // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
 
