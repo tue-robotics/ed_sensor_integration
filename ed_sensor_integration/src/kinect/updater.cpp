@@ -421,10 +421,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         }*/
     }
 
-//    cv::imshow("depth image", depth / 10);
-//    cv::imshow("segments", filtered_depth_image / 10);
-//    cv::waitKey();
-
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
