@@ -214,8 +214,8 @@ Updater::Updater(tue::Configuration config)
     }
     else
     {
-        ROS_ERROR("No segmenter configuration found, cannot initialize Updater.");
-        throw std::runtime_error("No segmenter configuration found");
+        ROS_ERROR("Failed to read segmenter configuration group from config file, cannot initialize Updater");
+        throw std::runtime_error("Failed to read segmenter configuration group from config file");
     }
     //For displaying SAM MASK
     // Initialize the image publisher
@@ -326,8 +326,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             }
             else
             {
-//                res.error << "Could not determine pose of '" << entity_id.str() << "'.";
-//                return false;
+            //  res.error << "Could not determine pose of '" << entity_id.str() << "'.";
+            //  return false;
 
                 // Could not fit entity, so keep the old pose
                 new_pose = e->pose();
