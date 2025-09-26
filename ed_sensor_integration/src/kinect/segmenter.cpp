@@ -176,24 +176,21 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
         if (d_min > 0 && d_max > 0 && d >= d_min && d <= d_max)
             filtered_depth_image.at<float>(i) = d;
     }
-
-//    cv::imshow("min", res.min_buffer / 10);
-//    cv::imshow("max", res.max_buffer / 10);
-//    cv::imshow("diff", (res.max_buffer - res.min_buffer) * 10);
-//    cv::imshow("filtered", filtered_depth_image / 10);
-//    cv::waitKey();
 }
 
 // ----------------------------------------------------------------------------------------------------
 
-cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image, const cv::Mat& filtered_depth_image) const {
-    // Apply depth mask to RGB
+cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
+                                                const cv::Mat& filtered_depth_image) const
+{
     cv::Mat masked_rgb = cv::Mat::zeros(rgb_image.size(), rgb_image.type());
-    for (int y = 0; y < rgb_image.rows; y++) {
-        for (int x = 0; x < rgb_image.cols; x++) {
-            int idx = y * rgb_image.cols + x;
-            if (filtered_depth_image.at<float>(idx) > 0) {
-                masked_rgb.at<cv::Vec3b>(y, x) = rgb_image.at<cv::Vec3b>(y, x);
+    for (int y = 0; y < rgb_image.rows; ++y) {
+        const float* depth_row = filtered_depth_image.ptr<float>(y); // fast
+        cv::Vec3b* out_row = masked_rgb.ptr<cv::Vec3b>(y);
+        const cv::Vec3b* rgb_row = rgb_image.ptr<cv::Vec3b>(y);
+        for (int x = 0; x < rgb_image.cols; ++x) {
+            if (depth_row[x] > 0.f) {
+                out_row[x] = rgb_row[x];
             }
         }
     }
