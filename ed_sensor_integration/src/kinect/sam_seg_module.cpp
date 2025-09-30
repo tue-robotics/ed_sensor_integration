@@ -1,5 +1,5 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
-#include "segmentation.h"
+#include "sam_onnx_ros/segmentation.hpp"
 #include "detection.h"
 
 // Add required includes for types used in publishSegmentationResults
