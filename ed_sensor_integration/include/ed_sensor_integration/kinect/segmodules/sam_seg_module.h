@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ros/ros.h>
-#include "yolo_inference.h"
+#include "yolo_onnx_ros/yolo_inference.hpp"
 #include "sam_onnx_ros/sam_inference.hpp"
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>

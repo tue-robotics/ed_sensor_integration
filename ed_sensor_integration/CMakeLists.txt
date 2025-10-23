@@ -5,9 +5,9 @@ project(ed_sensor_integration)
 #add_compile_options(-Wall -Werror=all)
 #add_compile_options(-Wextra -Werror=extra)
 
-# -------------- ONNXRuntime Setup (define this early) ------------------#
-set(ONNXRUNTIME_VERSION 1.21.1)
-set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam.bak/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}")
+# # -------------- ONNXRuntime Setup (define this early) ------------------#
+# set(ONNXRUNTIME_VERSION 1.21.1)
+# set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam.bak/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}")
 
 # -------------- Neural Network Models ------------------#
 
@@ -43,6 +43,7 @@ find_package(catkin REQUIRED COMPONENTS
   tue_filesystem
   visualization_msgs
   # 2D -> 3D point cloud estimation
+  onnxruntime_ros
   yolo_onnx_ros
   sam_onnx_ros
   bmm_ros
