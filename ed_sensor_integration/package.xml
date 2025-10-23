@@ -38,7 +38,8 @@
   <exec_depend>sensor_msgs</exec_depend>
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
-
+  <build_depend>onnxruntime_ros</build_depend>
+  <exec_depend>onnxruntime_ros</exec_depend>
   <!-- //For displaying SAM MASK -->
   <build_depend>cv_bridge</build_depend>
   <build_depend>image_transport</build_depend>

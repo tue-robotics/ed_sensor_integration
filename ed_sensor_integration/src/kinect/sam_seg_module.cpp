@@ -1,6 +1,6 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 #include "sam_onnx_ros/segmentation.hpp"
-#include "detection.h"
+#include "yolo_onnx_ros/detection.hpp"
 
 // Add required includes for types used in publishSegmentationResults
 #include <cv_bridge/cv_bridge.h>
