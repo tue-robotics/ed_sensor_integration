@@ -207,17 +207,19 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
 
     std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone(), config_);
     ROS_DEBUG("Creating clusters");
-    unsigned int size = width * height;
 
+    // Pre-allocate temporary storage (one per mask, avoid push_back races)
+    std::vector<EntityUpdate> temp_clusters(masks.size());
+    std::vector<bool> valid_cluster(masks.size(), false);
+
+    // Parallel loop - each iteration is independent
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < masks.size(); ++i)
     {
-        cv::Mat mask = masks[i];
-        clusters.push_back(EntityUpdate());
-        EntityUpdate& cluster = clusters.back();
+        const cv::Mat& mask = masks[i];
+        EntityUpdate cluster;  // local to this thread
 
-        unsigned int num_points = 0;
-
-         // Add to cluster
+        // Extract points from mask
         for(int y = 0; y < mask.rows; ++y) {
             for(int x = 0; x < mask.cols; ++x) {
                 if (mask.at<unsigned char>(y, x) > 0) {
@@ -225,22 +227,16 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
                     float d = depth_image.at<float>(pixel_idx);
 
                     if (d > 0 && std::isfinite(d)) {
-
-                        // Add this point to the cluster
                         cluster.pixel_indices.push_back(pixel_idx);
                         cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
-                        num_points++;
                     }
                 }
             }
         }
 
-
-        // Check if cluster has enough points. If not, remove it from the list
-        if (cluster.pixel_indices.size() < 100) // TODO: magic number
-        {
-            clusters.pop_back();
-            continue;
+        // Skip small clusters (< 100 points)
+        if (cluster.pixel_indices.size() < 100) {
+            continue;  // valid_cluster[i] remains false
         }
 
         // BMM point cloud denoising
@@ -264,31 +260,25 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             }
         }
         // Safety check
-        if (filtered_points.size() > MIN_FILTERED_POINTS && filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
-            ROS_INFO("MAP-GMM filtering: kept %zu of %zu points (%.1f%%)",
-                    filtered_points.size(), cluster.points.size(),
-                    100.0 * filtered_points.size() / cluster.points.size());
+        if (filtered_points.size() > MIN_FILTERED_POINTS &&
+            filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
+            // Note: ROS_INFO is thread-safe in recent versions, but excessive parallel logging
+            // can interleave output. Consider reducing log level or moving outside loop.
             cluster.points = filtered_points;
-        } else {
-            ROS_WARN("MAP-GMM filtering: too few points kept, using original points");
         }
 
-        // Calculate cluster convex hull
+        // Calculate convex hull
         float z_min = 1e9;
         float z_max = -1e9;
-
-        // Calculate z_min and z_max of cluster
-        ROS_DEBUG("Computing min and max of cluster");
         std::vector<geo::Vec2f> points_2d(cluster.points.size());
+
         for(unsigned int j = 0; j < cluster.points.size(); ++j)
         {
             const geo::Vec3& p = cluster.points[j];
 
             // Transform sensor point to map frame
             geo::Vector3 p_map = sensor_pose * p;
-
             points_2d[j] = geo::Vec2f(p_map.x, p_map.y);
-
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
         }
@@ -296,30 +286,19 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
 
-        // Simple statistical outlier removal (geometric based optional for some better results if needed)
-        // After collecting all points, filter outliers
-        // if (!cluster.points.empty()) {
-        //     // Calculate mean and standard deviation of distances to centroid
-        //     geo::Vec3 centroid(0, 0, 0);
-        //     for (const auto& p : cluster.points)
-        //         centroid += p;
-        //     centroid = centroid / cluster.points.size();
-
-        //     // Calculate standard deviation
-        //     float sum_sq_dist = 0;
-        //     for (const auto& p : cluster.points)
-        //         sum_sq_dist += (p - centroid).length2();
-        //     float stddev = std::sqrt(sum_sq_dist / cluster.points.size());
-
-        //     // Filter points that are too far from centroid
-        //     std::vector<geo::Vec3> filtered_points;
-        //     for (const auto& p : cluster.points) {
-        //         if ((p - centroid).length() < 2.5 * stddev)
-        //             filtered_points.push_back(p);
-        //     }
-
-        //     cluster.points = filtered_points;
-        // }
+        // Store in thread-safe pre-allocated array
+        temp_clusters[i] = cluster;
+        valid_cluster[i] = true;
     }
+
+    // Sequential section: collect valid clusters
+    clusters.clear();
+    clusters.reserve(masks.size());
+    for (size_t i = 0; i < temp_clusters.size(); ++i) {
+        if (valid_cluster[i]) {
+            clusters.push_back(std::move(temp_clusters[i]));
+        }
+    }
+
     return masks;
 }
