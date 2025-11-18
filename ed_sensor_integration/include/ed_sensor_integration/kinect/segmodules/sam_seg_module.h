@@ -16,6 +16,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tue/config/configuration.h>
 
 // EntityUpdate and UpdateResult come from kinect (avoid including laser variant to prevent redefinition)
 #include <ed/kinect/entity_update.h>
@@ -27,7 +28,7 @@
  * @param img The input RGB image to segment.
  * @return std::vector<cv::Mat> The generated segmentation masks.
  */
-std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img);
+std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config);
 
 /**
  * @brief Overlay segmentation masks on the RGB image for visualization purposes.
