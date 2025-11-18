@@ -1,7 +1,7 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 #include "sam_onnx_ros/segmentation.hpp"
 #include "yolo_onnx_ros/detection.hpp"
-
+#include <algorithm>
 // Add required includes for types used in publishSegmentationResults
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
@@ -10,14 +10,15 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-
-std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img)
+std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
 {
 
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
-    std::tie(yoloDetector, params) = Initialize();
+    std::string model;
+    config.value("model", model);
+    std::tie(yoloDetector, params) = Initialize(model);
     ////////////////////////// SAM //////////////////////////////////////
 
     std::vector<std::unique_ptr<SAM>> samSegmentors;

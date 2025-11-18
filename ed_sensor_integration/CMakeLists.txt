@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 project(ed_sensor_integration)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 #add_compile_options(-Wall -Werror=all)
@@ -43,7 +47,7 @@ find_package(catkin REQUIRED COMPONENTS
   tue_filesystem
   visualization_msgs
   # 2D -> 3D point cloud estimation
-  onnxruntime_ros
+  # onnxruntime_ros
   yolo_onnx_ros
   sam_onnx_ros
   bmm_ros
@@ -78,7 +82,7 @@ include_directories(
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  ${ONNXRUNTIME_ROOT}/include
+  #${ONNXRUNTIME_ROOT}/include
 
 )
 

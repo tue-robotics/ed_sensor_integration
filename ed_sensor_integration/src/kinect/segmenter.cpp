@@ -205,7 +205,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone());
+    std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone(), config_);
     ROS_DEBUG("Creating clusters");
     unsigned int size = width * height;
 
