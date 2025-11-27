@@ -47,7 +47,7 @@ find_package(catkin REQUIRED COMPONENTS
   tue_filesystem
   visualization_msgs
   # 2D -> 3D point cloud estimation
-  # onnxruntime_ros
+  onnxruntime_ros
   yolo_onnx_ros
   sam_onnx_ros
   bmm_ros

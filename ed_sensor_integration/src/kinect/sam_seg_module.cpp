@@ -16,9 +16,12 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
-    std::string model;
-    config.value("model", model);
-    std::tie(yoloDetector, params) = Initialize(model);
+    std::string yolo_model, sam_encoder, sam_decoder;
+    config.value("yolo_model", yolo_model);
+    config.value("sam_encoder", sam_encoder);
+    config.value("sam_decoder", sam_decoder);
+
+    std::tie(yoloDetector, params) = Initialize(yolo_model);
     ////////////////////////// SAM //////////////////////////////////////
 
     std::vector<std::unique_ptr<SAM>> samSegmentors;
@@ -26,7 +29,7 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration
     SEG::DL_INIT_PARAM params_decoder;
     std::vector<SEG::DL_RESULT> resSam;
     SEG::DL_RESULT res;
-    std::tie(samSegmentors, params_encoder, params_decoder, res, resSam) = Initializer();
+    std::tie(samSegmentors, params_encoder, params_decoder, res, resSam) = Initialize(sam_encoder, sam_decoder);
 
 
     ////////////////////////// YOLO //////////////////////////////////////
