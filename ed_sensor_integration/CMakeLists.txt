@@ -13,14 +13,19 @@ find_package(catkin REQUIRED COMPONENTS
   geolib2
   geometry_msgs
   image_geometry
+  pcl_ros
   rgbd
   rgbd_image_buffer
   rosconsole_bridge
   roscpp
   sensor_msgs
+  tf2
+  tf2_ros
   tue_config
   tue_filesystem
   visualization_msgs
+  image_transport
+  cv_bridge
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -30,7 +35,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ed_kinect
-  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs image_transport cv_bridge
   DEPENDS OpenCV PCL
 )
 
@@ -66,6 +71,8 @@ add_library(ed_kinect
     include/ed/kinect/fitter.h
     include/ed/kinect/mesh_tools.h
     include/ed/kinect/renderer.h
+    src/kinect/place_area_finder.cpp
+    include/ed/kinect/place_area_finder.h
     include/ed/kinect/segmenter.h
     include/ed/kinect/updater.h
 
@@ -171,6 +178,13 @@ install(
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+
+add_executable(ed_empty_spot_designator tools/empty_spot_designator.cpp)
+target_link_libraries(ed_empty_spot_designator ed_kinect ${catkin_LIBRARIES})
+
+catkin_install_python(PROGRAMS yolo_python/yolo_table_segmentor.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 # ------------------------------------------------------------------------------------------------
 #                                           TESTS
 # ------------------------------------------------------------------------------------------------

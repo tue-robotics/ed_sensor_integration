@@ -54,6 +54,7 @@ void KinectPlugin::initialize(ed::InitData& init)
     {
         ROS_INFO_STREAM("[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'.");
         image_buffer_.initialize(topic, "map");
+        image_buffer_bl_.initialize(topic, "base_link");
     }
 
     // - - - - - - - - - - - - - - - - - -
@@ -65,8 +66,11 @@ void KinectPlugin::initialize(ed::InitData& init)
     srv_get_image_ = nh.advertiseService("kinect/get_image", &KinectPlugin::srvGetImage, this);
     srv_update_ = nh.advertiseService("kinect/update", &KinectPlugin::srvUpdate, this);
     srv_ray_trace_ = nh.advertiseService("ray_trace", &KinectPlugin::srvRayTrace, this);
+    srv_place_area_ = nh.advertiseService("place_area", &KinectPlugin::srvPlaceArea, this);
 
     ray_trace_visualization_publisher_ = nh.advertise<visualization_msgs::Marker>("ray_trace_visualization", 10);
+    place_area_publisher_ = nh.advertise<visualization_msgs::Marker>("place_area", 10);
+    place_marker_publisher_ = nh.advertise<visualization_msgs::Marker>("place_pose", 10);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -277,6 +281,61 @@ bool KinectPlugin::srvRayTrace(ed_sensor_integration_msgs::RayTrace::Request& re
         update_req_->setFlag(res.entity_id, "highlighted");
         ROS_INFO("Setting %s to highlighted", res.entity_id.c_str());
     }
+
+    return true;
+}
+
+bool KinectPlugin::srvPlaceArea(__attribute__((unused)) ed_sensor_integration_msgs::PlaceArea::Request& req, ed_sensor_integration_msgs::PlaceArea::Response& res)
+{
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // Get new image
+    cv::Mat mask;
+    bool donal = true;
+    rgbd::ImageConstPtr image;
+    geo::Pose3D sensor_pose; // in base link frame
+
+    if (!image_buffer_bl_.waitForRecentImage(image, sensor_pose, 2.0))
+    {
+        res.error_msg = "Could not get image";
+        return true;
+    }
+
+    // Determine place area
+    geo::Pose3D place_pose; // w.r.t base link
+    if (!place_area_finder_.findArea(image, sensor_pose, place_pose,mask,donal))
+    {
+        res.error_msg = "No valid place area found";
+        return true;
+    }
+    geo::convert(place_pose, res.pose.pose);
+
+    // Publish marker
+    visualization_msgs::Marker marker_msg;
+    marker_msg.header.frame_id = "base_link";
+    marker_msg.header.stamp = ros::Time::now();
+    marker_msg.action = visualization_msgs::Marker::ADD;
+    marker_msg.color.a = 0.5;
+    marker_msg.lifetime = ros::Duration(10.0);
+    double r = 0.05;
+    marker_msg.scale.x = r; 
+    marker_msg.scale.y = r;
+    marker_msg.scale.z = r;
+
+    static int iter = 0;
+    if (++iter % 2 == 0)
+    {
+        marker_msg.color.b = marker_msg.color.r = 1;
+    }
+    else
+    {
+        marker_msg.color.b = marker_msg.color.g = 1;
+    }
+
+    marker_msg.type = visualization_msgs::Marker::SPHERE;
+
+    marker_msg.pose = res.pose.pose;
+
+    place_marker_publisher_.publish(marker_msg);
 
     return true;
 }
