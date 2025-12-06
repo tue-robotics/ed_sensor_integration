@@ -199,7 +199,7 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 // ----------------------------------------------------------------------------------------------------
 
 std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image)
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -252,19 +252,38 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         // Get component assignments and inlier component
         std::vector<int> labels = gmm.get_labels();
         int inlier_component = gmm.get_inlier_component();
+
         // Filter points
         std::vector<geo::Vec3> filtered_points;
-        for (size_t i = 0; i < labels.size(); i++) {
-            if (labels[i] == inlier_component) {
-                filtered_points.push_back(cluster.points[i]);
+        std::vector<geo::Vec3> outlier_points;  // Only populate if needed
+
+        for (size_t j = 0; j < labels.size(); j++) {
+            if (labels[j] == inlier_component) {
+                filtered_points.push_back(cluster.points[j]);
+            }
+            else if (logging) {
+                outlier_points.push_back(cluster.points[j]);
             }
         }
-        // Safety check
+
+        // Safety check: only use filtered points if we retained enough
         if (filtered_points.size() > MIN_FILTERED_POINTS &&
             filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
-            // Note: ROS_INFO is thread-safe in recent versions, but excessive parallel logging
-            // can interleave output. Consider reducing log level or moving outside loop.
+            // Use filtered points
             cluster.points = filtered_points;
+            if (logging) {
+                cluster.outlier_points = outlier_points;
+                // Transform outlier points to map frame
+                // for (size_t j = 0; j < cluster.outlier_points.size(); ++j) {
+                //     cluster.outlier_points[j] = sensor_pose * cluster.outlier_points[j];
+                // }
+            }
+        }
+        else {
+            // Safety check failed - keep original unfiltered points
+            // Don't populate outlier_points since we're not using the GMM result
+            ROS_DEBUG("GMM filtering rejected: retained %zu/%zu points",
+                      filtered_points.size(), cluster.points.size());
         }
 
         // Calculate convex hull

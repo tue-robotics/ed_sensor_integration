@@ -149,21 +149,36 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
 
-    typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+    typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
     PointCloud::Ptr combined_cloud (new PointCloud);
 
-    combined_cloud->header.frame_id = "map"; // Use appropriate frame ID
+    combined_cloud->header.frame_id = "map";
 
-    // Add points from all entity updates
+    // Add inlier points (white)
     for (const EntityUpdate& update : res_updates) {
         for (const geo::Vec3& point : update.points) {
-            // Transform from camera to map frame
             geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZ pcl_point;
+            pcl::PointXYZRGB pcl_point;
             pcl_point.x = p_map.x;
             pcl_point.y = p_map.y;
             pcl_point.z = p_map.z;
+            pcl_point.r = 255;  // White
+            pcl_point.g = 255;
+            pcl_point.b = 255;
             combined_cloud->push_back(pcl_point);
+        }
+
+        // Add outlier points (red)
+        for (const geo::Vec3& point : update.outlier_points) {
+                geo::Vec3 p_map = sensor_pose * point;
+                pcl::PointXYZRGB pcl_point;
+                pcl_point.x = p_map.x;
+                pcl_point.y = p_map.y;
+                pcl_point.z = p_map.z;
+                pcl_point.r = 255;  // Red
+                pcl_point.g = 0;
+                pcl_point.b = 0;
+                combined_cloud->push_back(pcl_point);
         }
     }
 

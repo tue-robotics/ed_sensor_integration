@@ -5,6 +5,7 @@
 #include "ed/kinect/segmenter.h"
 #include "ed/kinect/entity_update.h"
 
+#include <string>
 #include <tue/config/configuration.h>
 
 #include <map>
@@ -68,6 +69,7 @@ private:
     //For displaying SAM MASK
     ros::Publisher mask_pub_;
     ros::Publisher cloud_pub_;
+    bool logging;
 
 };
 

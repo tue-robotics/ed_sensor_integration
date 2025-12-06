@@ -60,7 +60,7 @@ public:
      * @return std::vector<cv::Mat> masks // 3D pointcloud masks of all the segmented objects
      */
     std::vector<cv::Mat> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image);
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging);
 
 private:
     tue::Configuration config_;

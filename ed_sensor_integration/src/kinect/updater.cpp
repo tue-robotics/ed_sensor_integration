@@ -219,9 +219,12 @@ Updater::Updater(tue::Configuration config)
     }
     //For displaying SAM MASK
     // Initialize the image publisher
+    config.value("logging", logging);
+    if(logging){
     ros::NodeHandle nh("~");
     mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
     cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -424,10 +427,10 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image);
-
-    publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
-
+    std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
+    if(logging){
+        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
+    }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
     res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
