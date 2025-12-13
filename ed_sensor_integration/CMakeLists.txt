@@ -98,7 +98,9 @@ add_library(${PROJECT_NAME}_console_bridge
 
 add_library(ed_association
   include/${PROJECT_NAME}/association_matrix.h
+  include/${PROJECT_NAME}/hungarian.h
   src/association_matrix.cpp
+  src/hungarian.cpp
 )
 
 add_library(ed_kinect

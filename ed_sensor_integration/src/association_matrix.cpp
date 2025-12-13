@@ -1,17 +1,11 @@
 #include "ed_sensor_integration/association_matrix.h"
+#include "ed_sensor_integration/hungarian.h"
 #include <algorithm>
-
 #include <iostream>
+#include <cmath>
 
 namespace ed_sensor_integration
 {
-
-bool compareEntries(const AssociationMatrix::Entry& e1, const AssociationMatrix::Entry& e2)
-{
-    return e1.probability > e2.probability;
-}
-
-//int AssociationMatrix::NO_ASSIGNMENT = -1;
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -40,83 +34,60 @@ void AssociationMatrix::setEntry(int i_measurement, int i_entity, double prob)
 
 // ----------------------------------------------------------------------------------------------------
 
-
 bool AssociationMatrix::calculateBestAssignment(Assignment& assig)
 {
-    // Sort all rows (highest prob first)
-    for(unsigned int i = 0; i < matrix_.size(); ++i)
+    if (matrix_.empty())
     {
-        std::vector<Entry>& msr_row = matrix_[i];
-        std::sort(msr_row.begin(), msr_row.end(), compareEntries);
-
-        // Add dummy entry
-        msr_row.push_back(Entry(i, -1, 1e-9));
+        assig.clear();
+        return true;
     }
 
-    // Initialize
-    std::vector<int> assig_indexes(matrix_.size(), 0);
+    int num_measurements = matrix_.size();
+    int num_entities = i_max_entity_ + 1;
 
-    while(true)
+    // Build cost matrix for Hungarian algorithm
+    // Hungarian minimizes cost, so we convert probability to cost: cost = -log(prob)
+    // High probability -> low cost
+    std::vector<std::vector<double>> cost_matrix(num_measurements,
+                                                  std::vector<double>(num_entities, 1e9));
+
+    for (int i = 0; i < num_measurements; ++i)
     {
-        // Check if the assignment is valid
-        bool valid = true;
-        std::vector<int> entity_used(i_max_entity_ + 1, 0);
-        for(unsigned int i = 0; i < assig_indexes.size(); ++i)
+        for (const Entry& entry : matrix_[i])
         {
-            const Entry& entry = matrix_[i][assig_indexes[i]];
             if (entry.i_entity >= 0)
             {
-                ++entity_used[entry.i_entity];
-
-                // Check if entity has been assigned double. If so, this assignment is not valid
-                if (entity_used[entry.i_entity] > 1)
-                    valid = false;
-            }
-
-            if (!valid)
-                break;
-        }
-
-        // If we found a valid assignment, we can stop
-        if (valid)
-            break;
-
-        double smallest_prob_diff = 1e9;
-        int i_smallest_prob_diff = -1;
-        for(unsigned int i = 0; i < assig_indexes.size(); ++i)
-        {
-            std::vector<Entry>& msr_row = matrix_[i];
-            unsigned int j = assig_indexes[i];
-
-            if (j + 1 < msr_row.size())
-            {
-                double prob_diff = msr_row[j].probability / msr_row[j + 1].probability;
-                if (prob_diff < smallest_prob_diff)
-                {
-                    i_smallest_prob_diff = i;
-                    smallest_prob_diff = prob_diff;
-                }
+                // Convert probability to cost: higher probability = lower cost
+                // Using -log(prob) as cost metric
+                double cost = -std::log(entry.probability + 1e-10);
+                cost_matrix[i][entry.i_entity] = cost;
             }
         }
-
-        if (i_smallest_prob_diff < 0)
-        {
-            // Found no next step to take, so we're done and didn't find a valid assignment
-            return false;
-        }
-
-        // Otherwise, step the assignment with the smallest probability diff
-        ++assig_indexes[i_smallest_prob_diff];
     }
 
-    assig.resize(matrix_.size());
-    for(unsigned int i = 0; i < assig_indexes.size(); ++i)
+    // Solve using Hungarian algorithm
+    std::vector<int> hungarian_assignment;
+    double total_cost = HungarianAlgorithm::solve(cost_matrix, hungarian_assignment);
+
+    // Convert to output format
+    assig.resize(num_measurements);
+    for (int i = 0; i < num_measurements; ++i)
     {
-        assig[i] = matrix_[i][assig_indexes[i]].i_entity;
+        int entity_idx = hungarian_assignment[i];
+
+        // Check if this is a valid assignment (not dummy/unmatched)
+        if (entity_idx >= 0 && entity_idx < num_entities &&
+            cost_matrix[i][entity_idx] < 1e8)  // Not an impossible assignment
+        {
+            assig[i] = entity_idx;
+        }
+        else
+        {
+            assig[i] = -1;  // No assignment
+        }
     }
 
     return true;
 }
 
 }
-
