@@ -5,6 +5,8 @@
 #include <ed/convex_hull.h>
 #include <vector>
 #include <geolib/datatypes.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 struct EntityUpdate
 {
@@ -24,6 +26,10 @@ struct EntityUpdate
 
     // Optional: outliers from filtering (e.g., GMM) -- Leave empty if not applicable
     std::vector<geo::Vec3> outlier_points;
+
+    // Optional: accumulated point cloud in map frame for voxel-based merging
+    // This is transient (not persisted to ED) and used for multi-observation tracking
+    pcl::PointCloud<pcl::PointXYZ>::Ptr accumulated_cloud_map;
 };
 
 #endif

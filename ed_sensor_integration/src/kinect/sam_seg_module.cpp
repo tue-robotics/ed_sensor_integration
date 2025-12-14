@@ -154,28 +154,44 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
 
     combined_cloud->header.frame_id = "map";
 
-    // Add inlier points (white)
+    // Add points for each entity
     for (const EntityUpdate& update : res_updates) {
-        for (const geo::Vec3& point : update.points) {
-            geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZRGB pcl_point;
-            pcl_point.x = p_map.x;
-            pcl_point.y = p_map.y;
-            pcl_point.z = p_map.z;
-            pcl_point.r = 255;  // White
-            pcl_point.g = 255;
-            pcl_point.b = 255;
-            combined_cloud->push_back(pcl_point);
+        // Check if this is a new entity or a tracked one
+        if (update.is_new) {
+            // NEW ENTITY: Show white point cloud (first observation)
+            for (const geo::Vec3& point : update.points) {
+                geo::Vec3 p_map = sensor_pose * point;
+                pcl::PointXYZRGB pcl_point;
+                pcl_point.x = p_map.x;
+                pcl_point.y = p_map.y;
+                pcl_point.z = p_map.z;
+                pcl_point.r = 255;  // White = new entity
+                pcl_point.g = 255;
+                pcl_point.b = 255;
+                combined_cloud->push_back(pcl_point);
+            }
+        } else if (update.accumulated_cloud_map && !update.accumulated_cloud_map->empty()) {
+            // TRACKED ENTITY: Show cyan voxel-merged cloud (multiple observations)
+            for (const pcl::PointXYZ& p : update.accumulated_cloud_map->points) {
+                pcl::PointXYZRGB pcl_point;
+                pcl_point.x = p.x;
+                pcl_point.y = p.y;
+                pcl_point.z = p.z;
+                pcl_point.r = 0;    // Cyan = tracked/merged object
+                pcl_point.g = 255;
+                pcl_point.b = 255;
+                combined_cloud->push_back(pcl_point);
+            }
         }
 
-        // Add outlier points (red)
+        // Add outlier points (red) - from GMM filtering
         for (const geo::Vec3& point : update.outlier_points) {
                 geo::Vec3 p_map = sensor_pose * point;
                 pcl::PointXYZRGB pcl_point;
                 pcl_point.x = p_map.x;
                 pcl_point.y = p_map.y;
                 pcl_point.z = p_map.z;
-                pcl_point.r = 255;  // Red
+                pcl_point.r = 255;  // Red = GMM outliers
                 pcl_point.g = 0;
                 pcl_point.b = 0;
                 combined_cloud->push_back(pcl_point);

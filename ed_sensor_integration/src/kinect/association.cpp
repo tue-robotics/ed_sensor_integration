@@ -2,16 +2,53 @@
 #include "ed/kinect/entity_update.h"
 
 #include "ed_sensor_integration/association_matrix.h"
+#include "ed_sensor_integration/voxel_point_merger.h"
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/update_request.h>
 #include <ed/measurement.h>
+#include <ed/convex_hull_calc.h>
 
 #include <rgbd/image.h>
 #include <rgbd/view.h>
 
 #include <ros/console.h>
+#include <map>
+
+// ----------------------------------------------------------------------------------------------------
+
+// Persistent storage for accumulated point clouds across observations
+// Maps entity UUID to accumulated voxel-downsampled point cloud in map frame
+static std::map<ed::UUID, pcl::PointCloud<pcl::PointXYZ>::Ptr> entity_accumulated_clouds;
+
+// ----------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Clean up accumulated point clouds for removed entities
+ *
+ * Call this after entities are removed from world model to prevent memory leaks.
+ * Removes stored voxel clouds for all entities in the provided vector.
+ *
+ * @param removed_entity_ids Vector of UUIDs for entities that were removed
+ */
+void cleanupAccumulatedClouds(const std::vector<ed::UUID>& removed_entity_ids)
+{
+    for (const ed::UUID& id : removed_entity_ids)
+    {
+        auto it = entity_accumulated_clouds.find(id);
+        if (it != entity_accumulated_clouds.end())
+        {
+            entity_accumulated_clouds.erase(it);
+        }
+    }
+
+    if (!removed_entity_ids.empty())
+    {
+        ROS_DEBUG("Cleaned up %zu accumulated clouds. Total clouds in memory: %zu",
+                 removed_entity_ids.size(), entity_accumulated_clouds.size());
+    }
+}
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -81,7 +118,7 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
                 assoc_matrix.setEntry(i_cluster, i_entity, prob);
             }
         }
-    } 
+    }
 
     ed_sensor_integration::Assignment assig;
     if (!assoc_matrix.calculateBestAssignment(assig))
@@ -114,6 +151,11 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
             cluster.is_new = true;
 
+            // Initialize accumulated cloud for new entity
+            cluster.accumulated_cloud_map = ed_sensor_integration::VoxelPointMerger::convertToPCL(
+                cluster.points, sensor_pose);
+            entity_accumulated_clouds[id] = cluster.accumulated_cloud_map;
+
             // Update existence probability
             req.setExistenceProbability(id, 1.0); // TODO magic number
         }
@@ -130,15 +172,64 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
             id = e->id();
 
+            // ========== VOXEL-BASED POINT CLOUD MERGING ==========
+
+            // Convert new measurement to PCL cloud in map frame
+            pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud_map =
+                ed_sensor_integration::VoxelPointMerger::convertToPCL(cluster.points, sensor_pose);
+
+            // Retrieve old accumulated cloud for this entity
+            pcl::PointCloud<pcl::PointXYZ>::Ptr old_cloud_map = nullptr;
+            auto it_cloud = entity_accumulated_clouds.find(id);
+            if (it_cloud != entity_accumulated_clouds.end())
+            {
+                old_cloud_map = it_cloud->second;
+            }
+
+            // Merge clouds using voxel downsampling
+            pcl::PointCloud<pcl::PointXYZ>::Ptr merged_cloud =
+                ed_sensor_integration::VoxelPointMerger::merge(old_cloud_map, new_cloud_map);
+
+            // Store merged cloud for future associations
+            entity_accumulated_clouds[id] = merged_cloud;
+            cluster.accumulated_cloud_map = merged_cloud;
+
+            // Regenerate convex hull from merged voxel cloud
+            if (merged_cloud && !merged_cloud->empty())
+            {
+                float z_min =  1e9;
+                float z_max = -1e9;
+                std::vector<geo::Vec2f> points_2d;
+                points_2d.reserve(merged_cloud->size());
+
+                for (const pcl::PointXYZ& p : merged_cloud->points)
+                {
+                    points_2d.emplace_back(p.x, p.y);
+                    z_min = std::min(z_min, p.z);
+                    z_max = std::max(z_max, p.z);
+                }
+
+                ed::convex_hull::create(points_2d, z_min, z_max, new_chull, new_pose);
+
+                ROS_DEBUG("Voxel merge: entity %s - merged cloud has %zu voxels",
+                         id.c_str(), merged_cloud->size());
+            }
+            else
+            {
+                // Fallback: use current cluster if merging fails
+                new_chull = cluster.chull;
+                new_pose = cluster.pose_map;
+            }
+
 //            if (e->hasFlag("locked"))
 //            {
 //                // Entity is locked, so don't update
 //            }
 //            else if (cluster.chull.complete)
 //            {
-                // Update the entity with the cluster convex hull (completely overriding the previous entity convex hull)
-                new_chull = cluster.chull;
-                new_pose = cluster.pose_map;
+                // OLD CODE: Update the entity with the cluster convex hull (completely overriding the previous entity convex hull)
+                // new_chull = cluster.chull;
+                // new_pose = cluster.pose_map;
 //            }
 //            //                else if (entity_chull.complete)
 //            //                {

@@ -428,9 +428,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Cluster
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
     std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
-    if(logging){
-        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
-    }
+    
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
     res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
@@ -451,8 +449,14 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
-    // Perform association and update
+    // Perform association and update (populates accumulated_cloud_map for tracked objects)
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Visualize AFTER association so we can show merged voxel clouds (cyan) vs new detections (white)
+    if(logging){
+        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
+    }
 
     // - - - - - - - - - - - - -  - - - - - - - -  - - -
     // Remove entities that are not associated
@@ -480,6 +484,14 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             }
         }
 
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - -
+    // Clean up accumulated point clouds for removed entities (prevent memory leaks)
+
+    if (!res.removed_entity_ids.empty())
+    {
+        cleanupAccumulatedClouds(res.removed_entity_ids);
     }
 
     // - - - - - - - - - - - - - - - - - - - - - - - -

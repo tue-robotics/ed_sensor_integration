@@ -30,7 +30,7 @@ add_definitions(-DYOLO_MODELS_PATH="${YOLO_MODELS_PATH}")
 add_definitions(-DSAM_MODELS_PATH="${SAM_MODELS_PATH}")
 
 find_package(OpenCV REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common kdtree)
+find_package(PCL REQUIRED COMPONENTS common kdtree filters)
 find_package(catkin REQUIRED COMPONENTS
   code_profiler
   ed
@@ -99,8 +99,10 @@ add_library(${PROJECT_NAME}_console_bridge
 add_library(ed_association
   include/${PROJECT_NAME}/association_matrix.h
   include/${PROJECT_NAME}/hungarian.h
+  include/${PROJECT_NAME}/voxel_point_merger.h
   src/association_matrix.cpp
   src/hungarian.cpp
+  src/voxel_point_merger.cpp
 )
 
 add_library(ed_kinect
