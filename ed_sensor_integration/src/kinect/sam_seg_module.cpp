@@ -1,6 +1,7 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 
 #include <cv_bridge/cv_bridge.h>
+#include <filesystem>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -115,8 +116,8 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
 
-    // Create a path to save the image
-    std::string path = "/tmp";
+    // Create a path to save the image using platform-independent temp directory
+    std::string path = std::filesystem::temp_directory_path().string();
     cv::imwrite(path + "/visualization.png", visualization);
 
     // Create a properly normalized depth visualization
