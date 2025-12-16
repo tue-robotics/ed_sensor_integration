@@ -203,7 +203,7 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 }
 
 // ----------------------------------------------------------------------------------------------------
-Updater::Updater(tue::Configuration config)
+Updater::Updater(tue::Configuration config) : logging(false)
 {
     if (config.readGroup("segmenter", tue::config::REQUIRED))
     {
@@ -214,13 +214,14 @@ Updater::Updater(tue::Configuration config)
         ROS_ERROR("Failed to read segmenter configuration group from config file, cannot initialize Updater");
         throw std::runtime_error("Failed to read segmenter configuration group from config file");
     }
-    //For displaying SAM MASK
+
     // Initialize the image publisher
-    config.value("logging", logging);
-    if(logging){
-    ros::NodeHandle nh("~");
-    mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
-    cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
+    config.value("logging", logging, tue::config::OPTIONAL);
+    if (logging)
+    {
+        ros::NodeHandle nh("~");
+        mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
+        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
     }
 }
 
@@ -425,7 +426,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Cluster
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
     std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
-    if(logging){
+    if (logging)
+    {
         publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
     }
     // - - - - - - - - - - - - - - - - - - - - - - - -

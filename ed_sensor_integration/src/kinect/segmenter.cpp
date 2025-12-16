@@ -257,11 +257,14 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         std::vector<geo::Vec3> filtered_points;
         std::vector<geo::Vec3> outlier_points;  // Only populate if needed
 
-        for (size_t j = 0; j < labels.size(); j++) {
-            if (labels[j] == inlier_component) {
+        for (size_t j = 0; j < labels.size(); j++)
+        {
+            if (labels[j] == inlier_component)
+            {
                 filtered_points.push_back(cluster.points[j]);
             }
-            else if (logging) {
+            else if (logging)
+            {
                 outlier_points.push_back(cluster.points[j]);
             }
         }
@@ -271,7 +274,8 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
             filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
             // Use filtered points
             cluster.points = filtered_points;
-            if (logging) {
+            if (logging)
+            {
                 cluster.outlier_points = outlier_points;
                 // Transform outlier points to map frame
                 // for (size_t j = 0; j < cluster.outlier_points.size(); ++j) {
@@ -279,7 +283,8 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
                 // }
             }
         }
-        else {
+        else
+        {
             // Safety check failed - keep original unfiltered points
             // Don't populate outlier_points since we're not using the GMM result
             ROS_DEBUG("GMM filtering rejected: retained %zu/%zu points",
