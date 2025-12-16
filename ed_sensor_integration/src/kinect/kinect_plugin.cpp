@@ -53,7 +53,6 @@ void KinectPlugin::initialize(ed::InitData& init)
     if (config.value("topic", topic))
     {
         ROS_INFO_STREAM("[ED KINECT PLUGIN] Initializing kinect client with topic '" << topic << "'.");
-        //topic = "/usb_cam/image_raw";
         image_buffer_.initialize(topic, "map");
     }
 
