@@ -117,8 +117,8 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     cv::Mat visualization = rgb.clone();
 
     // Create a path to save the image using platform-independent temp directory
-    std::string path = std::filesystem::temp_directory_path().string();
-    cv::imwrite(path + "/visualization.png", visualization);
+    std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
+    cv::imwrite((temp_dir / "visualization.png").string(), visualization);
 
     // Create a properly normalized depth visualization
     cv::Mat depth_vis;
@@ -138,14 +138,14 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
         // Apply a colormap for better visibility
         cv::Mat depth_color;
         cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite(path + "/visualization_depth_color.png", depth_color);
+        cv::imwrite((temp_dir / "visualization_depth_color.png").string(), depth_color);
     }
 
     // Save both grayscale and color versions
-    cv::imwrite(path + "/visualization_depth.png", depth_vis);
+    cv::imwrite((temp_dir / "visualization_depth.png").string(), depth_vis);
     overlayMasksOnImage_(visualization, clustered_images);
     // save after overlaying masks
-    cv::imwrite(path + "/visualization_with_masks.png", visualization);
+    cv::imwrite((temp_dir / "visualization_with_masks.png").string(), visualization);
 
     // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
