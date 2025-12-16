@@ -62,7 +62,6 @@ void KinectPlugin::initialize(ed::InitData& init)
         updater_ = std::make_unique<Updater>(config.limitScope());
         config.endGroup();
     }
-    // config.endGroup();
 
     // - - - - - - - - - - - - - - - - - -
     // Services
