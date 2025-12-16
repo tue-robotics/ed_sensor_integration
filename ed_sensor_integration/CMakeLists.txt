@@ -1,38 +1,23 @@
 cmake_minimum_required(VERSION 3.5)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 project(ed_sensor_integration)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-
-#add_compile_options(-Wall -Werror=all)
-#add_compile_options(-Wextra -Werror=extra)
-
-# # -------------- ONNXRuntime Setup (define this early) ------------------#
-# set(ONNXRUNTIME_VERSION 1.21.1)
-# set(ONNXRUNTIME_ROOT "/home/amigo/Documents/repos/hero_sam.bak/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VERSION}")
-
-# -------------- Neural Network Models ------------------#
-
-# Copy model files to the same folder as the executables
-#configure_file(/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/data/coco.yaml ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/coco.yaml COPYONLY)
-#configure_file(/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/model/yolo11m.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/yolo11m.onnx COPYONLY)
-# configure_file(/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model/SAM_mask_decoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_mask_decoder.onnx COPYONLY)
-# configure_file(/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model/SAM_encoder.onnx ${CATKIN_DEVEL_PREFIX}/lib/ed_sensor_integration/SAM_encoder.onnx COPYONLY)
-#OR
-# Define model paths
-set(YOLO_MODELS_PATH "/home/amigo/Documents/repos/hero_sam.bak/yolo_inference/model")
-set(SAM_MODELS_PATH "/home/amigo/Documents/repos/hero_sam.bak/sam_inference/model")
-
-# Make these paths available to the C++ code
-add_definitions(-DYOLO_MODELS_PATH="${YOLO_MODELS_PATH}")
-add_definitions(-DSAM_MODELS_PATH="${SAM_MODELS_PATH}")
+add_compile_options(-Wall -Werror=all)
+add_compile_options(-Wextra -Werror=extra)
 
 find_package(OpenCV REQUIRED)
+find_package(OpenMP REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
 find_package(catkin REQUIRED COMPONENTS
+  bmm_ros
   code_profiler
+  cv_bridge
   ed
   ${PROJECT_NAME}_msgs
   geolib2
@@ -42,18 +27,12 @@ find_package(catkin REQUIRED COMPONENTS
   rgbd_image_buffer
   rosconsole_bridge
   roscpp
+  sam_onnx_ros
   sensor_msgs
   tue_config
   tue_filesystem
   visualization_msgs
-  # 2D -> 3D point cloud estimation
-  onnxruntime_ros
   yolo_onnx_ros
-  sam_onnx_ros
-  bmm_ros
-  # For displaying SAM MASK
-  cv_bridge
-  image_transport
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -69,8 +48,7 @@ catkin_package(
     ed_laser
   CATKIN_DEPENDS
     code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
-    sam_onnx_ros bmm_ros cv_bridge image_transport
-  DEPENDS OpenCV PCL
+  DEPENDS OpenCV OpenMP PCL
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -81,16 +59,13 @@ include_directories(
   include
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-  #${ONNXRUNTIME_ROOT}/include
-
 )
 
 # ------------------------------------------------------------------------------------------------
 #                                         LIBRARIES
 # ------------------------------------------------------------------------------------------------
-
-
 
 add_library(${PROJECT_NAME}_console_bridge
   src/rosconsole_bridge.cpp
@@ -119,16 +94,17 @@ add_library(ed_kinect
   src/kinect/updater.cpp
 )
 
-add_library(ed_sam_segment_module
+add_library(ed_map_anything
   include/ed_sensor_integration/kinect/segmodules/sam_seg_module.h
   src/kinect/sam_seg_module.cpp
 )
 target_link_libraries(ed_kinect
   ${PROJECT_NAME}_console_bridge
   ed_association
-  ed_sam_segment_module
+  ed_map_anything
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
+  OpenMP::OpenMP_CXX
 )
 add_dependencies(ed_kinect ${catkin_EXPORTED_TARGETS})
 
@@ -229,6 +205,7 @@ install(
     ed_kinect_plugin
     ed_laser
     ed_laser_plugin
+    ed_map_anything
     ${PROJECT_NAME}_console_bridge
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -267,10 +244,3 @@ if (CATKIN_ENABLE_TESTING)
     ${catkin_LIBRARIES}
   )
 endif ()
-
-find_package(OpenMP REQUIRED)
-if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()

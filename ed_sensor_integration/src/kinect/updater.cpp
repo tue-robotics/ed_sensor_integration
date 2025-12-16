@@ -4,8 +4,6 @@
 #include <ed/entity.h>
 #include <ed/update_request.h>
 
-#include <rgbd/view.h>
-
 #include <geolib/Shape.h>
 #include <geolib/shapes.h>
 
@@ -13,13 +11,12 @@
 #include "ed/kinect/renderer.h"
 #include "ed/convex_hull_calc.h"
 
-
-
-
 #include <opencv2/highgui/highgui.hpp>
-
+#include <rgbd/view.h>
 #include <ros/console.h>
-#include <ros/ros.h>
+#include <ros/node_handle.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 // ----------------------------------------------------------------------------------------------------

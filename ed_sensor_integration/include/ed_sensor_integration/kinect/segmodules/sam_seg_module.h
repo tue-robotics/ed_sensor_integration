@@ -1,26 +1,14 @@
 #pragma once
 
-#include <ros/ros.h>
-#include "yolo_onnx_ros/yolo_inference.hpp"
-#include "sam_onnx_ros/sam_inference.hpp"
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <opencv2/core.hpp>
-//#include "ed/kinect/entity_update.h"
-#include <cv_bridge/cv_bridge.h>
-#include <geolib/sensors/DepthCamera.h>
-#include <geolib/Shape.h>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
+
+#include <geolib/datatypes.h>
+#include <ros/publisher.h>
 #include <tue/config/configuration.h>
 
-// EntityUpdate and UpdateResult come from kinect (avoid including laser variant to prevent redefinition)
-#include <ed/kinect/entity_update.h>
-#include <ed/kinect/segmenter.h>  // defines UpdateResult (and possibly other needed types)
+#include "ed/kinect/entity_update.h"
+
+#include <vector>
 
 /**
  * @brief Segmentation pipeline that processes the input image and generates segmentation masks.

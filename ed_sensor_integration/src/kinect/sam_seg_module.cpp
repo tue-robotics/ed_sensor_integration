@@ -1,60 +1,58 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
-#include "sam_onnx_ros/segmentation.hpp"
-#include "yolo_onnx_ros/detection.hpp"
-#include <algorithm>
-// Add required includes for types used in publishSegmentationResults
+
 #include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <sam_onnx_ros/segmentation.hpp>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <yolo_onnx_ros/detection.hpp>
+
 
 std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
 {
-
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
     std::string yolo_model, sam_encoder, sam_decoder;
     config.value("yolo_model", yolo_model);
-    config.value("sam_encoder", sam_encoder);
-    config.value("sam_decoder", sam_decoder);
-
     std::tie(yoloDetector, params) = Initialize(yolo_model);
-    ////////////////////////// SAM //////////////////////////////////////
 
+    ////////////////////////// SAM //////////////////////////////////////
     std::vector<std::unique_ptr<SAM>> samSegmentors;
     SEG::DL_INIT_PARAM params_encoder;
     SEG::DL_INIT_PARAM params_decoder;
     std::vector<SEG::DL_RESULT> resSam;
     SEG::DL_RESULT res;
+    config.value("sam_encoder", sam_encoder);
+    config.value("sam_decoder", sam_decoder);
     std::tie(samSegmentors, params_encoder, params_decoder, res, resSam) = Initialize(sam_encoder, sam_decoder);
-
 
     ////////////////////////// YOLO //////////////////////////////////////
     std::vector<DL_RESULT> resYolo;
     resYolo = Detector(yoloDetector, img);
 
     ////////////////////////// SAM //////////////////////////////////////
-    for (const auto& result : resYolo) {
-        // This should be deleted as we would upload everything
+    for (const auto& result : resYolo)
+    {
         // (here we are skipping the table object but it should happen only on the rosservice scenario: on_top_of dinner_table )
-        int table_classification = 60;
-        if (result.classId == table_classification) {
-            std::cout << "Class ID is: " << yoloDetector->classes[result.classId] << " So we dont append"<< std::endl;
-            continue;
-        }
+        // int table_classification = 60;
+        // if (result.classId == table_classification)
+        // {
+        //     ROS_DEBUG_STREAM("Class ID is: " << yoloDetector->classes[result.classId] << " So we don't append");
+        //     continue;
+        // }
         res.boxes.push_back(result.box);
-        std::cout << "Confidence is OKOK: " << result.confidence << std::endl;
-        std::cout << "Class is: " << yoloDetector->classes[result.classId] << std::endl;
-        std::cout << "Class ID is: " << result.classId << std::endl;
+        ROS_DEBUG_STREAM("Confidence is OKOK: " << result.confidence);
+        ROS_DEBUG_STREAM("Class is: " << yoloDetector->classes[result.classId]);
+        ROS_DEBUG_STREAM("Class ID is: " << result.classId);
     }
 
     SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
 
     return std::move(res.masks);
-    }
+}
 
 
 void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
@@ -74,19 +72,18 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
     // Create a copy for the overlay (preserves original for contours)
     cv::Mat overlay = rgb.clone();
 
-    for (size_t i = 0; i < masks.size(); i++) {
+    for (size_t i = 0; i < masks.size(); i++)
+    {
         // Get a working copy of the mask
         cv::Mat working_mask = masks[i].clone();
 
         // Check if mask needs resizing
-        if (working_mask.rows != rgb.rows || working_mask.cols != rgb.cols) {
+        if (working_mask.rows != rgb.rows || working_mask.cols != rgb.cols)
             cv::resize(working_mask, working_mask, rgb.size(), 0, 0, cv::INTER_NEAREST);
-        }
 
         // Ensure the mask is binary (values 0 or 255)
-        if (cv::countNonZero(working_mask > 0 & working_mask < 255) > 0) {
+        if (cv::countNonZero((working_mask > 0) & (working_mask < 255)) > 0)
             cv::threshold(working_mask, working_mask, 127, 255, cv::THRESH_BINARY);
-        }
 
         // Use a different color for each mask
         cv::Scalar color = colors[i % colors.size()];
@@ -103,9 +100,8 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
         cv::findContours(working_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
         // Draw double contours for better visibility (outer black, inner colored)
-        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 0, 0), 2);      // Outer black border
-        cv::drawContours(rgb, contours, -1, color, 1);                     // Inner colored line
-
+        cv::drawContours(rgb, contours, -1, cv::Scalar(0, 0, 0), 2); // Outer black border
+        cv::drawContours(rgb, contours, -1, color, 1); // Inner colored line
     }
 
     // Apply the semi-transparent overlay with all masks
@@ -118,6 +114,7 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
 {
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
+
     // Create a path to save the image
     std::string path = "/tmp";
     cv::imwrite(path + "/visualization.png", visualization);
@@ -128,9 +125,12 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
 
     // Handle empty depth image case
-    if (max_val == 0) {
+    if (max_val == 0)
+    {
         depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
-    } else {
+    }
+    else
+    {
         // Scale to full 8-bit range and convert to 8-bit
         filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
 
@@ -145,6 +145,7 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     overlayMasksOnImage_(visualization, clustered_images);
     // save after overlaying masks
     cv::imwrite(path + "/visualization_with_masks.png", visualization);
+
     // Convert to ROS message
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
     msg->header.stamp = ros::Time::now();
@@ -154,9 +155,12 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
 
     combined_cloud->header.frame_id = "map";
 
-    // Add inlier points (white)
-    for (const EntityUpdate& update : res_updates) {
-        for (const geo::Vec3& point : update.points) {
+    // Add points from all entity updates
+    for (const EntityUpdate& update : res_updates)
+    {
+        for (const geo::Vec3& point : update.points)
+        {
+            // Transform from camera to map frame
             geo::Vec3 p_map = sensor_pose * point;
             pcl::PointXYZRGB pcl_point;
             pcl_point.x = p_map.x;
