@@ -1,13 +1,23 @@
 cmake_minimum_required(VERSION 3.5)
 project(ed_sensor_integration)
 
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_compile_options(-Wall -Werror=all)
 add_compile_options(-Wextra -Werror=extra)
 
 find_package(OpenCV REQUIRED)
+find_package(OpenMP REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common kdtree)
 find_package(catkin REQUIRED COMPONENTS
+  bmm_ros
   code_profiler
+  cv_bridge
   ed
   ${PROJECT_NAME}_msgs
   geolib2
@@ -17,10 +27,12 @@ find_package(catkin REQUIRED COMPONENTS
   rgbd_image_buffer
   rosconsole_bridge
   roscpp
+  sam_onnx_ros
   sensor_msgs
   tue_config
   tue_filesystem
   visualization_msgs
+  yolo_onnx_ros
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -29,9 +41,14 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ed_kinect
-  CATKIN_DEPENDS code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
-  DEPENDS OpenCV PCL
+  LIBRARIES
+    ed_kinect
+    ${PROJECT_NAME}_console_bridge
+    ed_association
+    ed_laser
+  CATKIN_DEPENDS
+    code_profiler ed ${PROJECT_NAME}_msgs geolib2 image_geometry rgbd rgbd_image_buffer roscpp tue_config visualization_msgs
+  DEPENDS OpenCV OpenMP PCL
 )
 
 # ------------------------------------------------------------------------------------------------
@@ -42,6 +59,7 @@ include_directories(
   include
   SYSTEM
   ${OpenCV_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -50,7 +68,6 @@ include_directories(
 # ------------------------------------------------------------------------------------------------
 
 add_library(${PROJECT_NAME}_console_bridge
-  # Foward geolib2 and tue_filesystem logging to rosconsole
   src/rosconsole_bridge.cpp
 )
 
@@ -60,24 +77,35 @@ add_library(ed_association
 )
 
 add_library(ed_kinect
-    include/ed/kinect/association.h
-    include/ed/kinect/beam_model.h
-    include/ed/kinect/entity_update.h
-    include/ed/kinect/fitter.h
-    include/ed/kinect/mesh_tools.h
-    include/ed/kinect/renderer.h
-    include/ed/kinect/segmenter.h
-    include/ed/kinect/updater.h
-
-    src/kinect/association.cpp
-    src/kinect/beam_model.cpp
-    src/kinect/fitter.cpp
-    src/kinect/mesh_tools.cpp
-    src/kinect/renderer.cpp
-    src/kinect/segmenter.cpp
-    src/kinect/updater.cpp
+  include/ed/kinect/association.h
+  include/ed/kinect/beam_model.h
+  include/ed/kinect/entity_update.h
+  include/ed/kinect/fitter.h
+  include/ed/kinect/mesh_tools.h
+  include/ed/kinect/renderer.h
+  include/ed/kinect/segmenter.h
+  include/ed/kinect/updater.h
+  src/kinect/association.cpp
+  src/kinect/beam_model.cpp
+  src/kinect/fitter.cpp
+  src/kinect/mesh_tools.cpp
+  src/kinect/renderer.cpp
+  src/kinect/segmenter.cpp
+  src/kinect/updater.cpp
 )
-target_link_libraries(ed_kinect ${PROJECT_NAME}_console_bridge ed_association ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+add_library(ed_map_anything
+  include/ed_sensor_integration/kinect/segmodules/sam_seg_module.h
+  src/kinect/sam_seg_module.cpp
+)
+target_link_libraries(ed_kinect
+  ${PROJECT_NAME}_console_bridge
+  ed_association
+  ed_map_anything
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+  OpenMP::OpenMP_CXX
+)
 add_dependencies(ed_kinect ${catkin_EXPORTED_TARGETS})
 
 add_library(ed_laser
@@ -93,28 +121,36 @@ add_dependencies(ed_laser ${catkin_EXPORTED_TARGETS})
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_kinect_plugin
-    src/kinect/kinect_plugin.cpp
-    src/kinect/kinect_plugin.h
-    src/kinect/ray_tracer.cpp
-    src/kinect/ray_tracer.h
+  src/kinect/kinect_plugin.cpp
+  src/kinect/kinect_plugin.h
+  src/kinect/ray_tracer.cpp
+  src/kinect/ray_tracer.h
 )
-target_link_libraries(ed_kinect_plugin ${PROJECT_NAME}_console_bridge ed_kinect ${catkin_LIBRARIES})
+
+target_link_libraries(ed_kinect_plugin
+  ${PROJECT_NAME}_console_bridge
+  ed_kinect
+  ${catkin_LIBRARIES}
+)
+
 add_dependencies(ed_kinect_plugin ${catkin_EXPORTED_TARGETS})
 
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_laser_plugin
-    src/laser/laser_plugin.cpp
-    src/laser/laser_plugin.h
+  src/laser/laser_plugin.cpp
+  src/laser/laser_plugin.h
 )
+
 target_link_libraries(ed_laser_plugin ${PROJECT_NAME}_console_bridge ed_laser ed_association ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
 
 add_library(ed_clearer_plugin
-    src/clearer/clearer_plugin.cpp
-    src/clearer/clearer_plugin.h
+  src/clearer/clearer_plugin.cpp
+  src/clearer/clearer_plugin.h
 )
+
 target_link_libraries(ed_clearer_plugin ${catkin_LIBRARIES})
 
 # ------------------------------------------------------------------------------------------------
@@ -126,13 +162,26 @@ target_link_libraries(ed_image_saver ${catkin_LIBRARIES})
 add_dependencies(ed_image_saver ${catkin_EXPORTED_TARGETS})
 
 add_executable(ed_segmenter tools/segmenter.cpp)
-target_link_libraries(ed_segmenter ed_kinect ${catkin_LIBRARIES})
+target_link_libraries(ed_segmenter
+  ed_kinect
+  ${catkin_LIBRARIES}
+)
 
 add_executable(ed_fitter_data tools/fitter_viz_data.cpp)
-target_link_libraries(ed_fitter_data ${PROJECT_NAME}_console_bridge ed_kinect ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(ed_fitter_data
+  ${PROJECT_NAME}_console_bridge
+  ed_kinect
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
 
 add_executable(ed_fitter_live tools/fitter_viz_live.cpp)
-target_link_libraries(ed_fitter_live ${PROJECT_NAME}_console_bridge ed_kinect ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(ed_fitter_live
+  ${PROJECT_NAME}_console_bridge
+  ed_kinect
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
 
 # ------------------------------------------------------------------------------------------------
 #                                          Install
@@ -156,6 +205,7 @@ install(
     ed_kinect_plugin
     ed_laser
     ed_laser_plugin
+    ed_map_anything
     ${PROJECT_NAME}_console_bridge
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -179,11 +229,18 @@ if (CATKIN_ENABLE_TESTING)
   catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
 
   catkin_add_gtest(test_furniture_fitting test/test_furniture_fit.cpp)
-  target_link_libraries(test_furniture_fitting ${PROJECT_NAME}_console_bridge ed_kinect ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  target_link_libraries(test_furniture_fitting
+    ${PROJECT_NAME}_console_bridge
+    ed_kinect
+    ${OpenCV_LIBRARIES}
+    ${catkin_LIBRARIES}
+  )
 
   catkin_add_gtest(test_laser_fitting test/test_laser_segmenter.cpp)
-  target_link_libraries(test_laser_fitting ${PROJECT_NAME}_console_bridge ed_laser ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  target_link_libraries(test_laser_fitting
+    ${PROJECT_NAME}_console_bridge
+    ed_laser
+    ${OpenCV_LIBRARIES}
+    ${catkin_LIBRARIES}
+  )
 endif ()
-
-
-

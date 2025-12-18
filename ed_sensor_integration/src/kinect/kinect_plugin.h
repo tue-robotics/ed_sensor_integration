@@ -8,6 +8,8 @@
 
 #include <rgbd/image_buffer/image_buffer.h>
 
+#include <tue/config/configuration.h>
+
 // Services
 #include <ros/service_server.h>
 #include <ed_sensor_integration_msgs/GetImage.h>
@@ -44,7 +46,7 @@ private:
 //    geo::Pose3D last_sensor_pose_;
 
 
-    Updater updater_;
+    std::unique_ptr<Updater> updater_;
 
 
     // Communication

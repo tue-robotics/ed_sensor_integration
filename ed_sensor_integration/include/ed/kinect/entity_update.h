@@ -21,6 +21,9 @@ struct EntityUpdate
 
     // Pose
     geo::Pose3D pose_map;
+
+    // Optional: outliers from filtering (e.g., GMM) -- Leave empty if not applicable
+    std::vector<geo::Vec3> outlier_points;
 };
 
 #endif

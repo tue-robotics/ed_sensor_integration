@@ -135,7 +135,8 @@ int main(int argc, char **argv)
 
     ed::SnapshotCrawler crawler(path);
 
-    Updater updater;
+    tue::Configuration config;
+    Updater updater(config);
 
     std::vector<ed::Snapshot> snapshots;
 

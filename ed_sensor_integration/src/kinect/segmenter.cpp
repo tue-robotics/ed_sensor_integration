@@ -14,13 +14,22 @@
 // Clustering
 #include <queue>
 #include <ed/convex_hull_calc.h>
+#include <sys/resource.h>
 
-// Visualization
-//#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/ml.hpp>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl/segmentation/extract_clusters.h>
+
+#include <Eigen/Dense>
+
+#include <ed_sensor_integration/kinect/segmodules/sam_seg_module.h>
+#include <bmm/bayesian_mixture_model.hpp>
 
 // ----------------------------------------------------------------------------------------------------
 
-Segmenter::Segmenter()
+Segmenter::Segmenter(tue::Configuration config)
+    : config_(config)
 {
 }
 
@@ -34,6 +43,10 @@ Segmenter::~Segmenter()
 
 namespace
 {
+// Internal constants (tuning thresholds)
+constexpr std::size_t MIN_FILTERED_POINTS = 10;
+constexpr double      MIN_RETENTION_RATIO = 0.10;  // 10%
+constexpr std::size_t MIN_CLUSTER_POINTS = 100;
 
 class DepthRenderer : public geo::RenderResult
 {
@@ -164,125 +177,153 @@ void Segmenter::calculatePointsWithin(const rgbd::Image& image, const geo::Shape
         if (d_min > 0 && d_max > 0 && d >= d_min && d <= d_max)
             filtered_depth_image.at<float>(i) = d;
     }
-
-//    cv::imshow("min", res.min_buffer / 10);
-//    cv::imshow("max", res.max_buffer / 10);
-//    cv::imshow("diff", (res.max_buffer - res.min_buffer) * 10);
-//    cv::imshow("filtered", filtered_depth_image / 10);
-//    cv::waitKey();
 }
 
 // ----------------------------------------------------------------------------------------------------
 
-void Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters) const
+cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
+                                                const cv::Mat& filtered_depth_image) const
+{
+    cv::Mat masked_rgb = cv::Mat::zeros(rgb_image.size(), rgb_image.type());
+    for (int y = 0; y < rgb_image.rows; ++y) {
+        const float* depth_row = filtered_depth_image.ptr<float>(y); // fast
+        cv::Vec3b* out_row = masked_rgb.ptr<cv::Vec3b>(y);
+        const cv::Vec3b* rgb_row = rgb_image.ptr<cv::Vec3b>(y);
+        for (int x = 0; x < rgb_image.cols; ++x) {
+            if (depth_row[x] > 0.f) {
+                out_row[x] = rgb_row[x];
+            }
+        }
+    }
+    return masked_rgb;
+}
+// ----------------------------------------------------------------------------------------------------
+
+std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    cv::Mat visited(height, width, CV_8UC1, cv::Scalar(0));
-
-    // Mark borders as visited (2-pixel border)
-    for(int x = 0; x < width; ++x)
-    {
-        visited.at<unsigned char>(0, x) = 1;
-        visited.at<unsigned char>(1, x) = 1;
-        visited.at<unsigned char>(height - 1, x) = 1;
-        visited.at<unsigned char>(height - 2, x) = 1;
-    }
-
-    for(int y = 0; y < height; ++y)
-    {
-        visited.at<unsigned char>(y, 0) = 1;
-        visited.at<unsigned char>(y, 1) = 1;
-        visited.at<unsigned char>(y, width - 1) = 1;
-        visited.at<unsigned char>(y, width - 2) = 1;
-    }
-
-    int dirs[] = { -1, 1, -width, width,
-                   -2, 2, -width * 2, width * 2};  // Also try one pixel skipped (filtering may cause some 1-pixel gaps)
-
+    std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone(), config_);
     ROS_DEBUG("Creating clusters");
-    unsigned int size = width * height;
-    for(unsigned int i_pixel = 0; i_pixel < size; ++i_pixel)
+
+    // Pre-allocate temporary storage (one per mask, avoid push_back races)
+    std::vector<EntityUpdate> temp_clusters(masks.size());
+    std::vector<bool> valid_cluster(masks.size(), false);
+
+    // Parallel loop - each iteration is independent
+    #pragma omp parallel for schedule(dynamic)
+    for (size_t i = 0; i < masks.size(); ++i)
     {
-        float d = depth_image.at<float>(i_pixel);
+        const cv::Mat& mask = masks[i];
+        EntityUpdate cluster;  // local to this thread
 
-        if (d == 0 || d != d)
-            continue;
+        // Extract points from mask
+        for(int y = 0; y < mask.rows; ++y) {
+            for(int x = 0; x < mask.cols; ++x) {
+                if (mask.at<unsigned char>(y, x) > 0) {
+                    unsigned int pixel_idx = y * width + x;
+                    float d = depth_image.at<float>(pixel_idx);
 
-        // Create cluster
-        clusters.push_back(EntityUpdate());
-        EntityUpdate& cluster = clusters.back();
-
-        // Mark visited
-        visited.at<unsigned char>(i_pixel) = 1;
-
-        std::queue<unsigned int> Q;
-        Q.push(i_pixel);
-
-        while(!Q.empty())
-        {
-            unsigned int p1 = Q.front();
-            Q.pop();
-
-            float p1_d = depth_image.at<float>(p1);
-
-            // Add to cluster
-            cluster.pixel_indices.push_back(p1);
-            cluster.points.push_back(cam_model.project2Dto3D(p1 % width, p1 / width) * p1_d);
-
-            for(int dir = 0; dir < 8; ++dir)
-            {
-                unsigned int p2 = p1 + dirs[dir];
-
-                // Check if out of bounds (N.B., if dirs[dir] < 0, p2 might be negative but since it's an unsigned int it will
-                // in practice be a large number.
-                if (p2 >= size)
-                    continue;
-                float p2_d = depth_image.at<float>(p2);
-
-                // If not yet visited, and depth is within bounds
-                if (visited.at<unsigned char>(p2) == 0 && std::abs<float>(p2_d - p1_d) < 0.05)
-                {
-                    // Mark visited
-                    visited.at<unsigned char>(p2) = 1;
-
-                    // Add point to queue
-                    Q.push(p2);
+                    if (d > 0 && std::isfinite(d)) {
+                        cluster.pixel_indices.push_back(pixel_idx);
+                        cluster.points.push_back(cam_model.project2Dto3D(x, y) * d);
+                    }
                 }
             }
         }
 
-        // Check if cluster has enough points. If not, remove it from the list
-        if (cluster.pixel_indices.size() < 100) // TODO: magic number
-        {
-            clusters.pop_back();
-            continue;
+        // Skip small clusters (< 100 points)
+        if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
+            continue;  // valid_cluster[i] remains false
         }
 
-        // Calculate cluster convex hull
+        // BMM point cloud denoising
+        GMMParams params;
+        config_.value("psi0", params.psi0);
+        config_.value("nu0", params.nu0);
+        config_.value("alpha", params.alpha);
+        config_.value("kappa0", params.kappa0);
+
+
+        MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
+        gmm.fit(cluster.points, sensor_pose);
+        // Get component assignments and inlier component
+        std::vector<int> labels = gmm.get_labels();
+        int inlier_component = gmm.get_inlier_component();
+
+        // Filter points
+        std::vector<geo::Vec3> filtered_points;
+        std::vector<geo::Vec3> outlier_points;  // Only populate if needed
+
+        for (size_t j = 0; j < labels.size(); j++)
+        {
+            if (labels[j] == inlier_component)
+            {
+                filtered_points.push_back(cluster.points[j]);
+            }
+            else if (logging)
+            {
+                outlier_points.push_back(cluster.points[j]);
+            }
+        }
+
+        // Safety check: only use filtered points if we retained enough
+        if (filtered_points.size() > MIN_FILTERED_POINTS &&
+            filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
+            // Use filtered points
+            cluster.points = filtered_points;
+            if (logging)
+            {
+                cluster.outlier_points = outlier_points;
+                // Transform outlier points to map frame
+                // for (size_t j = 0; j < cluster.outlier_points.size(); ++j) {
+                //     cluster.outlier_points[j] = sensor_pose * cluster.outlier_points[j];
+                // }
+            }
+        }
+        else
+        {
+            // Safety check failed - keep original unfiltered points
+            // Don't populate outlier_points since we're not using the GMM result
+            ROS_DEBUG("GMM filtering rejected: retained %zu/%zu points",
+                      filtered_points.size(), cluster.points.size());
+        }
+
+        // Calculate convex hull
         float z_min = 1e9;
         float z_max = -1e9;
-
-        // Calculate z_min and z_max of cluster
-        ROS_DEBUG("Computing min and max of cluster");
         std::vector<geo::Vec2f> points_2d(cluster.points.size());
+
         for(unsigned int j = 0; j < cluster.points.size(); ++j)
         {
             const geo::Vec3& p = cluster.points[j];
 
             // Transform sensor point to map frame
             geo::Vector3 p_map = sensor_pose * p;
-
             points_2d[j] = geo::Vec2f(p_map.x, p_map.y);
-
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
         }
 
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
+
+        // Store in thread-safe pre-allocated array
+        temp_clusters[i] = cluster;
+        valid_cluster[i] = true;
     }
+
+    // Sequential section: collect valid clusters
+    clusters.clear();
+    clusters.reserve(masks.size());
+    for (size_t i = 0; i < temp_clusters.size(); ++i) {
+        if (valid_cluster[i]) {
+            clusters.push_back(std::move(temp_clusters[i]));
+        }
+    }
+
+    return masks;
 }

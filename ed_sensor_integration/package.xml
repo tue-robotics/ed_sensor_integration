@@ -27,14 +27,22 @@
   <depend>tue_config</depend>
   <depend>visualization_msgs</depend>
 
+  <build_depend>bmm_ros</build_depend>
+  <exec_depend>bmm_ros</exec_depend>
+  <build_depend>cv_bridge</build_depend>
+  <exec_depend>cv_bridge</exec_depend>
   <build_depend>geometry_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <build_depend>rosconsole_bridge</build_depend>
   <exec_depend>rosconsole_bridge</exec_depend>
+  <build_depend>sam_onnx_ros</build_depend>
+  <exec_depend>sam_onnx_ros</exec_depend>
   <build_depend>sensor_msgs</build_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <build_depend>tue_filesystem</build_depend>
   <exec_depend>tue_filesystem</exec_depend>
+  <build_depend>yolo_onnx_ros</build_depend>
+  <exec_depend>yolo_onnx_ros</exec_depend>
 
   <test_depend>catkin_lint_cmake</test_depend>
 

@@ -4,26 +4,27 @@
 #include <ed/entity.h>
 #include <ed/update_request.h>
 
-#include <rgbd/view.h>
-
 #include <geolib/Shape.h>
 #include <geolib/shapes.h>
 
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
-
 #include "ed/convex_hull_calc.h"
 
 #include <opencv2/highgui/highgui.hpp>
-
+#include <rgbd/view.h>
 #include <ros/console.h>
+#include <ros/node_handle.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
 
+#include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 // ----------------------------------------------------------------------------------------------------
 
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                     const Segmenter& segmenter_, EntityUpdate& up)
+                     const std::unique_ptr<Segmenter>& segmenter_, EntityUpdate& up)
 {
     up.pose_map.t.z += (up.chull.z_max + up.chull.z_min) / 2;
 
@@ -34,7 +35,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
     geo::createConvexPolygon(chull_shape, points, up.chull.height());
 
     cv::Mat filtered_depth_image;
-    segmenter_.calculatePointsWithin(image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
+    segmenter_->calculatePointsWithin(image, chull_shape, sensor_pose.inverse() * up.pose_map, filtered_depth_image);
 
     up.points.clear();
     up.pixel_indices.clear();
@@ -43,6 +44,8 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
     float z_max = -1e9;
 
     int i_pixel = 0;
+    std::vector<float> z_values;
+    z_values.reserve(filtered_depth_image.rows * filtered_depth_image.cols);
     for(int y = 0; y < filtered_depth_image.rows; ++y)
     {
         for(int x = 0; x < filtered_depth_image.cols; ++x)
@@ -56,6 +59,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 
             geo::Vec3 p = cam_model.project2Dto3D(x, y) * d;
             geo::Vec3 p_map = sensor_pose * p;
+            z_values.push_back(p_map.z);
 
             z_min = std::min<float>(z_min, p_map.z);
             z_max = std::max<float>(z_max, p_map.z);
@@ -65,6 +69,21 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
             ++i_pixel;
         }
     }
+
+    // Statistical filtering out outliers
+    // Calculate z statistics
+    if (z_values.empty()) return;
+
+    // Sort for percentile calculation
+    std::sort(z_values.begin(), z_values.end());
+
+    // Use 5th and 95th percentiles instead of min/max to filter outliers
+    int lower_idx = std::max(0, static_cast<int>(z_values.size() * 0.05));
+    int upper_idx = std::min(static_cast<int>(z_values.size()-1),
+                            static_cast<int>(z_values.size() * 0.95));
+
+    z_min = z_values[lower_idx];
+    z_max = z_values[upper_idx];
 
     double h = z_max - z_min;
     up.pose_map.t.z = (z_max + z_min) / 2;
@@ -80,7 +99,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
  * @return new EntityUpdate including new convexHull and measurement points of both inputs.
  */
 EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                              const Segmenter& segmenter_, const EntityUpdate& u1, const EntityUpdate& u2)
+                              const std::unique_ptr<Segmenter>& segmenter_, const EntityUpdate& u1, const EntityUpdate& u2)
 {
     EntityUpdate new_u = u1;
     double z_max = std::max(u1.pose_map.t.getZ()+u1.chull.z_max,u2.pose_map.t.getZ()+u2.chull.z_max);
@@ -110,7 +129,7 @@ EntityUpdate mergeConvexHulls(const rgbd::Image& image, const geo::Pose3D& senso
 // Calculates which depth points are in the given convex hull (in the EntityUpdate), updates the mask,
 // and updates the convex hull height based on the points found
 std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, const geo::Pose3D& sensor_pose, const geo::DepthCamera& cam_model,
-                                                         const Segmenter& segmenter_, const std::vector<EntityUpdate>& updates)
+                                                         const std::unique_ptr<Segmenter>& segmenter_, const std::vector<EntityUpdate>& updates)
 {
 
   ROS_INFO("mergoverlapping chulls: nr of updates: %lu", updates.size());
@@ -185,9 +204,26 @@ std::vector<EntityUpdate> mergeOverlappingConvexHulls(const rgbd::Image& image, 
 }
 
 // ----------------------------------------------------------------------------------------------------
-
-Updater::Updater()
+Updater::Updater(tue::Configuration config) : logging(false)
 {
+    if (config.readGroup("segmenter", tue::config::REQUIRED))
+    {
+        segmenter_ = std::make_unique<Segmenter>(config);
+    }
+    else
+    {
+        ROS_ERROR("Failed to read segmenter configuration group from config file, cannot initialize Updater");
+        throw std::runtime_error("Failed to read segmenter configuration group from config file");
+    }
+
+    // Initialize the image publisher
+    config.value("logging", logging, tue::config::OPTIONAL);
+    if (logging)
+    {
+        ros::NodeHandle nh("~");
+        mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
+        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -206,12 +242,14 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // will contain depth image filtered with given update shape and world model (background) subtraction
     cv::Mat filtered_depth_image;
-
+    cv::Mat filtered_rgb_image;
     // sensor pose might be update, so copy (making non-const)
     geo::Pose3D sensor_pose = sensor_pose_const;
 
     // depth image
     const cv::Mat& depth = image->getDepthImage();
+    const cv::Mat& rgb = image->getRGBImage();
+    //cv::Mat img = rgb.clone();
 
     // Determine depth image camera model
     rgbd::View view(*image, depth.cols);
@@ -290,8 +328,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             }
             else
             {
-//                res.error << "Could not determine pose of '" << entity_id.str() << "'.";
-//                return false;
+            //  res.error << "Could not determine pose of '" << entity_id.str() << "'.";
+            //  return false;
 
                 // Could not fit entity, so keep the old pose
                 new_pose = e->pose();
@@ -338,7 +376,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
             // Segment
 
             geo::Pose3D shape_pose = sensor_pose.inverse() * new_pose;
-            segmenter_.calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
+            segmenter_->calculatePointsWithin(*image, shape, shape_pose, filtered_depth_image);
         }
     }
     else
@@ -356,7 +394,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     ed::WorldModel world_updated = world;
     world_updated.update(res.update_req);
 
-    segmenter_.removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
+    segmenter_->removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there
@@ -385,17 +423,17 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         }*/
     }
 
-//    cv::imshow("depth image", depth / 10);
-//    cv::imshow("segments", filtered_depth_image / 10);
-//    cv::waitKey();
-
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
-    segmenter_.cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates);
-
+    filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
+    std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
+    if (logging)
+    {
+        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
+    }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
-    res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
+    //res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
