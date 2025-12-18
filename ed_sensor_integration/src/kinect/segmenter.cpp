@@ -46,6 +46,7 @@ namespace
 // Internal constants (tuning thresholds)
 constexpr std::size_t MIN_FILTERED_POINTS = 10;
 constexpr double      MIN_RETENTION_RATIO = 0.10;  // 10%
+constexpr std::size_t MIN_CLUSTER_POINTS = 100;
 
 class DepthRenderer : public geo::RenderResult
 {
@@ -235,7 +236,7 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         }
 
         // Skip small clusters (< 100 points)
-        if (cluster.pixel_indices.size() < 100) {
+        if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
             continue;  // valid_cluster[i] remains false
         }
 

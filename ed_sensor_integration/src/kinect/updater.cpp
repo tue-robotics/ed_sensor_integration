@@ -45,6 +45,7 @@ void refitConvexHull(const rgbd::Image& image, const geo::Pose3D& sensor_pose, c
 
     int i_pixel = 0;
     std::vector<float> z_values;
+    z_values.reserve(filtered_depth_image.rows * filtered_depth_image.cols);
     for(int y = 0; y < filtered_depth_image.rows; ++y)
     {
         for(int x = 0; x < filtered_depth_image.cols; ++x)
@@ -432,7 +433,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
-    res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
+    //res.entity_updates = mergeOverlappingConvexHulls(*image, sensor_pose, cam_model, segmenter_, res.entity_updates);
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Increase the convex hulls a bit towards the supporting surface and re-calculate mask
