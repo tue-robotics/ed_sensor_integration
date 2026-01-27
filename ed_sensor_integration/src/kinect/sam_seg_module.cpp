@@ -2,6 +2,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <filesystem>
+#include <utility>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -11,7 +12,7 @@
 #include <yolo_onnx_ros/detection.hpp>
 
 
-std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
+std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
 {
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
@@ -52,7 +53,7 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration
 
     SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
 
-    return std::move(res.masks);
+    return std::make_pair(std::move(res.masks), std::move(res.boxes));
 }
 
 
@@ -111,10 +112,22 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 
 void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
                                 const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
-                                ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
+                                const std::vector<cv::Rect>& boxes,
+                                ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
 {
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
+
+    // Box visualization
+    cv::Mat box_visualization = rgb.clone();
+    for(const auto& box : boxes)
+    {
+        cv::rectangle(box_visualization, box, cv::Scalar(0, 255, 0), 2);
+    }
+    
+    sensor_msgs::ImagePtr box_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", box_visualization).toImageMsg();
+    box_msg->header.stamp = ros::Time::now();
+    box_pub_.publish(box_msg);
 
     // Create a path to save the image using platform-independent temp directory
     std::filesystem::path temp_dir = std::filesystem::temp_directory_path();

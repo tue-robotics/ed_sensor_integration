@@ -199,14 +199,16 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 }
 // ----------------------------------------------------------------------------------------------------
 
-std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    std::vector<cv::Mat> masks = SegmentationPipeline(rgb_image.clone(), config_);
+    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> seg_result = SegmentationPipeline(rgb_image.clone(), config_);
+    std::vector<cv::Mat>& masks = seg_result.first;
+
     ROS_DEBUG("Creating clusters");
 
     // Pre-allocate temporary storage (one per mask, avoid push_back races)
@@ -325,5 +327,5 @@ std::vector<cv::Mat> Segmenter::cluster(const cv::Mat& depth_image, const geo::D
         }
     }
 
-    return masks;
+    return seg_result;
 }

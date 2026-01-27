@@ -12,6 +12,7 @@
 #include <ed/types.h>
 
 #include <vector>
+#include <utility>
 
 namespace cv
 {
@@ -57,9 +58,9 @@ public:
      * @param sensor_pose
      * @param clusters
      * @param rgb_image
-     * @return std::vector<cv::Mat> masks // 3D pointcloud masks of all the segmented objects
+     * @return std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> // 3D pointcloud masks and bounding boxes of all the segmented objects
      */
-    std::vector<cv::Mat> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                  const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging=false);
 
 private:

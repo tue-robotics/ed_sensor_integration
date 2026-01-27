@@ -222,7 +222,8 @@ Updater::Updater(tue::Configuration config) : logging(false)
     {
         ros::NodeHandle nh("~");
         mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
-        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_ooo", 1);
+        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_sam", 1);
+        box_pub_ = nh.advertise<sensor_msgs::Image>("bounding_boxes_yolo", 1);
     }
 }
 
@@ -426,10 +427,13 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
+    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
+    
+    std::vector<cv::Mat>& clustered_images = cluster_result.first;
+
     if (logging)
     {
-        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, mask_pub_, cloud_pub_,  res.entity_updates);
+        publishSegmentationResults(filtered_depth_image, filtered_rgb_image, sensor_pose, clustered_images, cluster_result.second, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
     }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z
