@@ -83,6 +83,7 @@ add_library(ed_map_anything
 target_link_libraries(ed_map_anything
   ${PROJECT_NAME}_console_bridge
   ${OpenCV_LIBRARIES}
+  ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
   OpenMP::OpenMP_CXX
 )
