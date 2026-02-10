@@ -46,7 +46,7 @@ namespace
 // Internal constants (tuning thresholds)
 constexpr std::size_t MIN_FILTERED_POINTS = 10;
 constexpr double      MIN_RETENTION_RATIO = 0.10;  // 10%
-constexpr std::size_t MIN_CLUSTER_POINTS = 100;
+constexpr std::size_t MIN_CLUSTER_POINTS = 1;
 
 class DepthRenderer : public geo::RenderResult
 {
@@ -220,6 +220,14 @@ std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> Segmenter::cluster(const 
     for (size_t i = 0; i < masks.size(); ++i)
     {
         const cv::Mat& mask = masks[i];
+        // Resize mask if needed so for the image to be the same size as the depth image (in case SAM produces a different size mask)
+        // const cv::Mat& mask_orig = masks[i];
+        // cv::Mat mask;
+        // if (mask_orig.rows != height || mask_orig.cols != width)
+        //     cv::resize(mask_orig, mask, cv::Size(width, height), 0, 0, cv::INTER_NEAREST);
+        // else
+        //     mask = mask_orig;
+
         EntityUpdate cluster;  // local to this thread
 
         // Extract points from mask
@@ -238,8 +246,15 @@ std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> Segmenter::cluster(const 
         }
 
         // Skip small clusters (< 100 points)
+
         if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
+            if (logging)
+            ROS_WARN("We reject cluster %zu because it has only %zu points", i, cluster.pixel_indices.size());
             continue;  // valid_cluster[i] remains false
+        }
+        else{
+            if (logging)
+            ROS_WARN("Cluster %zu: %zu points", i, cluster.points.size());
         }
 
         // BMM point cloud denoising
