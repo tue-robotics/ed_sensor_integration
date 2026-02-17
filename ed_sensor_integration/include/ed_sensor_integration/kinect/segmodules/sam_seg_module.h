@@ -8,16 +8,30 @@
 
 #include "ed/kinect/entity_update.h"
 
+#include <string>
 #include <utility>
 #include <vector>
+
+/**
+ * @brief Result of the segmentation pipeline containing masks, bounding boxes,
+ *        and YOLO classification info for each detected object.
+ */
+struct SegmentationResult
+{
+    std::vector<cv::Mat> masks;
+    std::vector<cv::Rect> boxes;
+    std::vector<std::string> labels;      // YOLO class name per detection
+    std::vector<float> confidences;       // YOLO confidence per detection
+};
 
 /**
  * @brief Segmentation pipeline that processes the input image and generates segmentation masks.
  *
  * @param img The input RGB image to segment.
- * @return std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> The generated segmentation masks and bounding boxes.
+ * @param config Configuration containing model paths.
+ * @return SegmentationResult The generated segmentation masks, bounding boxes, labels, and confidences.
  */
-std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config);
+SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& config);
 
 /**
  * @brief Overlay segmentation masks on the RGB image for visualization purposes.

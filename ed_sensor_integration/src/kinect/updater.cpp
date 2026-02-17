@@ -431,13 +431,13 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Cluster
     errc.change("Kinect::Updater", "update: clustering");
     // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb, logging);
+    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb, logging);
 
-    std::vector<cv::Mat>& clustered_images = cluster_result.first;
+    std::vector<cv::Mat>& clustered_images = cluster_result.masks;
 
     if (logging)
     {
-        publishSegmentationResults(filtered_depth_image, rgb, sensor_pose, clustered_images, cluster_result.second, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
+        publishSegmentationResults(filtered_depth_image, rgb, sensor_pose, clustered_images, cluster_result.boxes, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
     }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Merge the detected clusters if they overlap in XY or Z

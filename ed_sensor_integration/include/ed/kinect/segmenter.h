@@ -2,6 +2,7 @@
 #define ED_SENSOR_INTEGRATION_SEGMENTER_H_
 
 #include "ed/kinect/entity_update.h"
+#include <ed_sensor_integration/kinect/segmodules/sam_seg_module.h>
 
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
@@ -58,9 +59,10 @@ public:
      * @param sensor_pose
      * @param clusters
      * @param rgb_image
-     * @return std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> // 3D pointcloud masks and bounding boxes of all the segmented objects
+     * @param logging
+     * @return SegmentationResult containing masks, bounding boxes, labels, and confidences
      */
-    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+    SegmentationResult cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                  const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging=false);
 
 private:

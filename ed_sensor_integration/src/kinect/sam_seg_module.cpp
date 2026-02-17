@@ -12,8 +12,10 @@
 #include <yolo_onnx_ros/detection.hpp>
 
 
-std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
+SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
 {
+    SegmentationResult seg_result;
+
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
@@ -46,14 +48,18 @@ std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> SegmentationPipeline(cons
         //     continue;
         // }
         res.boxes.push_back(result.box);
-        ROS_DEBUG_STREAM("Confidence is OKOK: " << result.confidence);
-        ROS_DEBUG_STREAM("Class is: " << yoloDetector->classes[result.classId]);
-        ROS_DEBUG_STREAM("Class ID is: " << result.classId);
+        seg_result.labels.push_back(yoloDetector->classes[result.classId]);
+        seg_result.confidences.push_back(result.confidence);
+        ROS_DEBUG_STREAM("Confidence: " << result.confidence);
+        ROS_DEBUG_STREAM("Class: " << yoloDetector->classes[result.classId]);
+        ROS_DEBUG_STREAM("Class ID: " << result.classId);
     }
 
     SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
 
-    return std::make_pair(std::move(res.masks), std::move(res.boxes));
+    seg_result.masks = std::move(res.masks);
+    seg_result.boxes = std::move(res.boxes);
+    return seg_result;
 }
 
 

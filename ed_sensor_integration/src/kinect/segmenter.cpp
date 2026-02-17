@@ -199,15 +199,15 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 }
 // ----------------------------------------------------------------------------------------------------
 
-std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> seg_result = SegmentationPipeline(rgb_image.clone(), config_);
-    std::vector<cv::Mat>& masks = seg_result.first;
+    SegmentationResult seg_result = SegmentationPipeline(rgb_image.clone(), config_);
+    std::vector<cv::Mat>& masks = seg_result.masks;
 
     ROS_DEBUG("Creating clusters");
 
@@ -327,6 +327,15 @@ std::pair<std::vector<cv::Mat>, std::vector<cv::Rect>> Segmenter::cluster(const 
 
         ed::convex_hull::create(points_2d, z_min, z_max, cluster.chull, cluster.pose_map);
         cluster.chull.complete = false;
+
+        // Assign YOLO classification label to this cluster
+        if (i < seg_result.labels.size())
+        {
+            cluster.label = seg_result.labels[i];
+            cluster.classification_confidence = seg_result.confidences[i];
+            if (logging)
+            ROS_DEBUG("Cluster %zu classified as '%s' with confidence %.2f", i, cluster.label.c_str(), cluster.classification_confidence);
+        }
 
         // Store in thread-safe pre-allocated array
         temp_clusters[i] = cluster;
