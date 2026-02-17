@@ -334,7 +334,9 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             cluster.label = seg_result.labels[i];
             cluster.classification_confidence = seg_result.confidences[i];
             if (logging)
-            ROS_DEBUG("Cluster %zu classified as '%s' with confidence %.2f", i, cluster.label.c_str(), cluster.classification_confidence);
+            {
+                ROS_ERROR("Cluster %zu classified as '%s' with confidence %.2f and has id %s", i, cluster.label.c_str(), cluster.classification_confidence, cluster.id.c_str());
+            }
         }
 
         // Store in thread-safe pre-allocated array
