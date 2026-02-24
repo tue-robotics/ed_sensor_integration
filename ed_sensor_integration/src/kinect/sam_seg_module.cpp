@@ -41,12 +41,12 @@ SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& 
     for (const auto& result : resYolo)
     {
         // (here we are skipping the table object but it should happen only on the rosservice scenario: on_top_of dinner_table )
-        // int table_classification = 60;
-        // if (result.classId == table_classification)
-        // {
-        //     ROS_DEBUG_STREAM("Class ID is: " << yoloDetector->classes[result.classId] << " So we don't append");
-        //     continue;
-        // }
+        int table_classification = 60;
+        if (result.classId == table_classification)
+        {
+            ROS_DEBUG_STREAM("Class ID is: " << yoloDetector->classes[result.classId] << " So we don't append");
+            continue;
+        }
         res.boxes.push_back(result.box);
         seg_result.labels.push_back(yoloDetector->classes[result.classId]);
         seg_result.confidences.push_back(result.confidence);
@@ -130,7 +130,7 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
     {
         cv::rectangle(box_visualization, box, cv::Scalar(0, 255, 0), 2);
     }
-    
+
     sensor_msgs::ImagePtr box_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", box_visualization).toImageMsg();
     box_msg->header.stamp = ros::Time::now();
     box_pub_.publish(box_msg);

@@ -219,14 +219,14 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < masks.size(); ++i)
     {
-        const cv::Mat& mask = masks[i];
-        // Resize mask if needed so for the image to be the same size as the depth image (in case SAM produces a different size mask)
-        // const cv::Mat& mask_orig = masks[i];
-        // cv::Mat mask;
-        // if (mask_orig.rows != height || mask_orig.cols != width)
-        //     cv::resize(mask_orig, mask, cv::Size(width, height), 0, 0, cv::INTER_NEAREST);
-        // else
-        //     mask = mask_orig;
+        // const cv::Mat& mask = masks[i];
+        //Resize mask if needed so for the image to be the same size as the depth image (in case SAM produces a different size mask)
+        const cv::Mat& mask_orig = masks[i];
+        cv::Mat mask;
+        if (mask_orig.rows != height || mask_orig.cols != width)
+            cv::resize(mask_orig, mask, cv::Size(width, height), 0, 0, cv::INTER_NEAREST);
+        else
+            mask = mask_orig;
 
         EntityUpdate cluster;  // local to this thread
 
