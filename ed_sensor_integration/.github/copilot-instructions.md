@@ -78,6 +78,26 @@ fit_supporting_entity: false"
 
 **4. Close terminal processes:** Stop `hero-free-mode` in terminal 2.
 
+## Table Model Reference
+
+**Table model file:**
+```
+/home/amigo/ros/noetic/repos/github.com/tue-robotics/ed_object_models/models/table_120x80x76/model.sdf
+```
+
+**World model entity definitions (pose, type, image per environment):**
+```
+/home/amigo/ros/noetic/repos/github.com/tue-robotics/hero_bringup/parameters/world_modeling/models_impuls.yaml
+```
+Note: `dinner_table` has no fixed pose in this file — its pose is set at runtime by localization.
+
+**Correct table calibration (DO NOT CHANGE):**
+- Tabletop link: center at z=0.75m, thickness 0.02m → top surface at **z=0.76m**
+- `on_top_of` volume: center at z=0.96m, height 0.42m → **bottom at 0.75m, top at 1.17m**
+- The volume bottom (0.75m) is 1cm *below* the table surface (0.76m) — this is intentional so flat objects (knife, spoon at z≈0.76m) are included in the segmentation volume
+- **Do not raise the volume bottom** — raising it by even 2cm causes flat objects like knives and spoons to fall outside the volume and not be detected at all
+- Attempted raising pose z from `0.96` to `0.97` (bottom from 0.75m to 0.77m) → **FAILED**, reverted
+
 ## Validator Agent
 
 A reusable validation agent is available at `.github/agents/ed-sensor-validator.agent.md`.
