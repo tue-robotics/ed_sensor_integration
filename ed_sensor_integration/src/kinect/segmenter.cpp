@@ -46,7 +46,7 @@ namespace
 // Internal constants (tuning thresholds)
 constexpr std::size_t MIN_FILTERED_POINTS = 10;
 constexpr double      MIN_RETENTION_RATIO = 0.10;  // 10%
-constexpr std::size_t MIN_CLUSTER_POINTS = 1;
+constexpr std::size_t MIN_CLUSTER_POINTS = 100;
 
 class DepthRenderer : public geo::RenderResult
 {
@@ -200,7 +200,8 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 // ----------------------------------------------------------------------------------------------------
 
 SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging)
+                        const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
+                        bool logging, const std::string& area_description)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -209,11 +210,28 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     SegmentationResult seg_result = SegmentationPipeline(rgb_image.clone(), config_);
     std::vector<cv::Mat>& masks = seg_result.masks;
 
+    // Extract area name and entity from area_description (e.g. "on_top_of" and "dinner_table" from "on_top_of dinner_table")
+    std::string area_name;
+    std::string area_entity;
+    const std::size_t i_space = area_description.find(' ');
+    if (i_space != std::string::npos)
+    {
+        area_name   = area_description.substr(0, i_space);
+        area_entity = area_description.substr(i_space + 1);
+    }
+
     ROS_DEBUG("Creating clusters");
 
     // Pre-allocate temporary storage (one per mask, avoid push_back races)
     std::vector<EntityUpdate> temp_clusters(masks.size());
     std::vector<bool> valid_cluster(masks.size(), false);
+
+    // BMM point cloud denoising
+    GMMParams params;
+    config_.value("psi0", params.psi0);
+    config_.value("nu0", params.nu0);
+    config_.value("alpha", params.alpha);
+    config_.value("kappa0", params.kappa0);
 
     // Parallel loop - each iteration is independent
     #pragma omp parallel for schedule(dynamic)
@@ -222,6 +240,24 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         // const cv::Mat& mask = masks[i];
         //Resize mask if needed so for the image to be the same size as the depth image (in case SAM produces a different size mask)
         const cv::Mat& mask_orig = masks[i];
+
+        // Empty mask: SAM failed for this box (placeholder pushed to preserve alignment)
+        if (mask_orig.empty())
+        {
+            ROS_DEBUG("Skipping cluster %zu: SAM returned empty mask (segmentation failure for this box)", i);
+            continue;
+        }
+        // When looking on_top_of a surface, skip the supporting surface itself (e.g. "dining table")
+        // so it is never extracted as a cluster or passed through BMM.
+        // Both conditions required: area must be "on_top_of" AND the entity must be "dinner_table".
+        if (area_name == "on_top_of" && area_entity == "dinner_table" &&
+            i < seg_result.labels.size() && seg_result.labels[i] == "dining table")
+        {
+            ROS_WARN("Skipping cluster %zu: label '%s' is the supporting surface for area '%s' and area description '%s'",
+                      i, seg_result.labels[i].c_str(), area_name.c_str(), area_description.c_str());
+            continue;
+        }
+
         cv::Mat mask;
         if (mask_orig.rows != height || mask_orig.cols != width)
             cv::resize(mask_orig, mask, cv::Size(width, height), 0, 0, cv::INTER_NEAREST);
@@ -245,25 +281,22 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             }
         }
 
-        // Skip small clusters (< 100 points)
-
+        // Skip small clusters (< 100 points based on MIN_CLUSTER_POINTS)
         if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
             if (logging)
-            ROS_WARN("We reject cluster %zu because it has only %zu points", i, cluster.pixel_indices.size());
+            {
+                const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
+                ROS_WARN("We reject cluster %zu with label '%s' because it has only %zu points", i, label.c_str(), cluster.pixel_indices.size());
+            }
             continue;  // valid_cluster[i] remains false
         }
         else{
             if (logging)
-            ROS_WARN("Cluster %zu: %zu points", i, cluster.points.size());
+            {
+                const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
+                ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
+            }
         }
-
-        // BMM point cloud denoising
-        GMMParams params;
-        config_.value("psi0", params.psi0);
-        config_.value("nu0", params.nu0);
-        config_.value("alpha", params.alpha);
-        config_.value("kappa0", params.kappa0);
-
 
         MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
         gmm.fit(cluster.points, sensor_pose);
@@ -335,7 +368,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             cluster.classification_confidence = seg_result.confidences[i];
             if (logging)
             {
-                ROS_ERROR("Cluster %zu classified as '%s' with confidence %.2f and has id %s", i, cluster.label.c_str(), cluster.classification_confidence, cluster.id.c_str());
+                ROS_INFO("Cluster %zu classified as '%s' with confidence %.2f and has id %s", i, cluster.label.c_str(), cluster.classification_confidence, cluster.id.c_str());
             }
         }
 

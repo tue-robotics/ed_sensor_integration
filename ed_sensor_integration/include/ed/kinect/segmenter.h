@@ -60,10 +60,14 @@ public:
      * @param clusters
      * @param rgb_image
      * @param logging
+     * @param area_description  Area description from the ROS service request (e.g. "on_top_of dinner_table").
+     *                          When the area name is "on_top_of", YOLO-detected supporting surfaces
+     *                          (e.g. "dining table") are skipped before any point extraction or BMM.
      * @return SegmentationResult containing masks, bounding boxes, labels, and confidences
      */
     SegmentationResult cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging=false);
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
+                 bool logging=false, const std::string& area_description = "");
 
 private:
     tue::Configuration config_;

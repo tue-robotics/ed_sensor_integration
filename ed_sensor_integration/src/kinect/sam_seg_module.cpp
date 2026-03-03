@@ -40,25 +40,32 @@ SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& 
     ////////////////////////// SAM //////////////////////////////////////
     for (const auto& result : resYolo)
     {
-        // (here we are skipping the table object but it should happen only on the rosservice scenario: on_top_of dinner_table )
-        int table_classification = 60;
-        if (result.classId == table_classification)
-        {
-            ROS_DEBUG_STREAM("Class ID is: " << yoloDetector->classes[result.classId] << " So we don't append");
-            continue;
-        }
         res.boxes.push_back(result.box);
         seg_result.labels.push_back(yoloDetector->classes[result.classId]);
         seg_result.confidences.push_back(result.confidence);
-        ROS_DEBUG_STREAM("Confidence: " << result.confidence);
-        ROS_DEBUG_STREAM("Class: " << yoloDetector->classes[result.classId]);
-        ROS_DEBUG_STREAM("Class ID: " << result.classId);
+        ROS_DEBUG("Confidence: %f", result.confidence);
+        ROS_DEBUG("Class: %s", yoloDetector->classes[result.classId].c_str());
+        ROS_DEBUG("Class ID: %d", result.classId);
     }
 
     SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
 
     seg_result.masks = std::move(res.masks);
     seg_result.boxes = std::move(res.boxes);
+
+    // Verify 1:1 alignment between masks and labels.
+    // Normally guaranteed because SAM processes boxes sequentially and pushes one mask per box.
+    // If SAM failed for any box it pushes an empty placeholder (see sam_onnx_ros/src/utils.cpp),
+    // so sizes should always match. If they don't, we cannot know which label belongs to which
+    // mask — discard labels for this frame so objects are still detected but not mislabeled.
+    if (seg_result.masks.size() != seg_result.labels.size())
+    {
+        ROS_WARN("SAM produced %zu masks for %zu YOLO boxes — alignment broken, discarding labels this frame",
+                 seg_result.masks.size(), seg_result.labels.size());
+        seg_result.labels.clear();
+        seg_result.confidences.clear();
+    }
+
     return seg_result;
 }
 
@@ -121,10 +128,15 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
                                 const std::vector<cv::Rect>& boxes,
                                 ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
 {
+    // Guard: all three publishers must have been advertised before calling this function.
+    // They are only advertised when logging == true in the Updater constructor.
+    // Calling this function with un-advertised publishers is a programming error.
+    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without logging enabled");
+    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without logging enabled");
+    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without logging enabled");
+
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
-
-    // Box visualization
     cv::Mat box_visualization = rgb.clone();
     for(const auto& box : boxes)
     {

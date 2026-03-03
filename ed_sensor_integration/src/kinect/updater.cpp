@@ -214,8 +214,6 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     ed::WorldModel world_updated = world;
     world_updated.update(res.update_req);
 
-    //segmenter_->removeBackground(filtered_depth_image, world_updated, cam_model, sensor_pose, req.background_padding);
-
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there
 
@@ -247,7 +245,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Cluster
     errc.change("Kinect::Updater", "update: clustering");
     // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb, logging);
+    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb, logging, area_description);
 
     std::vector<cv::Mat>& clustered_images = cluster_result.masks;
 
