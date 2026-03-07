@@ -61,17 +61,16 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // will contain depth image filtered with given update shape and world model (background) subtraction
     cv::Mat filtered_depth_image;
-    cv::Mat filtered_rgb_image;
+
     // sensor pose might be update, so copy (making non-const)
     geo::Pose3D sensor_pose = sensor_pose_const;
 
     // depth image
-    const cv::Mat& depth = image->getDepthImage();
-    const cv::Mat& rgb = image->getRGBImage();
-    //cv::Mat img = rgb.clone();
+    const cv::Mat& depth_image = image->getDepthImage();
+    const cv::Mat& rgb_image = image->getRGBImage();
 
     // Determine depth image camera model
-    rgbd::View view(*image, depth.cols);
+    rgbd::View view(*image, depth_image.cols);
     const geo::DepthCamera& cam_model = view.getRasterizer();
 
     std::string area_description;
@@ -229,10 +228,10 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t;
 
         cv::Point p_2d = cam_model.project3Dto2D(p_3d);
-        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth_image.cols || p_2d.y >= depth_image.rows)
             continue;
         */
-        /*float d = depth.at<float>(p_2d);
+        /*float d = depth_image.at<float>(p_2d);
         if (d > 0 && d == d && -p_3d.z < d)
         {
             ROS_INFO("Request to remove entity %s", e->id().c_str());
@@ -244,14 +243,17 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
     errc.change("Kinect::Updater", "update: clustering");
-    // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
-    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb, logging, area_description);
+
+    // Do preprocessRGBForSegmentation if you want to treat the rgb image as the depth image for segmentation, meaning that only the pixels where depth is non-zero will be kept in the RGB image. This can be used to improve the segmentation results of the RGB image, but it is not necessary for the depth segmentation.
+    // cv::Mat filtered_rgb_image;
+    // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb_image, filtered_depth_image);
+    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb_image, logging, area_description);
 
     std::vector<cv::Mat>& clustered_images = cluster_result.masks;
 
     if (logging)
     {
-        publishSegmentationResults(filtered_depth_image, rgb, sensor_pose, clustered_images, cluster_result.boxes, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
+        publishSegmentationResults(filtered_depth_image, rgb_image, sensor_pose, clustered_images, cluster_result.boxes, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
     }
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
@@ -268,7 +270,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         // Check if entity is in frustum
         const geo::Vec3 p_3d = sensor_pose.inverse() * e->pose().t; // Only taking into account the pose, not the shape
         const cv::Point p_2d = cam_model.project3Dto2D(p_3d);
-        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth.cols || p_2d.y >= depth.rows)
+        if (p_2d.x < 0 || p_2d.y < 0 || p_2d.x >= depth_image.cols || p_2d.y >= depth_image.rows)
             continue; // Outside of frustum
 
         // If the entity is not updated, remove it
@@ -276,7 +278,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
         {
             ROS_INFO("Entity not associated and not seen in the frustum, while seeable");
 
-            float d = depth.at<float>(p_2d);
+            float d = depth_image.at<float>(p_2d);
             if (d > 0 && d == d && -p_3d.z < d)
             {
                 ROS_INFO_STREAM("We can shoot a ray through the center(" << d << " > " << -p_3d.z << "), removing entity " << e->id());

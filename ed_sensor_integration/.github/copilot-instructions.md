@@ -54,11 +54,11 @@ tue-make ed_sensor_integration
 ```bash
 hero-free-mode
 ```
-**CRITICAL:** hero-free-mode needs to run on a seperated terminal as long as you run ed_sensor_integration tests. When you finish running the experiments stop this command.
+**CRITICAL:** hero-free-mode needs to run on a separated terminal as long as you run ed_sensor_integration tests. When you finish running the experiments stop this command.
 
 **2. Trigger the segmentation pipeline on a terminal 1:**
 ```bash
-rosservice call /hero/ed/kinect/update "area_description: 'on_top_off dinner_table'
+rosservice call /hero/ed/kinect/update "area_description: 'on_top_of dinner_table'
 background_padding: 0.0
 fit_supporting_entity: false"
 ```
@@ -72,8 +72,8 @@ fit_supporting_entity: false"
 [WARN][/hero/ed]: Cluster 1: 16 points
 [WARN][/hero/ed]: We reject cluster 3 because it has only 0 points
 [WARN][/hero/ed]: Cluster 4: 70 points
-[ERROR][/hero/ed]: Cluster 1 classified as 'apple' with confidence 0.30
-[ERROR][/hero/ed]: Cluster 4 classified as 'dining table' with confidence 0.11
+[INFO][/hero/ed]: Cluster 1 classified as 'apple' with confidence 0.30
+[INFO][/hero/ed]: Cluster 4 classified as 'dining table' with confidence 0.11
 ```
 
 **4. Close terminal processes:** Stop `hero-free-mode` in terminal 2.

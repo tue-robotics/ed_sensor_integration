@@ -290,13 +290,13 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             }
             continue;  // valid_cluster[i] remains false
         }
-        else{
-            if (logging)
-            {
-                const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
-                ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
-            }
+
+        if (logging)
+        {
+            const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
+            ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
         }
+
 
         MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
         gmm.fit(cluster.points, sensor_pose);
