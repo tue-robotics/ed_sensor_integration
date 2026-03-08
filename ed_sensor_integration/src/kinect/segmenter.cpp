@@ -31,6 +31,16 @@
 Segmenter::Segmenter(tue::Configuration config)
     : config_(config)
 {
+    if (config_.readArray("surface_label_map"))
+    {
+        while (config_.nextArrayItem())
+        {
+            std::string entity_name, yolo_label;
+            if (config_.value("entity", entity_name) && config_.value("yolo_label", yolo_label))
+                surface_label_map_[entity_name] = yolo_label;
+        }
+        config_.endArray();
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -247,15 +257,18 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             ROS_DEBUG("Skipping cluster %zu: SAM returned empty mask (segmentation failure for this box)", i);
             continue;
         }
-        // When looking on_top_of a surface, skip the supporting surface itself (e.g. "dining table")
-        // so it is never extracted as a cluster or passed through BMM.
-        // Both conditions required: area must be "on_top_of" AND the entity must be "dinner_table".
-        if (area_name == "on_top_of" && area_entity == "dinner_table" &&
-            i < seg_result.labels.size() && seg_result.labels[i] == "dining table")
+        // When looking on_top_of a surface, skip the supporting surface itself so it is
+        // never extracted as a cluster or passed through BMM.  The entity-to-YOLO-label
+        // mapping is read from the "surface_label_map" config array.
+        if (area_name == "on_top_of" && i < seg_result.labels.size())
         {
-            ROS_WARN("Skipping cluster %zu: label '%s' is the supporting surface for area '%s' and area description '%s'",
-                      i, seg_result.labels[i].c_str(), area_name.c_str(), area_description.c_str());
-            continue;
+            const auto it = surface_label_map_.find(area_entity);
+            if (it != surface_label_map_.end() && seg_result.labels[i] == it->second)
+            {
+                ROS_WARN("Skipping cluster %zu: label '%s' is the supporting surface for area '%s' and area description '%s'",
+                          i, seg_result.labels[i].c_str(), area_name.c_str(), area_description.c_str());
+                continue;
+            }
         }
 
         cv::Mat mask;

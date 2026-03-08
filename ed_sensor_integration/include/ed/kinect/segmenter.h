@@ -12,6 +12,8 @@
 #include <ed/convex_hull.h>
 #include <ed/types.h>
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <utility>
 
@@ -61,8 +63,10 @@ public:
      * @param rgb_image
      * @param logging
      * @param area_description  Area description from the ROS service request (e.g. "on_top_of dinner_table").
-     *                          When the area name is "on_top_of", YOLO-detected supporting surfaces
-     *                          (e.g. "dining table") are skipped before any point extraction or BMM.
+     *                          When the area name is "on_top_of", YOLO-detected supporting surfaces are
+     *                          skipped before any point extraction or BMM.  The mapping from the ED entity
+     *                          name (e.g. "dinner_table") to the YOLO class label (e.g. "dining table") is
+     *                          read from the "surface_label_map" array in the segmenter config block.
      * @return SegmentationResult containing masks, bounding boxes, labels, and confidences
      */
     SegmentationResult cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
@@ -71,6 +75,9 @@ public:
 
 private:
     tue::Configuration config_;
+    /// Maps ED entity names to their YOLO class label for "on_top_of" surface filtering.
+    /// Populated from the "surface_label_map" array in config (entity + yolo_label keys).
+    std::unordered_map<std::string, std::string> surface_label_map_;
 };
 
 #endif
