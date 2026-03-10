@@ -111,12 +111,9 @@ All checks passed:
 - Object height sanity: PASS (no z-shift code paths remain)
 - BMM denoising logic: PASS
 - Legacy functions absent (`refitConvexHull`, `mergeConvexHulls`, `mergeOverlappingConvexHulls`): PASS
-- `removeBackground` still commented out: PASS
+- `removeBackground` call removed: PASS
 
 ### Known pre-existing warnings (non-blocking)
 
 **W1 — YOLO+SAM models re-initialized every sensor update** (`sam_seg_module.cpp:20-34`)
 Both `Initialize()` calls (ONNX runtime + weights) happen on every call to `SegmentationPipeline` instead of once at startup. This causes large per-frame overhead and risks silent "nothing seen" failures if init returns null. Should be moved to constructor or `configure()`.
-
-**W2 — Possible race condition on `config_`** (`segmenter.cpp:219-345`)
-`config_` (a `tue::Configuration`) is read inside `#pragma omp parallel for` without a mutex. Safe only if the reader is purely stateless; risky if it maintains internal cursor/traversal state. Fix: read `psi0`/`nu0`/`alpha`/`kappa0` once before the parallel loop and capture by value.

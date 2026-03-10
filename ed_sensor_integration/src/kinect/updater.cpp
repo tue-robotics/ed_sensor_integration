@@ -209,9 +209,8 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // an update request. Therefore, make a (shallow) copy of the world model and apply
     // the changes, and use this for the background removal
 
-    errc.change("Kinect::Updater", "update: removing background");
-    ed::WorldModel world_updated = world;
-    world_updated.update(res.update_req);
+    errc.change("Kinect::Updater", "update: preparing world model");
+
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Clear convex hulls that are no longer there

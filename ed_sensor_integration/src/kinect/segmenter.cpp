@@ -247,7 +247,6 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < masks.size(); ++i)
     {
-        // const cv::Mat& mask = masks[i];
         //Resize mask if needed so for the image to be the same size as the depth image (in case SAM produces a different size mask)
         const cv::Mat& mask_orig = masks[i];
 
@@ -381,7 +380,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             cluster.classification_confidence = seg_result.confidences[i];
             if (logging)
             {
-                ROS_INFO("Cluster %zu classified as '%s' with confidence %.2f and has id %s", i, cluster.label.c_str(), cluster.classification_confidence, cluster.id.c_str());
+                ROS_INFO("Cluster %zu classified as '%s' with confidence %.2f", i, cluster.label.c_str(), cluster.classification_confidence);
             }
         }
 

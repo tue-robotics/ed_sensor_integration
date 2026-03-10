@@ -75,7 +75,7 @@ In `segmenter.cpp`, after BMM filtering:
 - If safety check fails, keeping original unfiltered points is correct fallback — not a bug
 
 ### 3e. Explore more that this.
-- Try to find any other potential issue that could cause objects to be misplaced in z, or any other regression. Check for any code that looks suspicious or out of place. Remeber that the code is legacy and has been edited by multiple people, so there may be some inconsistencies or dead code. Use your judgement to identify any potential problems for my YOLO + SAM + BMM implementation.
+- Try to find any other potential issue that could cause objects to be misplaced in z, or any other regression. Check for any code that looks suspicious or out of place. Remember that the code is legacy and has been edited by multiple people, so there may be some inconsistencies or dead code. Use your judgement to identify any potential problems for my YOLO + SAM + BMM implementation.
 
 ## Step 4 — Report
 
@@ -95,7 +95,7 @@ PASS / FAIL — [describe any issue]
 ## Legacy functions absent
 PASS / FAIL — [list any legacy function found active]
 
-## Dead code integrity (removeBackground still commented out)
+## Dead code integrity (removeBackground all fully removed)
 PASS / FAIL
 
 ## Overall verdict
