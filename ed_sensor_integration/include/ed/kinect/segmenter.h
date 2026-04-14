@@ -78,6 +78,7 @@ private:
     /// Maps ED entity names to their YOLO class label for "on_top_of" surface filtering.
     /// Populated from the "surface_label_map" array in config (entity + yolo_label keys).
     std::unordered_map<std::string, std::string> surface_label_map_;
+    SamSegPipeline sam_pipeline_;
 };
 
 #endif

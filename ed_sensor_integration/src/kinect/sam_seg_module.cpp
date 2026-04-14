@@ -10,48 +10,126 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <yolo_onnx_ros/detection.hpp>
+#include <chrono>
+#include <cstdio>
 
 
-SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
+
+struct SamSegPipeline::Impl
+{
+    std::unique_ptr<YOLO_V8> yoloDetector;
+    DL_INIT_PARAM yolo_params;
+
+    SamWrapper samWrapper;
+    SEG::DL_INIT_PARAM sam_encoder_params;
+    SEG::DL_INIT_PARAM sam_decoder_params;
+    SEG::DL_RESULT sam_res;
+    std::vector<SEG::DL_RESULT> resSam;
+};
+
+SamSegPipeline::SamSegPipeline() : pimpl_(std::make_unique<Impl>()), is_initialized_(false) {}
+
+SamSegPipeline::~SamSegPipeline() = default;
+
+void SamSegPipeline::initialize(tue::Configuration& config)
+{
+    if (is_initialized_)
+        return;
+
+    ////////////////////////// YOLO INITIALIZATION //////////////////////////////////////
+    std::string yolo_model, sam_encoder, sam_decoder;
+    config.value("yolo_model", yolo_model);
+    std::tie(pimpl_->yoloDetector, pimpl_->yolo_params) = Initialize(yolo_model);
+
+    ////////////////////////// SAM INITIALIZATION //////////////////////////////////////
+    config.value("sam_encoder", sam_encoder);
+    config.value("sam_decoder", sam_decoder);
+
+    std::string backend_str;
+    SEG::Backend backend = SEG::Backend::kOnnx;
+    if (config.value("sam_backend", backend_str))
+    {
+        if (backend_str == "speedsam")
+        {
+            backend = SEG::Backend::kSpeedSam;
+            ROS_WARN(" LETS USE SPEEDSAM! ");
+        }
+        else if (backend_str == "onnx")
+        {
+            backend = SEG::Backend::kOnnx;
+        }
+        else
+        {
+            ROS_WARN("Unsupported SAM backend '%s'. Defaulting to ONNX.", backend_str.c_str());
+        }
+    }
+
+    std::tie(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, pimpl_->sam_res, pimpl_->resSam) = Initialize(sam_encoder, sam_decoder, backend);
+
+    is_initialized_ = true;
+}
+
+SegmentationResult SamSegPipeline::process(const cv::Mat& img, bool measure_latency)
 {
     SegmentationResult seg_result;
 
-    ////////////////////////// YOLO //////////////////////////////////////
-    std::unique_ptr<YOLO_V8> yoloDetector;
-    DL_INIT_PARAM params;
-    std::string yolo_model, sam_encoder, sam_decoder;
-    config.value("yolo_model", yolo_model);
-    std::tie(yoloDetector, params) = Initialize(yolo_model);
+    if (!is_initialized_) {
+        ROS_ERROR("SamSegPipeline is not initialized!");
+        return seg_result;
+    }
 
-    ////////////////////////// SAM //////////////////////////////////////
-    std::vector<std::unique_ptr<SAM>> samSegmentors;
-    SEG::DL_INIT_PARAM params_encoder;
-    SEG::DL_INIT_PARAM params_decoder;
-    std::vector<SEG::DL_RESULT> resSam;
-    SEG::DL_RESULT res;
-    config.value("sam_encoder", sam_encoder);
-    config.value("sam_decoder", sam_decoder);
-    std::tie(samSegmentors, params_encoder, params_decoder, res, resSam) = Initialize(sam_encoder, sam_decoder);
+    // Total pipeline timing
+    auto pipeline_start = std::chrono::high_resolution_clock::now();
 
-    ////////////////////////// YOLO //////////////////////////////////////
+    ////////////////////////// YOLO INFERENCE //////////////////////////////////////
+    auto yolo_infer_start = std::chrono::high_resolution_clock::now();
+
     std::vector<DL_RESULT> resYolo;
-    resYolo = Detector(yoloDetector, img);
+    resYolo = Detector(pimpl_->yoloDetector, img);
 
-    ////////////////////////// SAM //////////////////////////////////////
+    auto yolo_infer_end = std::chrono::high_resolution_clock::now();
+
+    ////////////////////////// SAM INFERENCE //////////////////////////////////////
+    pimpl_->sam_res.boxes.clear();
     for (const auto& result : resYolo)
     {
-        res.boxes.push_back(result.box);
-        seg_result.labels.push_back(yoloDetector->classes[result.classId]);
+        pimpl_->sam_res.boxes.push_back(result.box);
+        seg_result.labels.push_back(pimpl_->yoloDetector->classes[result.classId]);
         seg_result.confidences.push_back(result.confidence);
         ROS_DEBUG("Confidence: %f", result.confidence);
-        ROS_DEBUG("Class: %s", yoloDetector->classes[result.classId].c_str());
+        ROS_DEBUG("Class: %s", pimpl_->yoloDetector->classes[result.classId].c_str());
         ROS_DEBUG("Class ID: %d", result.classId);
     }
 
-    SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
+    auto sam_infer_start = std::chrono::high_resolution_clock::now();
 
-    seg_result.masks = std::move(res.masks);
-    seg_result.boxes = std::move(res.boxes);
+    SegmentAnything(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, img, pimpl_->resSam, pimpl_->sam_res);
+
+    auto sam_infer_end = std::chrono::high_resolution_clock::now();
+
+    auto pipeline_end = std::chrono::high_resolution_clock::now();
+
+    // Compute latency measurements if requested
+    if (measure_latency)
+    {
+        seg_result.latency.yolo_init_ms = 0.0;
+        seg_result.latency.yolo_infer_ms = std::chrono::duration<double, std::milli>(yolo_infer_end - yolo_infer_start).count();
+        seg_result.latency.sam_init_ms = 0.0;
+        seg_result.latency.sam_infer_ms = std::chrono::duration<double, std::milli>(sam_infer_end - sam_infer_start).count();
+        seg_result.latency.total_pipeline_ms = std::chrono::duration<double, std::milli>(pipeline_end - pipeline_start).count();
+
+        ROS_WARN("\n=== Segmentation Pipeline Latency ===\n");
+        ROS_WARN("  YOLO infer:     %7.2f ms\n", seg_result.latency.yolo_infer_ms);
+        ROS_WARN("  SAM infer:      %7.2f ms (%zu masks)\n", seg_result.latency.sam_infer_ms, pimpl_->resSam.empty() ? 0 : pimpl_->resSam.front().masks.size());
+        ROS_WARN("  Total pipeline: %7.2f ms\n", seg_result.latency.total_pipeline_ms);
+    }
+
+    if (!pimpl_->resSam.empty())
+    {
+        seg_result.masks = std::move(pimpl_->resSam.front().masks);
+    }
+    seg_result.boxes = std::move(pimpl_->sam_res.boxes);
+
 
     // Verify 1:1 alignment between masks and labels.
     // Normally guaranteed because SAM processes boxes sequentially and pushes one mask per box.
