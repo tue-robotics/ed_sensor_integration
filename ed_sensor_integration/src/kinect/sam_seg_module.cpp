@@ -69,7 +69,7 @@ void SamSegPipeline::initialize(tue::Configuration& config)
     is_initialized_ = true;
 }
 
-SegmentationResult SamSegPipeline::process(const cv::Mat& img, bool measure_latency)
+SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool measure_latency)
 {
     SegmentationResult seg_result;
 
@@ -91,13 +91,43 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, bool measure_late
 
     ////////////////////////// SAM INFERENCE //////////////////////////////////////
     pimpl_->sam_res.boxes.clear();
+    pimpl_->resSam.clear(); // CRITICAL: Reset for the new frame output to prevent accumulating empty arrays.
+
     for (const auto& result : resYolo)
     {
+        std::string yolo_class = pimpl_->yoloDetector->classes[result.classId];
+
+        // Filter by ignore_label (typically the supporting surface itself)
+        if (!ignore_label.empty() && yolo_class == ignore_label)
+        {
+            ROS_DEBUG("Pre-filtering box for '%s' (matches ignore_label '%s')", yolo_class.c_str(), ignore_label.c_str());
+            continue;
+        }
+
+        // Filter out boxes containing 0 valid points within the target volume frustum
+        if (!depth_image.empty())
+        {
+            int x = std::max(0, result.box.x);
+            int y = std::max(0, result.box.y);
+            int w = std::min(depth_image.cols - x, result.box.width);
+            int h = std::min(depth_image.rows - y, result.box.height);
+
+            if (w > 0 && h > 0)
+            {
+                cv::Mat box_depth = depth_image(cv::Rect(x, y, w, h));
+                if (cv::countNonZero(box_depth > 0.0f) < 10)
+                {
+                    ROS_DEBUG("Pre-filtering box for '%s' (less than 10 depth points within frustum volume)", yolo_class.c_str());
+                    continue;
+                }
+            }
+        }
+
         pimpl_->sam_res.boxes.push_back(result.box);
-        seg_result.labels.push_back(pimpl_->yoloDetector->classes[result.classId]);
+        seg_result.labels.push_back(yolo_class);
         seg_result.confidences.push_back(result.confidence);
         ROS_DEBUG("Confidence: %f", result.confidence);
-        ROS_DEBUG("Class: %s", pimpl_->yoloDetector->classes[result.classId].c_str());
+        ROS_DEBUG("Class: %s", yolo_class.c_str());
         ROS_DEBUG("Class ID: %d", result.classId);
     }
 

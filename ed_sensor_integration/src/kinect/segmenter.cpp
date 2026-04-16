@@ -42,8 +42,6 @@ Segmenter::Segmenter(tue::Configuration config)
         }
         config_.endArray();
     }
-
-    sam_pipeline_.initialize(config_);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -220,19 +218,32 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    // Pass logging flag to measure latency in the segmentation pipeline
-    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), logging);
-    std::vector<cv::Mat>& masks = seg_result.masks;
+    // Ensure pipeline is ready before execution
+    sam_pipeline_.initialize(config_);
 
     // Extract area name and entity from area_description (e.g. "on_top_of" and "dinner_table" from "on_top_of dinner_table")
     std::string area_name;
     std::string area_entity;
+    std::string ignore_label = "";
     const std::size_t i_space = area_description.find(' ');
     if (i_space != std::string::npos)
     {
         area_name   = area_description.substr(0, i_space);
         area_entity = area_description.substr(i_space + 1);
+
+        if (area_name == "on_top_of")
+        {
+            const auto it = surface_label_map_.find(area_entity);
+            if (it != surface_label_map_.end())
+            {
+                ignore_label = it->second;
+            }
+        }
     }
+
+    // Pass logging flag to measure latency in the segmentation pipeline
+    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, logging);
+    std::vector<cv::Mat>& masks = seg_result.masks;
 
     ROS_DEBUG("Creating clusters");
 

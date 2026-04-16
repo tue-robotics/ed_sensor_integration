@@ -57,10 +57,12 @@ public:
     /**
      * @brief Process the input image and generate segmentation masks.
      * @param img The input RGB image to segment.
+     * @param depth_image Optionally, the filtered depth image to ignore bounding boxes outside our point cloud frustum.
+     * @param ignore_label Optionally, a specific YOLO label to skip inferring SAM on.
      * @param measure_latency If true, measure and populate latency timings.
      * @return SegmentationResult The generated masks, bounding boxes, labels, and confidences.
      */
-    SegmentationResult process(const cv::Mat& img, bool measure_latency = false);
+    SegmentationResult process(const cv::Mat& img, const cv::Mat& depth_image = cv::Mat(), const std::string& ignore_label = "", bool measure_latency = false);
 
 private:
     struct Impl;
