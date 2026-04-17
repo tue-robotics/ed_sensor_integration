@@ -42,12 +42,22 @@ Segmenter::Segmenter(tue::Configuration config)
         }
         config_.endArray();
     }
+
+    ROS_INFO("Starting async initialization of segmentation pipeline (YOLO & SAM)...");
+    init_thread_ = std::thread([this, config]() mutable {
+        this->sam_pipeline_.initialize(config);
+        ROS_INFO("Async initialization of segmentation pipeline is complete!");
+    });
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 Segmenter::~Segmenter()
 {
+    if (init_thread_.joinable())
+    {
+        init_thread_.join();
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -217,9 +227,6 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     int width = depth_image.cols;
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
-
-    // Ensure pipeline is ready before execution
-    sam_pipeline_.initialize(config_);
 
     // Extract area name and entity from area_description (e.g. "on_top_of" and "dinner_table" from "on_top_of dinner_table")
     std::string area_name;

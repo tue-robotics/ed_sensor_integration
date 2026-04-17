@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <thread>
 
 namespace cv
 {
@@ -79,6 +80,7 @@ private:
     /// Populated from the "surface_label_map" array in config (entity + yolo_label keys).
     std::unordered_map<std::string, std::string> surface_label_map_;
     SamSegPipeline sam_pipeline_;
+    std::thread init_thread_;
 };
 
 #endif
