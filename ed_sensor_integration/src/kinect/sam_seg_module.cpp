@@ -1,11 +1,7 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 
-#include <cv_bridge/cv_bridge.h>
 #include <filesystem>
 #include <utility>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <sam_onnx_ros/segmentation.hpp>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -121,109 +117,4 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 
     // Apply the semi-transparent overlay with all masks
     cv::addWeighted(rgb, 0.7, overlay, 0.3, 0, rgb);
-}
-
-void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
-                                const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
-                                const std::vector<cv::Rect>& boxes,
-                                ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
-{
-    // Guard: all three publishers must have been advertised before calling this function.
-    // They are only advertised when verbose == true in the Updater constructor.
-    // Calling this function with un-advertised publishers is a programming error.
-    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
-    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
-    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
-
-    // Overlay masks on the RGB image
-    cv::Mat visualization = rgb.clone();
-    cv::Mat box_visualization = rgb.clone();
-    for(const auto& box : boxes)
-    {
-        cv::rectangle(box_visualization, box, cv::Scalar(0, 255, 0), 2);
-    }
-
-    sensor_msgs::ImagePtr box_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", box_visualization).toImageMsg();
-    box_msg->header.stamp = ros::Time::now();
-    box_pub_.publish(box_msg);
-
-    // Create a path to save the image using platform-independent temp directory
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
-    cv::imwrite((temp_dir / "visualization.png").string(), visualization);
-
-    // Create a properly normalized depth visualization
-    cv::Mat depth_vis;
-    double min_val, max_val;
-    cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
-
-    // Handle empty depth image case
-    if (max_val == 0)
-    {
-        depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
-    }
-    else
-    {
-        // Scale to full 8-bit range and convert to 8-bit
-        filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
-
-        // Apply a colormap for better visibility
-        cv::Mat depth_color;
-        cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite((temp_dir / "visualization_depth_color.png").string(), depth_color);
-    }
-
-    // Save both grayscale and color versions
-    cv::imwrite((temp_dir / "visualization_depth.png").string(), depth_vis);
-    overlayMasksOnImage_(visualization, clustered_images);
-    // save after overlaying masks
-    cv::imwrite((temp_dir / "visualization_with_masks.png").string(), visualization);
-
-    // Convert to ROS message
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-    msg->header.stamp = ros::Time::now();
-
-    typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
-    PointCloud::Ptr combined_cloud (new PointCloud);
-
-    combined_cloud->header.frame_id = "map";
-
-    // Add points from all entity updates
-    for (const EntityUpdate& update : res_updates)
-    {
-        for (const geo::Vec3& point : update.points)
-        {
-            // Transform from camera to map frame
-            geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZRGB pcl_point;
-            pcl_point.x = p_map.x;
-            pcl_point.y = p_map.y;
-            pcl_point.z = p_map.z;
-            pcl_point.r = 255;  // White
-            pcl_point.g = 255;
-            pcl_point.b = 255;
-            combined_cloud->push_back(pcl_point);
-        }
-
-        // Add outlier points (red)
-        for (const geo::Vec3& point : update.outlier_points) {
-                geo::Vec3 p_map = sensor_pose * point;
-                pcl::PointXYZRGB pcl_point;
-                pcl_point.x = p_map.x;
-                pcl_point.y = p_map.y;
-                pcl_point.z = p_map.z;
-                pcl_point.r = 255;  // Red
-                pcl_point.g = 0;
-                pcl_point.b = 0;
-                combined_cloud->push_back(pcl_point);
-        }
-    }
-
-    sensor_msgs::PointCloud2 cloud_msg;
-    pcl::toROSMsg(*combined_cloud, cloud_msg);
-    cloud_msg.header.stamp = ros::Time::now();
-    cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
-
-    // Publish
-    mask_pub_.publish(msg);
-    cloud_pub_.publish(cloud_msg);
 }
