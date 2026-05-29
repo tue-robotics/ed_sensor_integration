@@ -260,11 +260,14 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
 
     // BMM point cloud denoising
     GMMParams params;
-    config_.value("psi0", params.psi0);
-    config_.value("nu0", params.nu0);
-    config_.value("alpha", params.alpha);
-    config_.value("kappa0", params.kappa0);
-
+    if (config_.readGroup("bmm"))
+    {
+        config_.value("psi0", params.psi0, tue::config::OPTIONAL);
+        config_.value("nu0", params.nu0, tue::config::OPTIONAL);
+        config_.value("alpha", params.alpha, tue::config::OPTIONAL);
+        config_.value("kappa0", params.kappa0, tue::config::OPTIONAL);
+        config_.endGroup();
+    }
     // BMM timing: per-mask latencies stored for aggregation (thread-safe via indexing)
     std::vector<double> bmm_latencies_ms(masks.size(), 0.0);
 

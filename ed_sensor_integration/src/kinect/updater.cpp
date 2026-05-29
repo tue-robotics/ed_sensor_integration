@@ -38,9 +38,9 @@ Updater::Updater(tue::Configuration config) : verbose(false)
     if (verbose)
     {
         ros::NodeHandle nh("~");
-        mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
-        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_sam", 1);
-        box_pub_ = nh.advertise<sensor_msgs::Image>("bounding_boxes_yolo", 1);
+        mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks_verbose", 1);
+        cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_verbose", 1);
+        box_pub_ = nh.advertise<sensor_msgs::Image>("bounding_boxes_verbose", 1);
     }
 }
 
