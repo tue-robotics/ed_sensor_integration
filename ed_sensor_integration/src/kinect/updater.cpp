@@ -246,7 +246,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Do preprocessRGBForSegmentation if you want to treat the rgb image as the depth image for segmentation, meaning that only the pixels where depth is non-zero will be kept in the RGB image. This can be used to improve the segmentation results of the RGB image, but it is not necessary for the depth segmentation.
     // cv::Mat filtered_rgb_image;
     // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb_image, filtered_depth_image);
-    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb_image, verbose, area_description);
+    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb_image, area_description, verbose);
 
     std::vector<cv::Mat>& clustered_images = cluster_result.masks;
 
@@ -309,10 +309,12 @@ void Updater::publishSegmentationResults(const cv::Mat& filtered_depth_image, co
 {
     // Guard: all three publishers must have been advertised before calling this function.
     // They are only advertised when verbose == true in the Updater constructor.
-    // Calling this function with un-advertised publishers is a programming error.
-    ROS_ASSERT_MSG(this->box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
-    ROS_ASSERT_MSG(this->mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
-    ROS_ASSERT_MSG(this->cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
+    // If they evaluate to false (meaning they are null/unadvertised), abort publishing.
+    if (!this->box_pub_ || !this->mask_pub_ || !this->cloud_pub_)
+    {
+        ROS_ERROR_THROTTLE(1.0, "publishSegmentationResults called but publishers are not active. Did you set verbose: true?");
+        return;
+    }
 
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();
