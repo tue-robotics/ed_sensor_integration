@@ -238,10 +238,16 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
 
     // BMM point cloud denoising
     GMMParams params;
-    config_.value("psi0", params.psi0);
-    config_.value("nu0", params.nu0);
-    config_.value("alpha", params.alpha);
-    config_.value("kappa0", params.kappa0);
+    if (config_.readGroup("bmm"))
+    {
+        config_.value("psi0", params.psi0, tue::config::OPTIONAL);
+        config_.value("nu0", params.nu0, tue::config::OPTIONAL);
+        config_.value("alpha", params.alpha, tue::config::OPTIONAL);
+        config_.value("kappa0", params.kappa0, tue::config::OPTIONAL);
+        config_.endGroup();
+    }
+    // BMM timing: per-mask latencies stored for aggregation (thread-safe via indexing)
+    std::vector<double> bmm_latencies_ms(masks.size(), 0.0);
 
     // Parallel loop - each iteration is independent
     #pragma omp parallel for schedule(dynamic)
@@ -398,32 +404,5 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         }
     }
 
-<<<<<<< HEAD
-=======
-    // Log BMM latency statistics if verbose is enabled
-    if (verbose)
-    {
-        double bmm_total_ms = 0.0;
-        double bmm_max_ms = 0.0;
-        int bmm_count = 0;
-        for (size_t i = 0; i < bmm_latencies_ms.size(); ++i)
-        {
-            if (bmm_latencies_ms[i] > 0.0)
-            {
-                bmm_total_ms += bmm_latencies_ms[i];
-                bmm_max_ms = std::max(bmm_max_ms, bmm_latencies_ms[i]);
-                bmm_count++;
-            }
-        }
-        double bmm_avg_ms = (bmm_count > 0) ? (bmm_total_ms / bmm_count) : 0.0;
-
-        ROS_WARN("\n=== BMM Latency (parallel execution) ===\n");
-        ROS_WARN("  BMM fits:      %d masks\n", bmm_count);
-        ROS_WARN("  BMM avg:       %7.2f ms/mask\n", bmm_avg_ms);
-        ROS_WARN("  BMM max:       %7.2f ms (slowest mask)\n", bmm_max_ms);
-        ROS_WARN("  BMM total:     %7.2f ms (sequential equivalent)\n", bmm_total_ms);
-    }
-
->>>>>>> c55da6c (Renamed logging into verbose and updated improved surface_label_map_ docstring)
     return seg_result;
 }
