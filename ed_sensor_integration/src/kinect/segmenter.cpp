@@ -222,7 +222,7 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 
 SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
-                        bool logging, const std::string& area_description)
+                        bool verbose, const std::string& area_description)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -248,8 +248,8 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         }
     }
 
-    // Pass logging flag to measure latency in the segmentation pipeline
-    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, logging);
+    // Pass verbose flag to measure latency in the segmentation pipeline
+    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, verbose);
     std::vector<cv::Mat>& masks = seg_result.masks;
 
     ROS_DEBUG("Creating clusters");
@@ -320,7 +320,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
 
         // Skip small clusters (< 100 points based on MIN_CLUSTER_POINTS)
         if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
-            if (logging)
+            if (verbose)
             {
                 const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
                 ROS_WARN("We reject cluster %zu with label '%s' because it has only %zu points", i, label.c_str(), cluster.pixel_indices.size());
@@ -328,7 +328,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             continue;  // valid_cluster[i] remains false
         }
 
-        if (logging)
+        if (verbose)
         {
             const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
             ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
@@ -357,7 +357,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             {
                 filtered_points.push_back(cluster.points[j]);
             }
-            else if (logging)
+            else if (verbose)
             {
                 outlier_points.push_back(cluster.points[j]);
             }
@@ -368,7 +368,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
             // Use filtered points
             cluster.points = filtered_points;
-            if (logging)
+            if (verbose)
             {
                 cluster.outlier_points = outlier_points;
                 // Transform outlier points to map frame
@@ -409,7 +409,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         {
             cluster.label = seg_result.labels[i];
             cluster.classification_confidence = seg_result.confidences[i];
-            if (logging)
+            if (verbose)
             {
                 ROS_INFO("Cluster %zu classified as '%s' with confidence %.2f", i, cluster.label.c_str(), cluster.classification_confidence);
             }
@@ -429,8 +429,8 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         }
     }
 
-    // Log BMM latency statistics if logging is enabled
-    if (logging)
+    // Log BMM latency statistics if verbose is enabled
+    if (verbose)
     {
         double bmm_total_ms = 0.0;
         double bmm_max_ms = 0.0;

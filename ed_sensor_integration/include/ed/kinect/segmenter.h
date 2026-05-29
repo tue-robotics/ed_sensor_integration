@@ -62,7 +62,7 @@ public:
      * @param sensor_pose
      * @param clusters
      * @param rgb_image
-     * @param logging
+     * @param verbose
      * @param area_description  Area description from the ROS service request (e.g. "on_top_of dinner_table").
      *                          When the area name is "on_top_of", YOLO-detected supporting surfaces are
      *                          skipped before any point extraction or BMM.  The mapping from the ED entity
@@ -72,12 +72,12 @@ public:
      */
     SegmentationResult cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                  const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
-                 bool logging=false, const std::string& area_description = "");
+                 bool verbose=false, const std::string& area_description = "");
 
 private:
     tue::Configuration config_;
-    /// Maps ED entity names to their YOLO class label for "on_top_of" surface filtering.
-    /// Populated from the "surface_label_map" array in config (entity + yolo_label keys).
+    /// Maps ED entity names to their Neural Network Classifier (YOLO) class label (acts as a lookup table).
+    /// Populated from the "surface_label_map" array in world_model_plugin_rgbd.yaml (entity: key + yolo_label: value).
     std::unordered_map<std::string, std::string> surface_label_map_;
     SamSegPipeline sam_pipeline_;
     std::thread init_thread_;

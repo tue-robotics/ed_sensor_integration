@@ -69,7 +69,7 @@ void SamSegPipeline::initialize(tue::Configuration& config)
     is_initialized_ = true;
 }
 
-SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool logging)
+SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool verbose)
 {
     SegmentationResult seg_result;
 
@@ -141,7 +141,7 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
     auto pipeline_end = std::chrono::high_resolution_clock::now();
 
     // Compute latency measurements if requested
-    if (logging)
+    if (verbose)
     {
         seg_result.latency.yolo_init_ms = 0.0;
         seg_result.latency.yolo_infer_ms = std::chrono::duration<double, std::milli>(yolo_infer_end - yolo_infer_start).count();
@@ -238,11 +238,11 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
                                 ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
 {
     // Guard: all three publishers must have been advertised before calling this function.
-    // They are only advertised when logging == true in the Updater constructor.
+    // They are only advertised when verbose == true in the Updater constructor.
     // Calling this function with un-advertised publishers is a programming error.
-    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without logging enabled");
+    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
+    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
+    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
 
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();

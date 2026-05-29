@@ -70,7 +70,7 @@ private:
     ros::Publisher mask_pub_;
     ros::Publisher cloud_pub_;
     ros::Publisher box_pub_;
-    bool logging;
+    bool verbose;
 
 };
 
