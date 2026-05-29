@@ -129,11 +129,11 @@ void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::M
                                 ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
 {
     // Guard: all three publishers must have been advertised before calling this function.
-    // They are only advertised when logging == true in the Updater constructor.
+    // They are only advertised when verbose == true in the Updater constructor.
     // Calling this function with un-advertised publishers is a programming error.
-    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without logging enabled");
+    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
+    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
+    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without verbose enabled");
 
     // Overlay masks on the RGB image
     cv::Mat visualization = rgb.clone();

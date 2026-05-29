@@ -21,7 +21,7 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 // ----------------------------------------------------------------------------------------------------
 
-Updater::Updater(tue::Configuration config) : logging(false)
+Updater::Updater(tue::Configuration config) : verbose(false)
 {
     if (config.readGroup("segmenter", tue::config::REQUIRED))
     {
@@ -34,8 +34,8 @@ Updater::Updater(tue::Configuration config) : logging(false)
     }
 
     // Initialize the image publisher
-    config.value("logging", logging, tue::config::OPTIONAL);
-    if (logging)
+    config.value("verbose", verbose, tue::config::OPTIONAL);
+    if (verbose)
     {
         ros::NodeHandle nh("~");
         mask_pub_ = nh.advertise<sensor_msgs::Image>("segmentation_masks", 1);
@@ -246,11 +246,11 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // Do preprocessRGBForSegmentation if you want to treat the rgb image as the depth image for segmentation, meaning that only the pixels where depth is non-zero will be kept in the RGB image. This can be used to improve the segmentation results of the RGB image, but it is not necessary for the depth segmentation.
     // cv::Mat filtered_rgb_image;
     // filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb_image, filtered_depth_image);
-    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb_image, logging, area_description);
+    SegmentationResult cluster_result = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, rgb_image, verbose, area_description);
 
     std::vector<cv::Mat>& clustered_images = cluster_result.masks;
 
-    if (logging)
+    if (verbose)
     {
         publishSegmentationResults(filtered_depth_image, rgb_image, sensor_pose, clustered_images, cluster_result.boxes, box_pub_, mask_pub_, cloud_pub_,  res.entity_updates);
     }
