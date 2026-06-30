@@ -2,6 +2,7 @@
 
 #include <ed/world_model.h>
 #include <ed/entity.h>
+#include <ed/error_context.h>
 #include <ed/update_request.h>
 
 #include <geolib/Shape.h>
@@ -237,6 +238,7 @@ Updater::~Updater()
 bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& image, const geo::Pose3D& sensor_pose_const,
                      const UpdateRequest& req, UpdateResult& res)
 {
+    ed::ErrorContext errc("Kinect::Updater", "update");
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Prepare some things
 
@@ -391,6 +393,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
     // an update request. Therefore, make a (shallow) copy of the world model and apply
     // the changes, and use this for the background removal
 
+    errc.change("Kinect::Updater", "update: removing background");
     ed::WorldModel world_updated = world;
     world_updated.update(res.update_req);
 
@@ -425,6 +428,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Cluster
+    errc.change("Kinect::Updater", "update: clustering");
     filtered_rgb_image = segmenter_->preprocessRGBForSegmentation(rgb, filtered_depth_image);
     std::vector<cv::Mat> clustered_images = segmenter_->cluster(filtered_depth_image, cam_model, sensor_pose, res.entity_updates, filtered_rgb_image, logging);
     if (logging)
@@ -452,10 +456,12 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Perform association and update
+    errc.change("Kinect::Updater", "update: association");
     associateAndUpdate(associatable_entities, image, sensor_pose, res.entity_updates, res.update_req);
 
     // - - - - - - - - - - - - -  - - - - - - - -  - - -
     // Remove entities that are not associated
+    errc.change("Kinect::Updater", "update: remove unassociated entities");
     for (std::vector<ed::EntityConstPtr>::const_iterator it = associatable_entities.begin(); it != associatable_entities.end(); ++it)
     {
         ed::EntityConstPtr e = *it;
@@ -484,7 +490,7 @@ bool Updater::update(const ed::WorldModel& world, const rgbd::ImageConstPtr& ima
 
     // - - - - - - - - - - - - - - - - - - - - - - - -
     // Remember the area description with which the segments where found
-
+    errc.change("Kinect::Updater", "update: store area description to segments");
     if (!area_description.empty())
     {
        for(std::vector<EntityUpdate>::const_iterator it = res.entity_updates.begin(); it != res.entity_updates.end(); ++it)
