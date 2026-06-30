@@ -81,7 +81,7 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
                 assoc_matrix.setEntry(i_cluster, i_entity, prob);
             }
         }
-    } 
+    }
 
     ed_sensor_integration::Assignment assig;
     if (!assoc_matrix.calculateBestAssignment(assig))
@@ -223,6 +223,13 @@ void associateAndUpdate(const std::vector<ed::EntityConstPtr>& entities, const r
 
         // Set timestamp
         req.setLastUpdateTimestamp(id, image->getTimestamp());
+
+        // Set entity type from classification label (if available from YOLO/SAM segmentation)
+        if (!cluster.label.empty())
+        {
+            req.setType(id, cluster.label);
+            req.setExistenceProbability(id, cluster.classification_confidence);
+        }
 
         // Add measurement
 //        req.addMeasurement(id, ed::MeasurementPtr(new ed::Measurement(image, cluster.image_mask, sensor_pose)));

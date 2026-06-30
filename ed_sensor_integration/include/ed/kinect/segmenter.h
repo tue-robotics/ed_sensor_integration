@@ -2,6 +2,7 @@
 #define ED_SENSOR_INTEGRATION_SEGMENTER_H_
 
 #include "ed/kinect/entity_update.h"
+#include <ed_sensor_integration/kinect/segmodules/sam_seg_module.h>
 
 #include <rgbd/types.h>
 #include <geolib/datatypes.h>
@@ -11,7 +12,10 @@
 #include <ed/convex_hull.h>
 #include <ed/types.h>
 
+#include <string>
+#include <unordered_map>
 #include <vector>
+#include <utility>
 
 namespace cv
 {
@@ -57,13 +61,23 @@ public:
      * @param sensor_pose
      * @param clusters
      * @param rgb_image
-     * @return std::vector<cv::Mat> masks // 3D pointcloud masks of all the segmented objects
+     * @param verbose
+     * @param area_description  Area description from the ROS service request (e.g. "on_top_of dinner_table").
+     *                          When the area name is "on_top_of", YOLO-detected supporting surfaces are
+     *                          skipped before any point extraction or BMM.  The mapping from the ED entity
+     *                          name (e.g. "dinner_table") to the YOLO class label (e.g. "dining table") is
+     *                          read from the "surface_label_map" array in the segmenter config block.
+     * @return SegmentationResult containing masks, bounding boxes, labels, and confidences
      */
-    std::vector<cv::Mat> cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
-                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image, bool logging=false);
+    SegmentationResult cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
+                 const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
+                const std::string& area_description = "", bool verbose=false);
 
 private:
     tue::Configuration config_;
+    /// Maps ED entity names to their Neural Network Classifier (YOLO) class label (acts as a lookup table).
+    /// Populated from the "surface_label_map" array in world_model_plugin_rgbd.yaml (entity: key + yolo_label: value).
+    std::unordered_map<std::string, std::string> surface_label_map_;
 };
 
 #endif

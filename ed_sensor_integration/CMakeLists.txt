@@ -76,6 +76,19 @@ add_library(ed_association
   src/association_matrix.cpp
 )
 
+add_library(ed_map_anything
+  include/ed_sensor_integration/kinect/segmodules/sam_seg_module.h
+  src/kinect/sam_seg_module.cpp
+)
+target_link_libraries(ed_map_anything
+  ${PROJECT_NAME}_console_bridge
+  ${OpenCV_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${catkin_LIBRARIES}
+  OpenMP::OpenMP_CXX
+)
+add_dependencies(ed_map_anything ${catkin_EXPORTED_TARGETS})
+
 add_library(ed_kinect
   include/ed/kinect/association.h
   include/ed/kinect/beam_model.h
@@ -92,11 +105,6 @@ add_library(ed_kinect
   src/kinect/renderer.cpp
   src/kinect/segmenter.cpp
   src/kinect/updater.cpp
-)
-
-add_library(ed_map_anything
-  include/ed_sensor_integration/kinect/segmodules/sam_seg_module.h
-  src/kinect/sam_seg_module.cpp
 )
 target_link_libraries(ed_kinect
   ${PROJECT_NAME}_console_bridge

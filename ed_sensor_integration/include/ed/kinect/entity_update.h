@@ -4,6 +4,7 @@
 #include <ed/uuid.h>
 #include <ed/convex_hull.h>
 #include <vector>
+#include <string>
 #include <geolib/datatypes.h>
 
 struct EntityUpdate
@@ -21,6 +22,10 @@ struct EntityUpdate
 
     // Pose
     geo::Pose3D pose_map;
+
+    // Classification (from YOLO) -- Empty label means no classification available
+    std::string label;
+    float classification_confidence = 0.0f;
 
     // Optional: outliers from filtering (e.g., GMM) -- Leave empty if not applicable
     std::vector<geo::Vec3> outlier_points;

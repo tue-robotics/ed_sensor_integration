@@ -1,18 +1,17 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 
-#include <cv_bridge/cv_bridge.h>
 #include <filesystem>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <utility>
 #include <sam_onnx_ros/segmentation.hpp>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <yolo_onnx_ros/detection.hpp>
 
 
-std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
+SegmentationResult SegmentationPipeline(const cv::Mat& img, tue::Configuration& config)
 {
+    SegmentationResult seg_result;
+
     ////////////////////////// YOLO //////////////////////////////////////
     std::unique_ptr<YOLO_V8> yoloDetector;
     DL_INIT_PARAM params;
@@ -37,22 +36,33 @@ std::vector<cv::Mat> SegmentationPipeline(const cv::Mat& img, tue::Configuration
     ////////////////////////// SAM //////////////////////////////////////
     for (const auto& result : resYolo)
     {
-        // (here we are skipping the table object but it should happen only on the rosservice scenario: on_top_of dinner_table )
-        // int table_classification = 60;
-        // if (result.classId == table_classification)
-        // {
-        //     ROS_DEBUG_STREAM("Class ID is: " << yoloDetector->classes[result.classId] << " So we don't append");
-        //     continue;
-        // }
         res.boxes.push_back(result.box);
-        ROS_DEBUG_STREAM("Confidence is OKOK: " << result.confidence);
-        ROS_DEBUG_STREAM("Class is: " << yoloDetector->classes[result.classId]);
-        ROS_DEBUG_STREAM("Class ID is: " << result.classId);
+        seg_result.labels.push_back(yoloDetector->classes[result.classId]);
+        seg_result.confidences.push_back(result.confidence);
+        ROS_DEBUG("Confidence: %f", result.confidence);
+        ROS_DEBUG("Class: %s", yoloDetector->classes[result.classId].c_str());
+        ROS_DEBUG("Class ID: %d", result.classId);
     }
 
     SegmentAnything(samSegmentors, params_encoder, params_decoder, img, resSam, res);
 
-    return std::move(res.masks);
+    seg_result.masks = std::move(res.masks);
+    seg_result.boxes = std::move(res.boxes);
+
+    // Verify 1:1 alignment between masks and labels.
+    // Normally guaranteed because SAM processes boxes sequentially and pushes one mask per box.
+    // If SAM failed for any box it pushes an empty placeholder (see sam_onnx_ros/src/utils.cpp),
+    // so sizes should always match. If they don't, we cannot know which label belongs to which
+    // mask — discard labels for this frame so objects are still detected but not mislabeled.
+    if (seg_result.masks.size() != seg_result.labels.size())
+    {
+        ROS_WARN("SAM produced %zu masks for %zu YOLO boxes — alignment broken, discarding labels this frame",
+                 seg_result.masks.size(), seg_result.labels.size());
+        seg_result.labels.clear();
+        seg_result.confidences.clear();
+    }
+
+    return seg_result;
 }
 
 
@@ -107,92 +117,4 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 
     // Apply the semi-transparent overlay with all masks
     cv::addWeighted(rgb, 0.7, overlay, 0.3, 0, rgb);
-}
-
-void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
-                                const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
-                                ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
-{
-    // Overlay masks on the RGB image
-    cv::Mat visualization = rgb.clone();
-
-    // Create a path to save the image using platform-independent temp directory
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
-    cv::imwrite((temp_dir / "visualization.png").string(), visualization);
-
-    // Create a properly normalized depth visualization
-    cv::Mat depth_vis;
-    double min_val, max_val;
-    cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
-
-    // Handle empty depth image case
-    if (max_val == 0)
-    {
-        depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
-    }
-    else
-    {
-        // Scale to full 8-bit range and convert to 8-bit
-        filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
-
-        // Apply a colormap for better visibility
-        cv::Mat depth_color;
-        cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite((temp_dir / "visualization_depth_color.png").string(), depth_color);
-    }
-
-    // Save both grayscale and color versions
-    cv::imwrite((temp_dir / "visualization_depth.png").string(), depth_vis);
-    overlayMasksOnImage_(visualization, clustered_images);
-    // save after overlaying masks
-    cv::imwrite((temp_dir / "visualization_with_masks.png").string(), visualization);
-
-    // Convert to ROS message
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-    msg->header.stamp = ros::Time::now();
-
-    typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
-    PointCloud::Ptr combined_cloud (new PointCloud);
-
-    combined_cloud->header.frame_id = "map";
-
-    // Add points from all entity updates
-    for (const EntityUpdate& update : res_updates)
-    {
-        for (const geo::Vec3& point : update.points)
-        {
-            // Transform from camera to map frame
-            geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZRGB pcl_point;
-            pcl_point.x = p_map.x;
-            pcl_point.y = p_map.y;
-            pcl_point.z = p_map.z;
-            pcl_point.r = 255;  // White
-            pcl_point.g = 255;
-            pcl_point.b = 255;
-            combined_cloud->push_back(pcl_point);
-        }
-
-        // Add outlier points (red)
-        for (const geo::Vec3& point : update.outlier_points) {
-                geo::Vec3 p_map = sensor_pose * point;
-                pcl::PointXYZRGB pcl_point;
-                pcl_point.x = p_map.x;
-                pcl_point.y = p_map.y;
-                pcl_point.z = p_map.z;
-                pcl_point.r = 255;  // Red
-                pcl_point.g = 0;
-                pcl_point.b = 0;
-                combined_cloud->push_back(pcl_point);
-        }
-    }
-
-    sensor_msgs::PointCloud2 cloud_msg;
-    pcl::toROSMsg(*combined_cloud, cloud_msg);
-    cloud_msg.header.stamp = ros::Time::now();
-    cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
-
-    // Publish
-    mask_pub_.publish(msg);
-    cloud_pub_.publish(cloud_msg);
 }
