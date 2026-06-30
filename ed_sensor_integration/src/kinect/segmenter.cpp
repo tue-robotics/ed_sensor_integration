@@ -25,6 +25,7 @@
 
 #include <ed_sensor_integration/kinect/segmodules/sam_seg_module.h>
 #include <bmm/bayesian_mixture_model.hpp>
+#include <chrono>
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -41,12 +42,22 @@ Segmenter::Segmenter(tue::Configuration config)
         }
         config_.endArray();
     }
+
+    ROS_INFO("Starting async initialization of segmentation pipeline (YOLO & SAM)...");
+    init_thread_ = std::thread([this, config]() mutable {
+        this->sam_pipeline_.initialize(config);
+        ROS_INFO("Async initialization of segmentation pipeline is complete!");
+    });
 }
 
 // ----------------------------------------------------------------------------------------------------
 
 Segmenter::~Segmenter()
 {
+    if (init_thread_.joinable())
+    {
+        init_thread_.join();
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -217,18 +228,29 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     int height = depth_image.rows;
     ROS_DEBUG("Cluster with depth image of size %i, %i", width, height);
 
-    SegmentationResult seg_result = SegmentationPipeline(rgb_image.clone(), config_);
-    std::vector<cv::Mat>& masks = seg_result.masks;
-
     // Extract area name and entity from area_description (e.g. "on_top_of" and "dinner_table" from "on_top_of dinner_table")
     std::string area_name;
     std::string area_entity;
+    std::string ignore_label = "";
     const std::size_t i_space = area_description.find(' ');
     if (i_space != std::string::npos)
     {
         area_name   = area_description.substr(0, i_space);
         area_entity = area_description.substr(i_space + 1);
+
+        if (area_name == "on_top_of")
+        {
+            const auto it = surface_label_map_.find(area_entity);
+            if (it != surface_label_map_.end())
+            {
+                ignore_label = it->second;
+            }
+        }
     }
+
+    // Pass verbose flag to measure latency in the segmentation pipeline
+    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, verbose);
+    std::vector<cv::Mat>& masks = seg_result.masks;
 
     ROS_DEBUG("Creating clusters");
 
@@ -315,9 +337,15 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
         }
 
+        // BMM inference with timing
+        auto bmm_start = std::chrono::high_resolution_clock::now();
 
         MAPGMM gmm(2, cluster.points, params); // 2 components: object + outliers
         gmm.fit(cluster.points, sensor_pose);
+
+        auto bmm_end = std::chrono::high_resolution_clock::now();
+        bmm_latencies_ms[i] = std::chrono::duration<double, std::milli>(bmm_end - bmm_start).count();
+
         // Get component assignments and inlier component
         std::vector<int> labels = gmm.get_labels();
         int inlier_component = gmm.get_inlier_component();
@@ -402,6 +430,30 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         if (valid_cluster[i]) {
             clusters.push_back(std::move(temp_clusters[i]));
         }
+    }
+
+    // Log BMM latency statistics if verbose is enabled
+    if (verbose)
+    {
+        double bmm_total_ms = 0.0;
+        double bmm_max_ms = 0.0;
+        int bmm_count = 0;
+        for (size_t i = 0; i < bmm_latencies_ms.size(); ++i)
+        {
+            if (bmm_latencies_ms[i] > 0.0)
+            {
+                bmm_total_ms += bmm_latencies_ms[i];
+                bmm_max_ms = std::max(bmm_max_ms, bmm_latencies_ms[i]);
+                bmm_count++;
+            }
+        }
+        double bmm_avg_ms = (bmm_count > 0) ? (bmm_total_ms / bmm_count) : 0.0;
+
+        ROS_WARN("\n=== BMM Latency (parallel execution) ===\n");
+        ROS_WARN("  BMM fits:      %d masks\n", bmm_count);
+        ROS_WARN("  BMM avg:       %7.2f ms/mask\n", bmm_avg_ms);
+        ROS_WARN("  BMM max:       %7.2f ms (slowest mask)\n", bmm_max_ms);
+        ROS_WARN("  BMM total:     %7.2f ms (sequential equivalent)\n", bmm_total_ms);
     }
 
     return seg_result;
