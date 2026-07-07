@@ -8,6 +8,7 @@
 #include <yolo_onnx_ros/detection.hpp>
 #include <chrono>
 #include <cstdio>
+#include <limits>
 
 
 
@@ -29,7 +30,7 @@ SamSegPipeline::~SamSegPipeline() = default;
 
 void SamSegPipeline::initialize(tue::Configuration& config)
 {
-    if (is_initialized_)
+    if (is_initialized_.load(std::memory_order_acquire))
         return;
 
     ////////////////////////// YOLO INITIALIZATION //////////////////////////////////////
@@ -48,11 +49,12 @@ void SamSegPipeline::initialize(tue::Configuration& config)
         if (backend_str == "tensorRT")
         {
             backend = SEG::Backend::kSpeedSam;
-            ROS_WARN(" LETS USE SPEEDSAM! ");
+            ROS_INFO("Using SpeedSAM (TensorRT) backend for SAM inference.");
         }
         else if (backend_str == "onnx")
         {
             backend = SEG::Backend::kOnnx;
+            ROS_INFO("Using ONNX backend for SAM inference.");
         }
         else
         {
@@ -62,14 +64,15 @@ void SamSegPipeline::initialize(tue::Configuration& config)
 
     std::tie(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, pimpl_->sam_res, pimpl_->resSam) = Initialize(sam_encoder, sam_decoder, backend);
 
-    is_initialized_ = true;
+    // Publish initialized model state to readers in process().
+    is_initialized_.store(true, std::memory_order_release);
 }
 
 SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool verbose)
 {
     SegmentationResult seg_result;
 
-    if (!is_initialized_) {
+    if (!is_initialized_.load(std::memory_order_acquire)) {
         ROS_WARN_THROTTLE(1.0, "SamSegPipeline is currently initializing in the background. Skipping frame...");
         return seg_result;
     }
@@ -100,23 +103,33 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
             continue;
         }
 
-        // Filter out boxes containing 0 valid points within the target volume frustum
+        // Filter out boxes with no valid depth points within the target volume frustum
         if (!depth_image.empty())
         {
-            int x = std::max(0, result.box.x);
-            int y = std::max(0, result.box.y);
-            int w = std::min(depth_image.cols - x, result.box.width);
-            int h = std::min(depth_image.rows - y, result.box.height);
+            // Compute intersection of the YOLO box with image bounds
+            int x0 = std::max(0, result.box.x);
+            int y0 = std::max(0, result.box.y);
+            int x1 = std::min(depth_image.cols, result.box.x + result.box.width);
+            int y1 = std::min(depth_image.rows, result.box.y + result.box.height);
 
-            if (w > 0 && h > 0)
+            if (x1 <= x0 || y1 <= y0)
             {
-                cv::Mat box_depth = depth_image(cv::Rect(x, y, w, h));
-                // filter it out is if it contains less than 30% of valid depth points (non-zero, finite) — this is a heuristic to skip boxes that are mostly outside the sensor frustum - if its too aggressive we can always lower the threshold
-                if (cv::countNonZero(box_depth > 0.0f) < 0.3 * w * h)
-                {
-                    ROS_DEBUG("Pre-filtering box for '%s' (less than 30%% depth points within frustum volume)", yolo_class.c_str());
-                    continue;
-                }
+                // Box lies entirely outside the depth image — reject
+                ROS_WARN("Pre-filtering box for '%s' (entirely outside depth image bounds)", yolo_class.c_str());
+                continue;
+            }
+
+            int w = x1 - x0;
+            int h = y1 - y0;
+
+            cv::Mat box_depth = depth_image(cv::Rect(x0, y0, w, h));
+            // Count pixels that are positive and finite (non-zero, non-NaN, non-inf) — at least 30% of
+            // the visible portion must have valid depth; lower threshold if too aggressive
+            cv::Mat valid_mask = (box_depth > 0.0f) & (box_depth < std::numeric_limits<float>::infinity());
+            if (cv::countNonZero(valid_mask) < 0.3 * w * h)
+            {
+                ROS_WARN("Pre-filtering box for '%s' (less than 30%% depth points within frustum volume)", yolo_class.c_str());
+                continue;
             }
         }
 

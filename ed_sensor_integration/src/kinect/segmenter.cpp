@@ -44,6 +44,8 @@ Segmenter::Segmenter(tue::Configuration config)
     }
 
     ROS_INFO("Starting async initialization of segmentation pipeline (YOLO & SAM)...");
+    // Note: Atomic flag does not prevent 2 threads from initializing the pipeline simultaneously.
+    // This is not needed as the pipeline should only be initialized once.
     init_thread_ = std::thread([this, config]() mutable {
         this->sam_pipeline_.initialize(config);
         ROS_INFO("Async initialization of segmentation pipeline is complete!");

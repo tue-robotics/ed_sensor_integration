@@ -8,6 +8,8 @@
 
 #include "ed/kinect/entity_update.h"
 
+#include <memory>
+#include <atomic>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,7 +69,7 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> pimpl_;
-    bool is_initialized_;
+    std::atomic<bool> is_initialized_;
 };
 
 /**
