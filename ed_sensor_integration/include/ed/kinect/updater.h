@@ -6,10 +6,13 @@
 #include "ed/kinect/segmenter.h"
 #include "ed/kinect/entity_update.h"
 
+#include <cv_bridge/cv_bridge.h>
+#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tue/config/configuration.h>
 
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
