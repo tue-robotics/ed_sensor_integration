@@ -8,8 +8,8 @@
 
 #include "ed/kinect/entity_update.h"
 
-#include <memory>
 #include <atomic>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>

@@ -234,21 +234,25 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     std::string area_name;
     std::string area_entity;
     std::string ignore_label = "";
-    const std::size_t i_space = area_description.find(' ');
-    if (i_space != std::string::npos)
-    {
-        area_name   = area_description.substr(0, i_space);
-        area_entity = area_description.substr(i_space + 1);
 
-        if (area_name == "on_top_of")
-        {
-            const auto it = surface_label_map_.find(area_entity);
-            if (it != surface_label_map_.end())
-            {
-                ignore_label = it->second;
-            }
-        }
-    }
+    // this code block is an example for manually ignoring the supporting surface when looking for objects on top of it.
+
+    //index of the space that separates the 2 words in the area description (e.g. "on_top_of dinner_table")
+    // const std::size_t i_space = area_description.find(' ');
+    // if (i_space != std::string::npos)
+    // {
+    //     area_name   = area_description.substr(0, i_space);
+    //     area_entity = area_description.substr(i_space + 1);
+
+    //     if (area_name == "on_top_of")
+    //     {
+    //         const auto it = surface_label_map_.find(area_entity);
+    //         if (it != surface_label_map_.end())
+    //         {
+    //             ignore_label = it->second;
+    //         }
+    //     }
+    // }
 
     // Pass verbose flag to measure latency in the segmentation pipeline
     SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, verbose);
