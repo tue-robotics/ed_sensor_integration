@@ -1,5 +1,6 @@
-#include "ed/kinect/updater.h"
+#include <cv_bridge/cv_bridge.h>
 
+#include "ed/kinect/updater.h"
 #include <ed/world_model.h>
 #include <ed/entity.h>
 #include <ed/error_context.h>
@@ -10,13 +11,15 @@
 #include "ed/kinect/association.h"
 #include "ed/kinect/renderer.h"
 #include "ed/convex_hull_calc.h"
-
+#include <filesystem>
 #include <opencv2/highgui/highgui.hpp>
+#include <pcl/point_cloud.h>
 #include <rgbd/view.h>
 #include <ros/console.h>
 #include <ros/node_handle.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
+
 
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 // ----------------------------------------------------------------------------------------------------

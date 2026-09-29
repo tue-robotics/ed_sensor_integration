@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <thread>
 
 namespace cv
 {
@@ -78,6 +79,8 @@ private:
     /// Maps ED entity names to their Neural Network Classifier (YOLO) class label (acts as a lookup table).
     /// Populated from the "surface_label_map" array in world_model_plugin_rgbd.yaml (entity: key + yolo_label: value).
     std::unordered_map<std::string, std::string> surface_label_map_;
+    SamSegPipeline sam_pipeline_;
+    std::thread init_thread_;
 };
 
 #endif
