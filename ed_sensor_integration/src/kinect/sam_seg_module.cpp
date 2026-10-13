@@ -10,15 +10,18 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <yolo_onnx_ros/detection.hpp>
+#include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstdio>
 
 
 
 struct SamSegPipeline::Impl
 {
-    std::unique_ptr<YOLO_V8> yoloDetector;
+    YoloWrapper yoloWrapper;
     DL_INIT_PARAM yolo_params;
+    std::filesystem::path yolo_model_path;
 
     SamWrapper samWrapper;
     SEG::DL_INIT_PARAM sam_encoder_params;
@@ -36,25 +39,53 @@ void SamSegPipeline::initialize(tue::Configuration& config)
     if (is_initialized_)
         return;
 
+    std::string backend_str;
+    SEG::Backend backend = SEG::Backend::kOnnx;
+
     ////////////////////////// YOLO INITIALIZATION //////////////////////////////////////
     std::string yolo_model, sam_encoder, sam_decoder;
-    config.value("yolo_model", yolo_model);
-    std::tie(pimpl_->yoloDetector, pimpl_->yolo_params) = Initialize(yolo_model);
 
+    config.value("yolo_model", yolo_model);
+    pimpl_->yolo_model_path = yolo_model;
+    if (config.value("yolo_backend", backend_str))
+    {
+        auto normalized_backend = backend_str;
+        std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        YOLO::Backend yolo_backend = YOLO::Backend::kOnnx;
+        if (normalized_backend == "tensorrt")
+        {
+            yolo_backend = YOLO::Backend::kTensorRT;
+            ROS_WARN("YOLO: using TensorRT backend");
+        }
+        else if (normalized_backend == "onnx" || normalized_backend == "onnxruntime")
+        {
+            yolo_backend = YOLO::Backend::kOnnx;
+        }
+        else
+        {
+            ROS_WARN("Unsupported YOLO backend '%s'. Defaulting to ONNX.", backend_str.c_str());
+        }
+        std::tie(pimpl_->yoloWrapper, pimpl_->yolo_params) = Initialize(yolo_model, yolo_backend);
+    }
+    
     ////////////////////////// SAM INITIALIZATION //////////////////////////////////////
     config.value("sam_encoder", sam_encoder);
     config.value("sam_decoder", sam_decoder);
 
-    std::string backend_str;
-    SEG::Backend backend = SEG::Backend::kOnnx;
     if (config.value("sam_backend", backend_str))
     {
-        if (backend_str == "tensorRT")
+        auto normalized_backend = backend_str;
+        std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        if (normalized_backend == "tensorrt")
         {
             backend = SEG::Backend::kSpeedSam;
             ROS_WARN(" LETS USE SPEEDSAM! ");
         }
-        else if (backend_str == "onnx")
+        else if (normalized_backend == "onnx" || normalized_backend == "onnxruntime")
         {
             backend = SEG::Backend::kOnnx;
         }
@@ -85,7 +116,7 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
     auto yolo_infer_start = std::chrono::high_resolution_clock::now();
 
     std::vector<DL_RESULT> resYolo;
-    resYolo = Detector(pimpl_->yoloDetector, img);
+    resYolo = Detector(pimpl_->yoloWrapper, img);
 
     auto yolo_infer_end = std::chrono::high_resolution_clock::now();
 
@@ -95,7 +126,10 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
 
     for (const auto& result : resYolo)
     {
-        std::string yolo_class = pimpl_->yoloDetector->classes[result.classId];
+        std::string yolo_class;
+        if (!pimpl_->yoloWrapper.classes.empty() && result.classId >= 0 &&
+            static_cast<size_t>(result.classId) < pimpl_->yoloWrapper.classes.size())
+            yolo_class = pimpl_->yoloWrapper.classes[result.classId];
 
         // Filter by ignore_label (typically the supporting surface itself)
         if (!ignore_label.empty() && yolo_class == ignore_label)
@@ -150,6 +184,7 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
         seg_result.latency.total_pipeline_ms = std::chrono::duration<double, std::milli>(pipeline_end - pipeline_start).count();
 
         ROS_WARN("\n=== Segmentation Pipeline Latency ===\n");
+        ROS_WARN("  YOLO model:      %s", pimpl_->yolo_model_path.string().c_str());
         ROS_WARN("  YOLO infer:     %7.2f ms (%zu bboxs)\n", seg_result.latency.yolo_infer_ms, resYolo.size());
         ROS_WARN("  SAM infer:      %7.2f ms (%zu masks)\n", seg_result.latency.sam_infer_ms, pimpl_->resSam.empty() ? 0 : pimpl_->resSam.front().masks.size());
         ROS_WARN("  Total pipeline: %7.2f ms\n", seg_result.latency.total_pipeline_ms);
