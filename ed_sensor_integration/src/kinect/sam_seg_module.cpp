@@ -47,13 +47,13 @@ void SamSegPipeline::initialize(tue::Configuration& config)
 
     config.value("yolo_model", yolo_model);
     pimpl_->yolo_model_path = yolo_model;
-    if (config.value("yolo_backend", backend_str))
+    YOLO::Backend yolo_backend = YOLO::Backend::kOnnx;
+    if (config.value("yolo_backend", backend_str, tue::config::OPTIONAL))
     {
         auto normalized_backend = backend_str;
         std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-        YOLO::Backend yolo_backend = YOLO::Backend::kOnnx;
         if (normalized_backend == "tensorrt")
         {
             yolo_backend = YOLO::Backend::kTensorRT;
@@ -67,14 +67,14 @@ void SamSegPipeline::initialize(tue::Configuration& config)
         {
             ROS_WARN("Unsupported YOLO backend '%s'. Defaulting to ONNX.", backend_str.c_str());
         }
-        std::tie(pimpl_->yoloWrapper, pimpl_->yolo_params) = Initialize(yolo_model, yolo_backend);
     }
-    
+    std::tie(pimpl_->yoloWrapper, pimpl_->yolo_params) = Initialize(yolo_model, yolo_backend);
+
     ////////////////////////// SAM INITIALIZATION //////////////////////////////////////
     config.value("sam_encoder", sam_encoder);
     config.value("sam_decoder", sam_decoder);
 
-    if (config.value("sam_backend", backend_str))
+    if (config.value("sam_backend", backend_str, tue::config::OPTIONAL))
     {
         auto normalized_backend = backend_str;
         std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
