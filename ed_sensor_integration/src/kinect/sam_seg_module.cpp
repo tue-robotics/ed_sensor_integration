@@ -15,7 +15,42 @@
 #include <cctype>
 #include <cstdio>
 
+namespace
+{
 
+std::string toLower(std::string str)
+{
+    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return str;
+}
+
+YOLO::Backend parseYoloBackend(const std::string& backend_str)
+{
+    const std::string normalized = toLower(backend_str);
+    if (normalized == "tensorrt")
+    {
+        ROS_WARN("YOLO: using TensorRT backend");
+        return YOLO::Backend::kTensorRT;
+    }
+    if (normalized != "onnx" && normalized != "onnxruntime")
+        ROS_WARN("Unsupported YOLO backend '%s'. Defaulting to ONNX.", backend_str.c_str());
+    return YOLO::Backend::kOnnx;
+}
+
+SEG::Backend parseSamBackend(const std::string& backend_str)
+{
+    const std::string normalized = toLower(backend_str);
+    if (normalized == "tensorrt")
+    {
+        ROS_WARN("SAM: using TensorRT (SpeedSAM) backend");
+        return SEG::Backend::kSpeedSam;
+    }
+    if (normalized != "onnx" && normalized != "onnxruntime")
+        ROS_WARN("Unsupported SAM backend '%s'. Defaulting to ONNX.", backend_str.c_str());
+    return SEG::Backend::kOnnx;
+}
+
+}  // namespace
 
 struct SamSegPipeline::Impl
 {
@@ -39,63 +74,33 @@ void SamSegPipeline::initialize(tue::Configuration& config)
     if (is_initialized_)
         return;
 
-    std::string backend_str;
-    SEG::Backend backend = SEG::Backend::kOnnx;
-
     ////////////////////////// YOLO INITIALIZATION //////////////////////////////////////
-    std::string yolo_model, sam_encoder, sam_decoder;
-
+    std::string yolo_model;
     config.value("yolo_model", yolo_model);
     pimpl_->yolo_model_path = yolo_model;
-    YOLO::Backend yolo_backend = YOLO::Backend::kOnnx;
-    if (config.value("yolo_backend", backend_str, tue::config::OPTIONAL))
-    {
-        auto normalized_backend = backend_str;
-        std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-        if (normalized_backend == "tensorrt")
-        {
-            yolo_backend = YOLO::Backend::kTensorRT;
-            ROS_WARN("YOLO: using TensorRT backend");
-        }
-        else if (normalized_backend == "onnx" || normalized_backend == "onnxruntime")
-        {
-            yolo_backend = YOLO::Backend::kOnnx;
-        }
-        else
-        {
-            ROS_WARN("Unsupported YOLO backend '%s'. Defaulting to ONNX.", backend_str.c_str());
-        }
-    }
+    YOLO::Backend yolo_backend = YOLO::Backend::kOnnx;
+    std::string yolo_backend_str;
+    if (config.value("yolo_backend", yolo_backend_str, tue::config::OPTIONAL))
+        yolo_backend = parseYoloBackend(yolo_backend_str);
+
     std::tie(pimpl_->yoloWrapper, pimpl_->yolo_params) = Initialize(yolo_model, yolo_backend);
 
+    if (pimpl_->yoloWrapper.classes.empty())
+        ROS_WARN("YOLO model '%s' provides no class names: detections will have empty labels and 'ignore_label' "
+                 "filtering is disabled", yolo_model.c_str());
+
     ////////////////////////// SAM INITIALIZATION //////////////////////////////////////
+    std::string sam_encoder, sam_decoder;
     config.value("sam_encoder", sam_encoder);
     config.value("sam_decoder", sam_decoder);
 
-    if (config.value("sam_backend", backend_str, tue::config::OPTIONAL))
-    {
-        auto normalized_backend = backend_str;
-        std::transform(normalized_backend.begin(), normalized_backend.end(), normalized_backend.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    SEG::Backend sam_backend = SEG::Backend::kOnnx;
+    std::string sam_backend_str;
+    if (config.value("sam_backend", sam_backend_str, tue::config::OPTIONAL))
+        sam_backend = parseSamBackend(sam_backend_str);
 
-        if (normalized_backend == "tensorrt")
-        {
-            backend = SEG::Backend::kSpeedSam;
-            ROS_WARN(" LETS USE SPEEDSAM! ");
-        }
-        else if (normalized_backend == "onnx" || normalized_backend == "onnxruntime")
-        {
-            backend = SEG::Backend::kOnnx;
-        }
-        else
-        {
-            ROS_WARN("Unsupported SAM backend '%s'. Defaulting to ONNX.", backend_str.c_str());
-        }
-    }
-
-    std::tie(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, pimpl_->sam_res, pimpl_->resSam) = Initialize(sam_encoder, sam_decoder, backend);
+    std::tie(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, pimpl_->sam_res, pimpl_->resSam) = Initialize(sam_encoder, sam_decoder, sam_backend);
 
     is_initialized_ = true;
 }
