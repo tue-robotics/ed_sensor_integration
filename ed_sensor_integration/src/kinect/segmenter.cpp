@@ -44,6 +44,8 @@ Segmenter::Segmenter(tue::Configuration config)
     }
 
     ROS_INFO("Starting async initialization of segmentation pipeline (YOLO & SAM)...");
+    // Note: Atomic flag does not prevent 2 threads from initializing the pipeline simultaneously.
+    // This is not needed as the pipeline should only be initialized once.
     init_thread_ = std::thread([this, config]() mutable {
         this->sam_pipeline_.initialize(config);
         ROS_INFO("Async initialization of segmentation pipeline is complete!");
@@ -222,7 +224,7 @@ cv::Mat Segmenter::preprocessRGBForSegmentation(const cv::Mat& rgb_image,
 
 SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::DepthCamera& cam_model,
                         const geo::Pose3D& sensor_pose, std::vector<EntityUpdate>& clusters, const cv::Mat& rgb_image,
-                        bool logging, const std::string& area_description)
+                        const std::string& area_description, bool verbose)
 {
     int width = depth_image.cols;
     int height = depth_image.rows;
@@ -232,24 +234,28 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
     std::string area_name;
     std::string area_entity;
     std::string ignore_label = "";
-    const std::size_t i_space = area_description.find(' ');
-    if (i_space != std::string::npos)
-    {
-        area_name   = area_description.substr(0, i_space);
-        area_entity = area_description.substr(i_space + 1);
 
-        if (area_name == "on_top_of")
-        {
-            const auto it = surface_label_map_.find(area_entity);
-            if (it != surface_label_map_.end())
-            {
-                ignore_label = it->second;
-            }
-        }
-    }
+    // this code block is an example for manually ignoring the supporting surface when looking for objects on top of it.
 
-    // Pass logging flag to measure latency in the segmentation pipeline
-    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, logging);
+    //index of the space that separates the 2 words in the area description (e.g. "on_top_of dinner_table")
+    // const std::size_t i_space = area_description.find(' ');
+    // if (i_space != std::string::npos)
+    // {
+    //     area_name   = area_description.substr(0, i_space);
+    //     area_entity = area_description.substr(i_space + 1);
+
+    //     if (area_name == "on_top_of")
+    //     {
+    //         const auto it = surface_label_map_.find(area_entity);
+    //         if (it != surface_label_map_.end())
+    //         {
+    //             ignore_label = it->second;
+    //         }
+    //     }
+    // }
+
+    // Pass verbose flag to measure latency in the segmentation pipeline
+    SegmentationResult seg_result = sam_pipeline_.process(rgb_image.clone(), depth_image, ignore_label, verbose);
     std::vector<cv::Mat>& masks = seg_result.masks;
 
     ROS_DEBUG("Creating clusters");
@@ -260,11 +266,14 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
 
     // BMM point cloud denoising
     GMMParams params;
-    config_.value("psi0", params.psi0);
-    config_.value("nu0", params.nu0);
-    config_.value("alpha", params.alpha);
-    config_.value("kappa0", params.kappa0);
-
+    if (config_.readGroup("bmm"))
+    {
+        config_.value("psi0", params.psi0, tue::config::OPTIONAL);
+        config_.value("nu0", params.nu0, tue::config::OPTIONAL);
+        config_.value("alpha", params.alpha, tue::config::OPTIONAL);
+        config_.value("kappa0", params.kappa0, tue::config::OPTIONAL);
+        config_.endGroup();
+    }
     // BMM timing: per-mask latencies stored for aggregation (thread-safe via indexing)
     std::vector<double> bmm_latencies_ms(masks.size(), 0.0);
 
@@ -320,7 +329,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
 
         // Skip small clusters (< 100 points based on MIN_CLUSTER_POINTS)
         if (cluster.pixel_indices.size() < MIN_CLUSTER_POINTS) {
-            if (logging)
+            if (verbose)
             {
                 const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
                 ROS_WARN("We reject cluster %zu with label '%s' because it has only %zu points", i, label.c_str(), cluster.pixel_indices.size());
@@ -328,7 +337,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             continue;  // valid_cluster[i] remains false
         }
 
-        if (logging)
+        if (verbose)
         {
             const std::string label = (i < seg_result.labels.size()) ? seg_result.labels[i] : "?";
             ROS_WARN("Cluster %zu with label '%s': %zu points", i, label.c_str(), cluster.points.size());
@@ -357,7 +366,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             {
                 filtered_points.push_back(cluster.points[j]);
             }
-            else if (logging)
+            else if (verbose)
             {
                 outlier_points.push_back(cluster.points[j]);
             }
@@ -368,7 +377,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
             filtered_points.size() > MIN_RETENTION_RATIO * cluster.points.size()) {
             // Use filtered points
             cluster.points = filtered_points;
-            if (logging)
+            if (verbose)
             {
                 cluster.outlier_points = outlier_points;
                 // Transform outlier points to map frame
@@ -409,7 +418,7 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         {
             cluster.label = seg_result.labels[i];
             cluster.classification_confidence = seg_result.confidences[i];
-            if (logging)
+            if (verbose)
             {
                 ROS_INFO("Cluster %zu classified as '%s' with confidence %.2f", i, cluster.label.c_str(), cluster.classification_confidence);
             }
@@ -429,8 +438,8 @@ SegmentationResult Segmenter::cluster(const cv::Mat& depth_image, const geo::Dep
         }
     }
 
-    // Log BMM latency statistics if logging is enabled
-    if (logging)
+    // Log BMM latency statistics if verbose is enabled
+    if (verbose)
     {
         double bmm_total_ms = 0.0;
         double bmm_max_ms = 0.0;

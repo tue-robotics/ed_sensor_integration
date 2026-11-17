@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   matrix:
@@ -9,7 +9,7 @@ jobs:
     outputs:
       packages: ${{ steps.modified-packages.outputs.packages }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 300
       - name: Commit Range

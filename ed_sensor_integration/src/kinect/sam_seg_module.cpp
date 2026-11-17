@@ -1,11 +1,7 @@
 #include "ed_sensor_integration/kinect/segmodules/sam_seg_module.h"
 
-#include <cv_bridge/cv_bridge.h>
 #include <filesystem>
 #include <utility>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <sam_onnx_ros/segmentation.hpp>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -14,6 +10,7 @@
 #include <chrono>
 #include <cctype>
 #include <cstdio>
+#include <limits>
 
 namespace
 {
@@ -29,10 +26,12 @@ YOLO::Backend parseYoloBackend(const std::string& backend_str)
     const std::string normalized = toLower(backend_str);
     if (normalized == "tensorrt")
     {
-        ROS_WARN("YOLO: using TensorRT backend");
+        ROS_INFO("Using TensorRT backend for YOLO inference.");
         return YOLO::Backend::kTensorRT;
     }
-    if (normalized != "onnx" && normalized != "onnxruntime")
+    if (normalized == "onnx" || normalized == "onnxruntime")
+        ROS_INFO("Using ONNX backend for YOLO inference.");
+    else
         ROS_WARN("Unsupported YOLO backend '%s'. Defaulting to ONNX.", backend_str.c_str());
     return YOLO::Backend::kOnnx;
 }
@@ -42,10 +41,12 @@ SEG::Backend parseSamBackend(const std::string& backend_str)
     const std::string normalized = toLower(backend_str);
     if (normalized == "tensorrt")
     {
-        ROS_WARN("SAM: using TensorRT (SpeedSAM) backend");
+        ROS_INFO("Using SpeedSAM (TensorRT) backend for SAM inference.");
         return SEG::Backend::kSpeedSam;
     }
-    if (normalized != "onnx" && normalized != "onnxruntime")
+    if (normalized == "onnx" || normalized == "onnxruntime")
+        ROS_INFO("Using ONNX backend for SAM inference.");
+    else
         ROS_WARN("Unsupported SAM backend '%s'. Defaulting to ONNX.", backend_str.c_str());
     return SEG::Backend::kOnnx;
 }
@@ -71,7 +72,7 @@ SamSegPipeline::~SamSegPipeline() = default;
 
 void SamSegPipeline::initialize(tue::Configuration& config)
 {
-    if (is_initialized_)
+    if (is_initialized_.load(std::memory_order_acquire))
         return;
 
     ////////////////////////// YOLO INITIALIZATION //////////////////////////////////////
@@ -102,14 +103,15 @@ void SamSegPipeline::initialize(tue::Configuration& config)
 
     std::tie(pimpl_->samWrapper, pimpl_->sam_encoder_params, pimpl_->sam_decoder_params, pimpl_->sam_res, pimpl_->resSam) = Initialize(sam_encoder, sam_decoder, sam_backend);
 
-    is_initialized_ = true;
+    // Publish initialized model state to readers in process().
+    is_initialized_.store(true, std::memory_order_release);
 }
 
-SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool logging)
+SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& depth_image, const std::string& ignore_label, bool verbose)
 {
     SegmentationResult seg_result;
 
-    if (!is_initialized_) {
+    if (!is_initialized_.load(std::memory_order_acquire)) {
         ROS_WARN_THROTTLE(1.0, "SamSegPipeline is currently initializing in the background. Skipping frame...");
         return seg_result;
     }
@@ -143,23 +145,33 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
             continue;
         }
 
-        // Filter out boxes containing 0 valid points within the target volume frustum
+        // Filter out boxes with no valid depth points within the target volume frustum
         if (!depth_image.empty())
         {
-            int x = std::max(0, result.box.x);
-            int y = std::max(0, result.box.y);
-            int w = std::min(depth_image.cols - x, result.box.width);
-            int h = std::min(depth_image.rows - y, result.box.height);
+            // Compute intersection of the YOLO box with image bounds
+            int x0 = std::max(0, result.box.x);
+            int y0 = std::max(0, result.box.y);
+            int x1 = std::min(depth_image.cols, result.box.x + result.box.width);
+            int y1 = std::min(depth_image.rows, result.box.y + result.box.height);
 
-            if (w > 0 && h > 0)
+            if (x1 <= x0 || y1 <= y0)
             {
-                cv::Mat box_depth = depth_image(cv::Rect(x, y, w, h));
-                // filter it out is if it contains less than 30% of valid depth points (non-zero, finite) — this is a heuristic to skip boxes that are mostly outside the sensor frustum - if its too aggressive we can always lower the threshold
-                if (cv::countNonZero(box_depth > 0.0f) < 0.3 * w * h)
-                {
-                    ROS_DEBUG("Pre-filtering box for '%s' (less than 30%% depth points within frustum volume)", yolo_class.c_str());
-                    continue;
-                }
+                // Box lies entirely outside the depth image — reject
+                ROS_WARN("Pre-filtering box for '%s' (entirely outside depth image bounds)", yolo_class.c_str());
+                continue;
+            }
+
+            int w = x1 - x0;
+            int h = y1 - y0;
+
+            cv::Mat box_depth = depth_image(cv::Rect(x0, y0, w, h));
+            // Count pixels that are positive and finite (non-zero, non-NaN, non-inf) — at least 30% of
+            // the visible portion must have valid depth; lower threshold if too aggressive
+            cv::Mat valid_mask = (box_depth > 0.0f) & (box_depth < std::numeric_limits<float>::infinity());
+            if (cv::countNonZero(valid_mask) < 0.3 * w * h)
+            {
+                ROS_WARN("Pre-filtering box for '%s' (less than 30%% depth points within frustum volume)", yolo_class.c_str());
+                continue;
             }
         }
 
@@ -180,7 +192,7 @@ SegmentationResult SamSegPipeline::process(const cv::Mat& img, const cv::Mat& de
     auto pipeline_end = std::chrono::high_resolution_clock::now();
 
     // Compute latency measurements if requested
-    if (logging)
+    if (verbose)
     {
         seg_result.latency.yolo_init_ms = 0.0;
         seg_result.latency.yolo_infer_ms = std::chrono::duration<double, std::milli>(yolo_infer_end - yolo_infer_start).count();
@@ -270,109 +282,4 @@ void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks)
 
     // Apply the semi-transparent overlay with all masks
     cv::addWeighted(rgb, 0.7, overlay, 0.3, 0, rgb);
-}
-
-void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
-                                const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
-                                const std::vector<cv::Rect>& boxes,
-                                ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates)
-{
-    // Guard: all three publishers must have been advertised before calling this function.
-    // They are only advertised when logging == true in the Updater constructor.
-    // Calling this function with un-advertised publishers is a programming error.
-    ROS_ASSERT_MSG(box_pub_, "box_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(mask_pub_, "mask_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-    ROS_ASSERT_MSG(cloud_pub_, "cloud_pub_ is not advertised — publishSegmentationResults called without logging enabled");
-
-    // Overlay masks on the RGB image
-    cv::Mat visualization = rgb.clone();
-    cv::Mat box_visualization = rgb.clone();
-    for(const auto& box : boxes)
-    {
-        cv::rectangle(box_visualization, box, cv::Scalar(0, 255, 0), 2);
-    }
-
-    sensor_msgs::ImagePtr box_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", box_visualization).toImageMsg();
-    box_msg->header.stamp = ros::Time::now();
-    box_pub_.publish(box_msg);
-
-    // Create a path to save the image using platform-independent temp directory
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
-    cv::imwrite((temp_dir / "visualization.png").string(), visualization);
-
-    // Create a properly normalized depth visualization
-    cv::Mat depth_vis;
-    double min_val, max_val;
-    cv::minMaxLoc(filtered_depth_image, &min_val, &max_val);
-
-    // Handle empty depth image case
-    if (max_val == 0)
-    {
-        depth_vis = cv::Mat::zeros(filtered_depth_image.size(), CV_8UC1);
-    }
-    else
-    {
-        // Scale to full 8-bit range and convert to 8-bit
-        filtered_depth_image.convertTo(depth_vis, CV_8UC1, 255.0 / max_val);
-
-        // Apply a colormap for better visibility
-        cv::Mat depth_color;
-        cv::applyColorMap(depth_vis, depth_color, cv::COLORMAP_JET);
-        cv::imwrite((temp_dir / "visualization_depth_color.png").string(), depth_color);
-    }
-
-    // Save both grayscale and color versions
-    cv::imwrite((temp_dir / "visualization_depth.png").string(), depth_vis);
-    overlayMasksOnImage_(visualization, clustered_images);
-    // save after overlaying masks
-    cv::imwrite((temp_dir / "visualization_with_masks.png").string(), visualization);
-
-    // Convert to ROS message
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualization).toImageMsg();
-    msg->header.stamp = ros::Time::now();
-
-    typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
-    PointCloud::Ptr combined_cloud (new PointCloud);
-
-    combined_cloud->header.frame_id = "map";
-
-    // Add points from all entity updates
-    for (const EntityUpdate& update : res_updates)
-    {
-        for (const geo::Vec3& point : update.points)
-        {
-            // Transform from camera to map frame
-            geo::Vec3 p_map = sensor_pose * point;
-            pcl::PointXYZRGB pcl_point;
-            pcl_point.x = p_map.x;
-            pcl_point.y = p_map.y;
-            pcl_point.z = p_map.z;
-            pcl_point.r = 255;  // White
-            pcl_point.g = 255;
-            pcl_point.b = 255;
-            combined_cloud->push_back(pcl_point);
-        }
-
-        // Add outlier points (red)
-        for (const geo::Vec3& point : update.outlier_points) {
-                geo::Vec3 p_map = sensor_pose * point;
-                pcl::PointXYZRGB pcl_point;
-                pcl_point.x = p_map.x;
-                pcl_point.y = p_map.y;
-                pcl_point.z = p_map.z;
-                pcl_point.r = 255;  // Red
-                pcl_point.g = 0;
-                pcl_point.b = 0;
-                combined_cloud->push_back(pcl_point);
-        }
-    }
-
-    sensor_msgs::PointCloud2 cloud_msg;
-    pcl::toROSMsg(*combined_cloud, cloud_msg);
-    cloud_msg.header.stamp = ros::Time::now();
-    cloud_msg.header.frame_id = "map"; // Use appropriate frame ID
-
-    // Publish
-    mask_pub_.publish(msg);
-    cloud_pub_.publish(cloud_msg);
 }

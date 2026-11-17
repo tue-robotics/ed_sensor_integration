@@ -8,6 +8,8 @@
 
 #include "ed/kinect/entity_update.h"
 
+#include <atomic>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -35,7 +37,7 @@ struct SegmentationResult
     std::vector<cv::Rect> boxes;
     std::vector<std::string> labels;      // YOLO class name per detection
     std::vector<float> confidences;       // YOLO confidence per detection
-    SegmentationLatency latency;          // Timing measurements (populated when logging=true)
+    SegmentationLatency latency;          // Timing measurements (populated when verbose=true)
 };
 
 /**
@@ -59,15 +61,15 @@ public:
      * @param img The input RGB image to segment.
      * @param depth_image Optionally, the filtered depth image to ignore bounding boxes outside our point cloud frustum.
      * @param ignore_label Optionally, a specific YOLO label to skip inferring SAM on.
-     * @param measure_latency If true, measure and populate latency timings.
+     * @param verbose If true, measure and populate latency timings.
      * @return SegmentationResult The generated masks, bounding boxes, labels, and confidences.
      */
-    SegmentationResult process(const cv::Mat& img, const cv::Mat& depth_image = cv::Mat(), const std::string& ignore_label = "", bool measure_latency = false);
+    SegmentationResult process(const cv::Mat& img, const cv::Mat& depth_image = cv::Mat(), const std::string& ignore_label = "", bool verbose = false);
 
 private:
     struct Impl;
     std::unique_ptr<Impl> pimpl_;
-    bool is_initialized_;
+    std::atomic<bool> is_initialized_;
 };
 
 /**
@@ -77,20 +79,3 @@ private:
  * @param masks The segmentation masks to overlay.
  */
 void overlayMasksOnImage_(cv::Mat& rgb, const std::vector<cv::Mat>& masks);
-
-/**
- * @brief Publish segmentation results and pointcloud estimation as ROS messages.
- *
- * @param filtered_depth_image The filtered depth image to publish.
- * @param rgb The RGB image to publish.
- * @param sensor_pose The pose of the sensor.
- * @param clustered_images The clustered segmentation masks.
- * @param boxes The bounding boxes to visualize.
- * @param mask_pub_ The ROS publisher for the mask images.
- * @param cloud_pub_ The ROS publisher for the point cloud data.
- * @param res_updates The entity updates to publish.
- */
-void publishSegmentationResults(const cv::Mat& filtered_depth_image, const cv::Mat& rgb,
-                                const geo::Pose3D& sensor_pose, std::vector<cv::Mat>& clustered_images,
-                                const std::vector<cv::Rect>& boxes,
-                                ros::Publisher& box_pub_, ros::Publisher& mask_pub_, ros::Publisher& cloud_pub_, std::vector<EntityUpdate>& res_updates);
